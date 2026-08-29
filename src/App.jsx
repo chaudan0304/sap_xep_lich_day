@@ -27,13 +27,22 @@ import { QUYNH_LOC_DATA } from './data/quynhLocSchoolData';
 import { checkAllConflicts } from './services/conflictDetector';
 import { solveTimetable } from './services/autoScheduler';
 
-const DATA_VERSION = '2026_08_27_V22_PRINT_SUCCESS';
+const DATA_VERSION = '2026_08_29_V32_OFFICIAL_CLEAN_DATA';
 
 export function App() {
+  const currentVersion = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_VERSION') : null;
+  const isUpToDate = currentVersion === DATA_VERSION;
+
   // 1. Core State with LocalStorage Persistence
   const [activeTab, setActiveTab] = useState('studio');
 
   const [schoolInfo, setSchoolInfo] = useState(() => {
+    if (!isUpToDate) {
+      return {
+        name: QUYNH_LOC_DATA.schoolName || 'Trường TH Quỳnh Lộc B',
+        year: QUYNH_LOC_DATA.schoolYear || 'Năm học 2026 - 2027'
+      };
+    }
     const saved = localStorage.getItem('EDUTIMETABLE_SCHOOL_INFO');
     return saved ? JSON.parse(saved) : {
       name: QUYNH_LOC_DATA.schoolName || 'Trường TH Quỳnh Lộc B',
@@ -42,101 +51,45 @@ export function App() {
   });
 
   const [subjects, setSubjects] = useState(() => {
+    if (!isUpToDate) return JSON.parse(JSON.stringify(INITIAL_SUBJECTS));
     const saved = localStorage.getItem('EDUTIMETABLE_SUBJECTS');
-    const parsed = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(INITIAL_SUBJECTS));
-    if (parsed) {
-      if (parsed.TU_CHON && (parsed.TU_CHON.name?.includes('Ôn tập') || parsed.TU_CHON.shortName?.includes('Ôn tập') || parsed.TU_CHON.description?.includes('thư viện'))) {
-        parsed.TU_CHON.name = 'Phát triển năng lực';
-        parsed.TU_CHON.shortName = 'PTNL';
-        parsed.TU_CHON.description = 'Phát triển phẩm chất, năng lực và tự học';
-      }
-      if (parsed.CHAO_CO) {
-        delete parsed.CHAO_CO;
-      }
-      if (!parsed.DOC_THU_VIEN) {
-        parsed.DOC_THU_VIEN = INITIAL_SUBJECTS.DOC_THU_VIEN;
-      }
-      if (!parsed.HD_CUNG_CO) {
-        parsed.HD_CUNG_CO = INITIAL_SUBJECTS.HD_CUNG_CO;
-      }
-      if (!parsed.GD_CONG_DAN_SO) {
-        parsed.GD_CONG_DAN_SO = INITIAL_SUBJECTS.GD_CONG_DAN_SO;
-      }
-    }
-    return parsed;
+    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(INITIAL_SUBJECTS));
   });
 
   const [gradeQuotas, setGradeQuotas] = useState(() => {
+    if (!isUpToDate) return JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS));
     const saved = localStorage.getItem('EDUTIMETABLE_GRADE_QUOTAS');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Kiểm tra nếu dữ liệu cũ có môn Tự chọn hoặc thiếu môn Đọc thư viện / HĐCC
-        const isOutdated = parsed['1']?.subjects?.some(s => s.subjectId === 'TU_CHON') || !parsed['1']?.subjects?.some(s => s.subjectId === 'DOC_THU_VIEN');
-        if (!isOutdated) return parsed;
-      } catch (e) {
-        console.error('Error parsing saved grade quotas:', e);
-      }
-    }
-    return JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS));
+    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS));
   });
 
   const [classes, setClasses] = useState(() => {
+    if (!isUpToDate) return [...QUYNH_LOC_DATA.classes];
     const saved = localStorage.getItem('EDUTIMETABLE_CLASSES');
     return saved ? JSON.parse(saved) : [...QUYNH_LOC_DATA.classes];
   });
 
   const [teachers, setTeachers] = useState(() => {
+    if (!isUpToDate) return [...QUYNH_LOC_DATA.teachers];
     const saved = localStorage.getItem('EDUTIMETABLE_TEACHERS');
     return saved ? JSON.parse(saved) : [...QUYNH_LOC_DATA.teachers];
   });
 
   const [rooms, setRooms] = useState(() => {
+    if (!isUpToDate) return [...(QUYNH_LOC_DATA.rooms || SAMPLE_ROOMS)];
     const saved = localStorage.getItem('EDUTIMETABLE_ROOMS');
-    return saved ? JSON.parse(saved) : [...SAMPLE_ROOMS];
+    return saved ? JSON.parse(saved) : [...(QUYNH_LOC_DATA.rooms || SAMPLE_ROOMS)];
   });
   
   const [assignments, setAssignments] = useState(() => {
+    if (!isUpToDate) return [...QUYNH_LOC_DATA.assignments];
     const saved = localStorage.getItem('EDUTIMETABLE_ASSIGNMENTS');
-    return saved ? JSON.parse(saved) : (QUYNH_LOC_DATA.assignments || generateSampleAssignments(QUYNH_LOC_DATA.classes, DEFAULT_GRADE_QUOTAS, QUYNH_LOC_DATA.teachers));
+    return saved ? JSON.parse(saved) : [...QUYNH_LOC_DATA.assignments];
   });
 
   const [timetable, setTimetable] = useState(() => {
+    if (!isUpToDate) return JSON.parse(JSON.stringify(QUYNH_LOC_DATA.timetable));
     const saved = localStorage.getItem('EDUTIMETABLE_SCHEDULE');
-    const raw = saved ? JSON.parse(saved) : (QUYNH_LOC_DATA.timetable || initializeEmptyTimetable(QUYNH_LOC_DATA.classes));
-    if (raw) {
-      Object.keys(raw).forEach(clsId => {
-        const cSchedule = raw[clsId];
-        if (cSchedule) {
-          for (let d = 2; d <= 6; d++) {
-            if (cSchedule[d]) {
-              for (let p = 1; p <= 7; p++) {
-                const slot = cSchedule[d][p];
-                if (slot) {
-                  // Phục hồi lại đúng môn Hoạt động củng cố nếu trước đó bị ghi đè nhầm
-                  if (slot.subjectRaw === 'HĐCC' || slot.subjectRaw === 'Hoạt động củng cố' || slot.subjectRaw === 'HĐ củng cố') {
-                    cSchedule[d][p] = {
-                      ...slot,
-                      subjectId: 'HD_CUNG_CO',
-                      subjectRaw: 'HĐCC',
-                      roomId: 'LOP_HOC'
-                    };
-                  } else if (slot.subjectRaw === 'Chào cờ' || slot.subjectId === 'CHAO_CO') {
-                    cSchedule[d][p] = {
-                      ...slot,
-                      subjectId: 'HDTN',
-                      subjectRaw: 'HĐTN',
-                      roomId: 'LOP_HOC'
-                    };
-                  }
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-    return raw;
+    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(QUYNH_LOC_DATA.timetable));
   });
 
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);

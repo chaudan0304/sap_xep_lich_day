@@ -406,9 +406,12 @@ export function parseExcelWorkbook(dataOrBuffer) {
       gQuota.subjects.forEach(sub => {
         // Tìm giáo viên thực tế đã dạy môn này nhiều nhất trong TKB của lớp
         let foundTchId = '';
+        let placedCount = 0;
+
         parsed.rawSlots.forEach(s => {
-          if (s.classId === cls.id && s.subjectId === sub.subjectId && s.teacherId) {
-            foundTchId = s.teacherId;
+          if (s.classId === cls.id && s.subjectId === sub.subjectId) {
+            placedCount++;
+            if (s.teacherId) foundTchId = s.teacherId;
           }
         });
 
@@ -422,7 +425,7 @@ export function parseExcelWorkbook(dataOrBuffer) {
           grade: cls.grade,
           subjectId: sub.subjectId,
           teacherId: foundTchId,
-          weeklyPeriods: sub.weeklyPeriods,
+          weeklyPeriods: placedCount > 0 ? placedCount : sub.weeklyPeriods,
           roomType: sub.roomType || 'LOP_HOC',
           allowDouble: sub.allowDouble || false
         });
