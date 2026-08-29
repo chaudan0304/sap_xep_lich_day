@@ -1,9 +1,14 @@
 // electron/main.cjs
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('path');
+const { autoUpdater } = require('electron-updater');
 
 let mainWindow = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+// Cấu hình Tự động Tải Ngầm
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -17,7 +22,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
+      sandbox: false,
       preload: path.join(__dirname, 'preload.cjs')
     }
   });
@@ -34,7 +39,6 @@ function createWindow() {
   if (isDev) {
     const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
     mainWindow.loadURL(devUrl);
-    // mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
@@ -44,8 +48,56 @@ function createWindow() {
   });
 }
 
+// -------------------------------------------------------------
+// Auto Updater Event Listeners & IPC Handlers
+// -------------------------------------------------------------
+autoUpdater.on('update-available', (info) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-available', info);
+  }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('download-progress', progressObj);
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-downloaded', info);
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  console.warn('AutoUpdater warning:', err?.message || err);
+});
+
+// IPC Handler cho phép Renderer gọi kiểm tra và khởi động lại
+ipcMain.handle('check-for-updates', async () => {
+  if (isDev) return { isDev: true, message: 'Running in development mode' };
+  try {
+    return await autoUpdater.checkForUpdates();
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('restart-app-for-update', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
 app.whenReady().then(() => {
   createWindow();
+
+  // Tự động kiểm tra cập nhật sau 3 giây khi mở ứng dụng
+  if (!isDev) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.warn('Initial update check error:', err?.message);
+      });
+    }, 3000);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -59,3 +111,4 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+

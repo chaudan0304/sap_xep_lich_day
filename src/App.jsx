@@ -112,8 +112,27 @@ export function App() {
     return !localStorage.getItem('EDUTIMETABLE_INITIALIZED_CHOICE');
   });
   const [updateInfo, setUpdateInfo] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(null);
+  const [isUpdateReady, setIsUpdateReady] = useState(false);
   const [isAutoScheduling, setIsAutoScheduling] = useState(false);
   const [selectedStudioClassId, setSelectedStudioClassId] = useState('1A1');
+
+  // Lắng nghe sự kiện cập nhật tự động từ Electron
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      if (window.electronAPI.onDownloadProgress) {
+        window.electronAPI.onDownloadProgress((progress) => {
+          setDownloadProgress(progress);
+        });
+      }
+      if (window.electronAPI.onUpdateDownloaded) {
+        window.electronAPI.onUpdateDownloaded((info) => {
+          setIsUpdateReady(true);
+          setDownloadProgress(null);
+        });
+      }
+    }
+  }, []);
 
   // Kiểm tra cập nhật tự động khi khởi động ứng dụng
   useEffect(() => {
@@ -650,6 +669,56 @@ export function App() {
         onStartBlankProject={handleStartBlankProject}
         onOpenExcelModal={() => setIsExcelModalOpen(true)}
       />
+
+      {/* Floating Auto-Update Ready Toast (Tự động thông báo khi tải ngầm xong) */}
+      {isUpdateReady && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 99999,
+          background: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
+          border: '2px solid #60a5fa',
+          borderRadius: '16px',
+          padding: '16px 20px',
+          color: '#ffffff',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          animation: 'slideUp 0.3s ease-out'
+        }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🎉 Đã Tải Xong Bản Cập Nhật Mới!</span>
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#bfdbfe', marginTop: '2px' }}>
+              Bấm Khởi động lại để tự động nâng cấp tính năng mới.
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              if (window.electronAPI?.restartAndInstall) {
+                window.electronAPI.restartAndInstall();
+              }
+            }}
+            style={{
+              background: '#10b981',
+              border: 'none',
+              padding: '10px 18px',
+              borderRadius: '10px',
+              color: '#ffffff',
+              fontWeight: 800,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Khởi Động Lại Ngay
+          </button>
+        </div>
+      )}
     </div>
   );
 }
