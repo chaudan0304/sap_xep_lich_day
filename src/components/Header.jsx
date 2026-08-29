@@ -18,7 +18,8 @@ import {
   Bookmark,
   Save,
   Upload,
-  Settings
+  Settings,
+  ArrowUpCircle
 } from 'lucide-react';
 
 export const Header = ({
@@ -27,6 +28,8 @@ export const Header = ({
   onAutoSchedule,
   onOpenExcelModal,
   onOpenSettingsModal,
+  onOpenUpdateModal,
+  updateInfo = null,
   onResetSampleData,
   onClearTimetable,
   onExportBackupJson,
@@ -146,6 +149,64 @@ export const Header = ({
 
         {/* Action Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Update Notification Pill (Show when update is available or general checker) */}
+          {updateInfo?.hasUpdate ? (
+            <button
+              onClick={onOpenUpdateModal}
+              title={`Đã có phiên bản mới v${updateInfo.latestVersion}! Bấm để xem và tải về`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '10px',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+                border: '1px solid #fda4af',
+                color: '#ffffff',
+                cursor: 'pointer',
+                boxShadow: '0 0 14px rgba(244, 63, 94, 0.5)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.04)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <Sparkles size={16} />
+              <span>Bản Mới v{updateInfo.latestVersion}</span>
+            </button>
+          ) : (
+            <button
+              onClick={onOpenUpdateModal}
+              title="Kiểm tra bản cập nhật mới nhất từ GitHub"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.18)',
+                color: '#cbd5e1',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.16)';
+                e.currentTarget.style.color = '#ffffff';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                e.currentTarget.style.color = '#cbd5e1';
+              }}
+            >
+              <ArrowUpCircle size={14} />
+              <span>v1.0.0</span>
+            </button>
+          )}
+
           {/* School & Period Time Settings Button */}
           <button
             onClick={onOpenSettingsModal}

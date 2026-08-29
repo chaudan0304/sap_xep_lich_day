@@ -14,6 +14,8 @@ import { ExcelModal } from './components/ExcelModal';
 import { AutoScheduleModal } from './components/AutoScheduleModal';
 import { ConflictModal } from './components/ConflictModal';
 import SchoolSettingsModal, { DEFAULT_SCHOOL_INFO } from './components/SchoolSettingsModal';
+import { UpdateModal } from './components/UpdateModal';
+import { checkForAppUpdates } from './services/updateChecker';
 
 import { DEFAULT_GRADE_QUOTAS, PERIODS as DEFAULT_PERIODS } from './constants/defaultCurriculum';
 import { SUBJECTS as INITIAL_SUBJECTS } from './constants/subjects';
@@ -104,8 +106,23 @@ export function App() {
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState(null);
   const [isAutoScheduling, setIsAutoScheduling] = useState(false);
   const [selectedStudioClassId, setSelectedStudioClassId] = useState('1A1');
+
+  // Kiểm tra cập nhật tự động khi khởi động ứng dụng
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const info = await checkForAppUpdates();
+        setUpdateInfo(info);
+      } catch (err) {
+        console.warn('Auto-update check:', err);
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Sync to LocalStorage on changes
   useEffect(() => {
@@ -402,6 +419,8 @@ export function App() {
         onAutoSchedule={handleOpenAutoScheduleModal}
         onOpenExcelModal={() => setIsExcelModalOpen(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+        onOpenUpdateModal={() => setIsUpdateModalOpen(true)}
+        updateInfo={updateInfo}
         onResetSampleData={handleResetSampleData}
         onClearTimetable={handleClearTimetable}
         onExportBackupJson={handleExportBackupJson}
@@ -560,6 +579,14 @@ export function App() {
         timetable={timetable}
         subjects={subjects}
         isScheduling={isAutoScheduling}
+      />
+
+      {/* Auto-Update Checker Modal */}
+      <UpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        initialUpdateInfo={updateInfo}
+        onUpdateInfoChange={setUpdateInfo}
       />
     </div>
   );
