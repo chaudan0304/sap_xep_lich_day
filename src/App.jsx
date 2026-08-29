@@ -112,13 +112,23 @@ export function App() {
             if (cSchedule[d]) {
               for (let p = 1; p <= 7; p++) {
                 const slot = cSchedule[d][p];
-                if (slot && (slot.subjectId === 'CHAO_CO' || slot.subjectRaw === 'HĐCC' || slot.subjectRaw === 'Chào cờ')) {
-                  cSchedule[d][p] = {
-                    ...slot,
-                    subjectId: 'DOC_THU_VIEN',
-                    subjectRaw: 'Đọc thư viện',
-                    roomId: slot.roomId === 'SAN_TRUONG' ? 'LOP_HOC' : (slot.roomId || 'LOP_HOC')
-                  };
+                if (slot) {
+                  // Phục hồi lại đúng môn Hoạt động củng cố nếu trước đó bị ghi đè nhầm
+                  if (slot.subjectRaw === 'HĐCC' || slot.subjectRaw === 'Hoạt động củng cố' || slot.subjectRaw === 'HĐ củng cố') {
+                    cSchedule[d][p] = {
+                      ...slot,
+                      subjectId: 'HD_CUNG_CO',
+                      subjectRaw: 'HĐCC',
+                      roomId: 'LOP_HOC'
+                    };
+                  } else if (slot.subjectRaw === 'Chào cờ' || slot.subjectId === 'CHAO_CO') {
+                    cSchedule[d][p] = {
+                      ...slot,
+                      subjectId: 'HDTN',
+                      subjectRaw: 'HĐTN',
+                      roomId: 'LOP_HOC'
+                    };
+                  }
                 }
               }
             }
