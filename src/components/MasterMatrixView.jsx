@@ -18,6 +18,8 @@ export const MasterMatrixView = ({
   timetable,
   conflicts = [],
   subjects = DEFAULT_SUBJECTS,
+  periods = DEFAULT_PERIODS,
+  schoolInfo = {},
   onOpenConflictModal
 }) => {
   const [selectedGrade, setSelectedGrade] = useState('ALL');
@@ -448,8 +450,8 @@ export const MasterMatrixView = ({
         {/* National / School Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>UBND PHƯỜNG TÂN MAI</div>
-            <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>TRƯỜNG TIỂU HỌC QUỲNH LỘC B</div>
+            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>{schoolInfo.district || 'UBND PHƯỜNG TÂN MAI'}</div>
+            <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>{(schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B').toUpperCase()}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '10pt', fontWeight: 800 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
@@ -463,7 +465,7 @@ export const MasterMatrixView = ({
             BẢNG TỔNG HỢP THỜI KHÓA BIỂU TOÀN TRƯỜNG
           </h1>
           <div style={{ fontSize: '9pt', fontStyle: 'italic', marginTop: '3px' }}>
-            Áp dụng từ ngày 05/09/2026 • Quy mô: {filteredClasses.length} lớp học • Năm học 2026 - 2027
+            Áp dụng từ ngày 05/09/2026 • Quy mô: {filteredClasses.length} lớp học • {schoolInfo.year || 'Năm học 2026 - 2027'}
           </div>
         </div>
 
@@ -489,7 +491,7 @@ export const MasterMatrixView = ({
             <tr style={{ background: '#ffffff', borderBottom: '1.5px solid #000' }}>
               {activeDays.map(d => (
                 <React.Fragment key={d.id}>
-                  {PERIODS.map(p => (
+                  {periods.map(p => (
                     <th key={p.id} style={{ border: '1px solid #000', width: '28px', padding: '2px', fontWeight: 800 }}>
                       {p.id <= 4 ? p.id : (p.id - 4)}
                     </th>
@@ -506,7 +508,7 @@ export const MasterMatrixView = ({
                 </td>
                 {activeDays.map(day => (
                   <React.Fragment key={day.id}>
-                    {PERIODS.map(p => {
+                    {periods.map(p => {
                       const slot = timetable[cls.id]?.[day.id]?.[p.id];
                       const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId }) : null;
                       const teacher = slot ? teacherMap.get(slot.teacherId) : null;
@@ -542,13 +544,14 @@ export const MasterMatrixView = ({
             <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>NGƯỜI LẬP BIỂU</div>
             <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
             <div style={{ height: '45px' }} />
+            <div style={{ fontWeight: 800 }}>{schoolInfo.scheduler || ''}</div>
           </div>
           <div style={{ textAlign: 'center', width: '240px' }}>
             <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
             <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
             <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
             <div style={{ height: '45px' }} />
-            <div style={{ fontWeight: 800 }}>Bùi Văn Việt</div>
+            <div style={{ fontWeight: 800 }}>{schoolInfo.principal || 'Bùi Văn Việt'}</div>
           </div>
         </div>
       </div>

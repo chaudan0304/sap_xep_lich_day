@@ -17,7 +17,8 @@ import {
   School,
   Bookmark,
   Save,
-  Upload
+  Upload,
+  Settings
 } from 'lucide-react';
 
 export const Header = ({
@@ -25,6 +26,7 @@ export const Header = ({
   setActiveTab,
   onAutoSchedule,
   onOpenExcelModal,
+  onOpenSettingsModal,
   onResetSampleData,
   onClearTimetable,
   onExportBackupJson,
@@ -104,21 +106,37 @@ export const Header = ({
               <h1 style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
                 EduTimetable <span style={{ color: '#a5b4fc', fontWeight: 600 }}>Tiểu Học</span>
               </h1>
-              <span style={{
-                background: 'rgba(99, 102, 241, 0.35)',
-                border: '1px solid rgba(165, 180, 252, 0.4)',
-                padding: '2px 8px',
-                borderRadius: '999px',
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                color: '#e0e7ff',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                <School size={12} />
-                {schoolInfo.name} ({schoolInfo.year})
-              </span>
+              <button
+                type="button"
+                onClick={onOpenSettingsModal}
+                title="Bấm để chỉnh sửa tên trường, cơ quan cấp trên, năm học & khung giờ tiết học"
+                style={{
+                  background: 'rgba(99, 102, 241, 0.35)',
+                  border: '1px solid rgba(165, 180, 252, 0.4)',
+                  padding: '3px 10px',
+                  borderRadius: '999px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  color: '#e0e7ff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.6)';
+                  e.currentTarget.style.transform = 'scale(1.03)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(99, 102, 241, 0.35)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                <School size={13} />
+                <span>{schoolInfo.name} ({schoolInfo.year})</span>
+                <span style={{ fontSize: '0.65rem', background: '#4f46e5', padding: '1px 5px', borderRadius: '4px', marginLeft: '2px' }}>Sửa</span>
+              </button>
             </div>
             <p style={{ fontSize: '0.78rem', color: '#c7d2fe', marginTop: '2px' }}>
               Hệ thống Xếp Thời Khóa Biểu & Quản Lý Định Mức Chuẩn CTGDPT 2018
@@ -128,6 +146,38 @@ export const Header = ({
 
         {/* Action Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* School & Period Time Settings Button */}
+          <button
+            onClick={onOpenSettingsModal}
+            title="Cài đặt thông tin trường học, cơ quan quản lý, hiệu trưởng và khung giờ các tiết học"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              color: '#ffffff',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.22)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+            }}
+          >
+            <Settings size={16} />
+            <span>Cài Đặt Trường & Tiết Học</span>
+          </button>
+
           {/* Conflict Status Badge (Interactive Button) */}
           <button
             onClick={onOpenConflictModal}

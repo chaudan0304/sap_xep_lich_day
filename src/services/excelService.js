@@ -239,7 +239,8 @@ export const exportMasterTimetable = async (timetable, classes = [], teachers = 
     // Row 1: Tên đơn vị
     ws.mergeCells(1, 1, 1, totalCols);
     const r1 = ws.getCell(1, 1);
-    r1.value = `UBND PHƯỜNG TÂN MAI — ${sName.toUpperCase()}`;
+    const sDistrict = (schoolInfo.district || 'UBND Phường Tân Mai').toUpperCase();
+    r1.value = `${sDistrict} — ${sName.toUpperCase()}`;
     r1.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF475569' } };
     r1.alignment = { vertical: 'middle', horizontal: 'center' };
     ws.getRow(1).height = 22;
@@ -435,7 +436,7 @@ export const exportMasterTimetable = async (timetable, classes = [], teachers = 
     ws.getRow(sigNameRow).height = 24;
     ws.mergeCells(sigNameRow, totalCols - 3, sigNameRow, totalCols);
     const nameCell = ws.getCell(sigNameRow, totalCols - 3);
-    nameCell.value = 'Bùi Văn Việt';
+    nameCell.value = schoolInfo.principal || 'Bùi Văn Việt';
     nameCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
     nameCell.alignment = { vertical: 'middle', horizontal: 'center' };
   };
@@ -491,7 +492,8 @@ export const exportClassTimetables = async (timetable, classes = [], teachers = 
     // Header Trường
     ws.mergeCells('A1:H1');
     const r1 = ws.getCell('A1');
-    r1.value = `UBND PHƯỜNG TÂN MAI — ${sName.toUpperCase()}`;
+    const sDistrict = (schoolInfo.district || 'UBND Phường Tân Mai').toUpperCase();
+    r1.value = `${sDistrict} — ${sName.toUpperCase()}`;
     r1.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF475569' } };
     r1.alignment = { vertical: 'middle', horizontal: 'center' };
     ws.getRow(1).height = 22;
@@ -712,7 +714,7 @@ export const exportClassTimetables = async (timetable, classes = [], teachers = 
 
     ws.mergeCells('F21:H21');
     const sigName2 = ws.getCell('F21');
-    sigName2.value = 'Bùi Văn Việt';
+    sigName2.value = schoolInfo.principal || 'Bùi Văn Việt';
     sigName2.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
     sigName2.alignment = { vertical: 'middle', horizontal: 'center' };
   });
@@ -816,7 +818,8 @@ export const exportTeacherTimetables = async (timetable, teachers = [], classes 
 
     ws.mergeCells('A1:H1');
     const r1 = ws.getCell('A1');
-    r1.value = `UBND PHƯỜNG TÂN MAI — ${sName.toUpperCase()}`;
+    const sDistrict = (schoolInfo.district || 'UBND Phường Tân Mai').toUpperCase();
+    r1.value = `${sDistrict} — ${sName.toUpperCase()}`;
     r1.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF475569' } };
     r1.alignment = { vertical: 'middle', horizontal: 'center' };
     ws.getRow(1).height = 22;
@@ -1013,7 +1016,7 @@ export const exportTeacherTimetables = async (timetable, teachers = [], classes 
 
     ws.mergeCells('F20:H20');
     const sigName2 = ws.getCell('F20');
-    sigName2.value = 'Bùi Văn Việt';
+    sigName2.value = schoolInfo.principal || 'Bùi Văn Việt';
     sigName2.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
     sigName2.alignment = { vertical: 'middle', horizontal: 'center' };
   });
@@ -1050,7 +1053,8 @@ export const exportTeacherDirectory = async (teachers = [], assignments = [], ti
   // Header Title
   ws.mergeCells('A1:K1');
   const r1 = ws.getCell('A1');
-  r1.value = `UBND PHƯỜNG TÂN MAI — ${sName.toUpperCase()}`;
+  const sDistrict = (schoolInfo.district || 'UBND Phường Tân Mai').toUpperCase();
+  r1.value = `${sDistrict} — ${sName.toUpperCase()}`;
   r1.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF475569' } };
   r1.alignment = { vertical: 'middle', horizontal: 'center' };
   ws.getRow(1).height = 22;
@@ -1211,7 +1215,7 @@ export const exportTeacherDirectory = async (teachers = [], assignments = [], ti
   const sigNameRowIdx = sigTitleRowIdx + 4;
   ws.mergeCells(sigNameRowIdx, 8, sigNameRowIdx, 11);
   const nameCell = ws.getCell(sigNameRowIdx, 8);
-  nameCell.value = 'Bùi Văn Việt';
+  nameCell.value = schoolInfo.principal || 'Bùi Văn Việt';
   nameCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
   nameCell.alignment = { vertical: 'middle', horizontal: 'center' };
 

@@ -28,7 +28,9 @@ export const RoomTimetableView = ({
   subjects = DEFAULT_SUBJECTS,
   setSubjects,
   assignments = [],
-  setAssignments
+  setAssignments,
+  periods = DEFAULT_PERIODS,
+  schoolInfo = {}
 }) => {
   const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.id || 'PHONG_TIN_HOC');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -627,8 +629,8 @@ export const RoomTimetableView = ({
         {/* National / School Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>UBND PHƯỜNG TÂN MAI</div>
-            <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>TRƯỜNG TIỂU HỌC QUỲNH LỘC B</div>
+            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>{schoolInfo.district || 'UBND PHƯỜNG TÂN MAI'}</div>
+            <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>{(schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B').toUpperCase()}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '10pt', fontWeight: 800 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
@@ -642,7 +644,7 @@ export const RoomTimetableView = ({
             LỊCH SỬ DỤNG {currentRoom?.name?.toUpperCase() || 'PHÒNG CHỨC NĂNG'}
           </h1>
           <div style={{ fontSize: '9.5pt', fontStyle: 'italic', marginTop: '4px' }}>
-            Áp dụng từ ngày 05/09/2026 • Năm học 2026 - 2027
+            Áp dụng từ ngày 05/09/2026 • {schoolInfo.year || 'Năm học 2026 - 2027'}
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '6px', fontSize: '9.5pt', fontWeight: 600 }}>
             <span>Phụ trách: <strong>{currentRoom?.inCharge || 'Nhà trường'}</strong></span>
@@ -652,21 +654,21 @@ export const RoomTimetableView = ({
         </div>
 
         {/* Official Printable Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', textAlign: 'center', fontSize: '9pt' }}>
+        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1.5px solid #000', textAlign: 'center', fontSize: '8.5pt' }}>
           <thead>
             <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #000' }}>
-              <th style={{ border: '1px solid #000', width: '45px', padding: '6px 2px', fontWeight: 800 }}>Buổi</th>
-              <th style={{ border: '1px solid #000', width: '38px', padding: '6px 2px', fontWeight: 800 }}>Tiết</th>
-              <th style={{ border: '1px solid #000', width: '85px', padding: '6px 2px', fontWeight: 800 }}>Thời gian</th>
+              <th style={{ border: '1px solid #000', width: '36px', padding: '5px 2px', fontWeight: 800 }}>Buổi</th>
+              <th style={{ border: '1px solid #000', width: '28px', padding: '5px 2px', fontWeight: 800 }}>Tiết</th>
+              <th style={{ border: '1px solid #000', width: '68px', padding: '5px 2px', fontWeight: 800 }}>Thời gian</th>
               {DAYS_OF_WEEK.map(d => (
-                <th key={d.id} style={{ border: '1px solid #000', padding: '6px 4px', fontWeight: 800 }}>
+                <th key={d.id} style={{ border: '1px solid #000', padding: '5px 2px', fontWeight: 800 }}>
                   {d.name.toUpperCase()}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {PERIODS.map(period => (
+            {periods.map(period => (
               <React.Fragment key={period.id}>
                 <tr>
                   {period.id === 1 && (
@@ -701,25 +703,25 @@ export const RoomTimetableView = ({
 
                     if (isWedOff) {
                       return (
-                        <td key={day.id} style={{ border: '1px solid #000', fontStyle: 'italic', color: '#555', background: '#f8fafc', height: '40px', verticalAlign: 'middle' }}>
+                        <td key={day.id} style={{ border: '1px solid #000', fontStyle: 'italic', color: '#555', background: '#f8fafc', height: '36px', verticalAlign: 'middle' }}>
                           Nghỉ
                         </td>
                       );
                     }
 
                     return (
-                      <td key={day.id} style={{ border: '1px solid #000', height: '40px', padding: '3px 4px', verticalAlign: 'middle' }}>
+                      <td key={day.id} style={{ border: '1px solid #000', height: '36px', padding: '2px 2px', verticalAlign: 'middle', wordBreak: 'break-word' }}>
                         {matchedBookings.length > 0 ? (
                           <div>
                             {matchedBookings.map((b, idx) => {
                               const sub = (subjects && subjects[b.slot.subjectId]) || DEFAULT_SUBJECTS[b.slot.subjectId];
                               const teacher = teacherMap.get(b.slot.teacherId);
                               return (
-                                <div key={idx} style={{ marginBottom: idx < matchedBookings.length - 1 ? '3px' : '0' }}>
-                                  <div style={{ fontWeight: 800, fontSize: '9pt', color: '#000' }}>
+                                <div key={idx} style={{ marginBottom: idx < matchedBookings.length - 1 ? '2px' : '0' }}>
+                                  <div style={{ fontWeight: 800, fontSize: '8.5pt', color: '#000', lineHeight: 1.15 }}>
                                     {b.class.name} ({sub?.shortName || sub?.name || b.slot.subjectId})
                                   </div>
-                                  <div style={{ fontSize: '7.5pt', color: '#333' }}>
+                                  <div style={{ fontSize: '7pt', color: '#333' }}>
                                     GV: {teacher?.code || teacher?.name || b.slot.teacherId}
                                   </div>
                                 </div>
@@ -736,8 +738,8 @@ export const RoomTimetableView = ({
 
                 {period.id === 4 && (
                   <tr style={{ background: '#f1f5f9', border: '1px solid #000' }}>
-                    <td colSpan={8} style={{ border: '1px solid #000', padding: '4px', fontSize: '8.5pt', fontWeight: 800, fontStyle: 'italic' }}>
-                      🍱 NGHỈ TRƯA (10:30 - 14:00)
+                    <td colSpan={8} style={{ border: '1px solid #000', padding: '3px', fontSize: '8pt', fontWeight: 800, fontStyle: 'italic' }}>
+                      {schoolInfo.lunchBreak ? `🍱 NGHỈ TRƯA (${schoolInfo.lunchBreak})` : '🍱 NGHỈ TRƯA (10:30 - 14:00)'}
                     </td>
                   </tr>
                 )}
@@ -747,18 +749,19 @@ export const RoomTimetableView = ({
         </table>
 
         {/* Footer Signatures */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '22px', fontSize: '9.5pt' }}>
-          <div style={{ textAlign: 'center', width: '220px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '9pt' }}>
+          <div style={{ textAlign: 'center', width: '200px' }}>
             <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>NGƯỜI LẬP BIỂU</div>
             <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-            <div style={{ height: '45px' }} />
+            <div style={{ height: '40px' }} />
+            <div style={{ fontWeight: 800 }}>{schoolInfo.scheduler || ''}</div>
           </div>
-          <div style={{ textAlign: 'center', width: '240px' }}>
+          <div style={{ textAlign: 'center', width: '220px' }}>
             <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
             <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
             <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
-            <div style={{ height: '45px' }} />
-            <div style={{ fontWeight: 800 }}>Bùi Văn Việt</div>
+            <div style={{ height: '40px' }} />
+            <div style={{ fontWeight: 800 }}>{schoolInfo.principal || 'Bùi Văn Việt'}</div>
           </div>
         </div>
       </div>

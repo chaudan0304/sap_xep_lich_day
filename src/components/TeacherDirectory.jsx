@@ -97,7 +97,9 @@ export const TeacherDirectory = ({
   classes,
   setClasses,
   timetable,
-  subjects = DEFAULT_SUBJECTS
+  subjects = DEFAULT_SUBJECTS,
+  periods = DEFAULT_PERIODS,
+  schoolInfo = {}
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('ALL'); // ALL, HOMEROOM, SUBJECT
@@ -1640,14 +1642,14 @@ export const TeacherDirectory = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ fontWeight: 800, color: '#1d4ed8', background: '#eff6ff', padding: '1px 4px', borderRadius: '3px' }}>SÁNG:</span>
                   <span style={{ color: '#334155' }}>
-                    <strong>T1</strong> (07:30-08:05) • <strong>T2</strong> (08:15-08:50) • <strong>T3</strong> (09:10-09:45) • <strong>T4</strong> (09:55-10:30)
+                    {periods.filter(p => p.session === 'morning').map(p => `T${p.id} (${p.time})`).join(' • ')}
                   </span>
                 </div>
                 <div style={{ width: '1px', height: '10px', background: '#cbd5e1' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '1px 4px', borderRadius: '3px' }}>CHIỀU:</span>
                   <span style={{ color: '#334155' }}>
-                    <strong>T1</strong> (14:00-14:35) • <strong>T2</strong> (14:45-15:20) • <strong>T3</strong> (15:30-16:05)
+                    {periods.filter(p => p.session === 'afternoon').map(p => `T${p.id <= 4 ? p.id : (p.id - 4)} (${p.time})`).join(' • ')}
                   </span>
                 </div>
               </div>
@@ -1791,8 +1793,8 @@ export const TeacherDirectory = ({
               {/* National / School Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>UBND PHƯỜNG TÂN MAI</div>
-                  <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>TRƯỜNG TIỂU HỌC QUỲNH LỘC B</div>
+                  <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>{schoolInfo.district || 'UBND PHƯỜNG TÂN MAI'}</div>
+                  <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>{(schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B').toUpperCase()}</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '10pt', fontWeight: 800 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
@@ -1809,7 +1811,7 @@ export const TeacherDirectory = ({
                   Giáo viên: {previewTeacher.name} ({previewTeacher.code || previewTeacher.id})
                 </div>
                 <div style={{ fontSize: '9.5pt', fontStyle: 'italic', marginTop: '3px' }}>
-                  Chức vụ / Nhiệm vụ: {previewTeacher.position || previewTeacher.task || 'Giáo viên'} • Năm học 2026 - 2027
+                  Chức vụ / Nhiệm vụ: {previewTeacher.position || previewTeacher.task || 'Giáo viên'} • {schoolInfo.year || 'Năm học 2026 - 2027'}
                 </div>
               </div>
 
@@ -1828,7 +1830,7 @@ export const TeacherDirectory = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {PERIODS.map(p => (
+                  {periods.map(p => (
                     <React.Fragment key={p.id}>
                       <tr>
                         {p.id === 1 && (
@@ -1895,7 +1897,7 @@ export const TeacherDirectory = ({
                       {p.id === 4 && (
                         <tr style={{ background: '#f1f5f9', border: '1px solid #000' }}>
                           <td colSpan={8} style={{ border: '1px solid #000', padding: '3px', fontSize: '8pt', fontWeight: 800, fontStyle: 'italic' }}>
-                            🍱 NGHỈ TRƯA (10:30 - 14:00)
+                            {schoolInfo.lunchBreak ? `🍱 NGHỈ TRƯA (${schoolInfo.lunchBreak})` : '🍱 NGHỈ TRƯA (10:30 - 14:00)'}
                           </td>
                         </tr>
                       )}
@@ -1917,7 +1919,7 @@ export const TeacherDirectory = ({
                   <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
                   <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
                   <div style={{ height: '40px' }} />
-                  <div style={{ fontWeight: 800 }}>Bùi Văn Việt</div>
+                  <div style={{ fontWeight: 800 }}>{schoolInfo.principal || 'Bùi Văn Việt'}</div>
                 </div>
               </div>
             </div>

@@ -13,8 +13,9 @@ import { RoomTimetableView } from './components/RoomTimetableView';
 import { ExcelModal } from './components/ExcelModal';
 import { AutoScheduleModal } from './components/AutoScheduleModal';
 import { ConflictModal } from './components/ConflictModal';
+import SchoolSettingsModal, { DEFAULT_SCHOOL_INFO } from './components/SchoolSettingsModal';
 
-import { DEFAULT_GRADE_QUOTAS } from './constants/defaultCurriculum';
+import { DEFAULT_GRADE_QUOTAS, PERIODS as DEFAULT_PERIODS } from './constants/defaultCurriculum';
 import { SUBJECTS as INITIAL_SUBJECTS } from './constants/subjects';
 import { 
   SAMPLE_CLASSES, 
@@ -39,15 +40,23 @@ export function App() {
   const [schoolInfo, setSchoolInfo] = useState(() => {
     if (!isUpToDate) {
       return {
-        name: QUYNH_LOC_DATA.schoolName || 'Trường TH Quỳnh Lộc B',
-        year: QUYNH_LOC_DATA.schoolYear || 'Năm học 2026 - 2027'
+        ...DEFAULT_SCHOOL_INFO,
+        name: QUYNH_LOC_DATA.schoolName || DEFAULT_SCHOOL_INFO.name,
+        year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year
       };
     }
     const saved = localStorage.getItem('EDUTIMETABLE_SCHOOL_INFO');
     return saved ? JSON.parse(saved) : {
-      name: QUYNH_LOC_DATA.schoolName || 'Trường TH Quỳnh Lộc B',
-      year: QUYNH_LOC_DATA.schoolYear || 'Năm học 2026 - 2027'
+      ...DEFAULT_SCHOOL_INFO,
+      name: QUYNH_LOC_DATA.schoolName || DEFAULT_SCHOOL_INFO.name,
+      year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year
     };
+  });
+
+  const [periods, setPeriods] = useState(() => {
+    if (!isUpToDate) return JSON.parse(JSON.stringify(DEFAULT_PERIODS));
+    const saved = localStorage.getItem('EDUTIMETABLE_PERIODS');
+    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_PERIODS));
   });
 
   const [subjects, setSubjects] = useState(() => {
@@ -94,6 +103,7 @@ export function App() {
 
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAutoScheduling, setIsAutoScheduling] = useState(false);
   const [selectedStudioClassId, setSelectedStudioClassId] = useState('1A1');
 
@@ -104,6 +114,10 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('EDUTIMETABLE_SCHOOL_INFO', JSON.stringify(schoolInfo));
   }, [schoolInfo]);
+
+  useEffect(() => {
+    localStorage.setItem('EDUTIMETABLE_PERIODS', JSON.stringify(periods));
+  }, [periods]);
 
   useEffect(() => {
     localStorage.setItem('EDUTIMETABLE_SUBJECTS', JSON.stringify(subjects));
@@ -347,6 +361,7 @@ export function App() {
       version: '1.0',
       timestamp: new Date().toISOString(),
       schoolInfo,
+      periods,
       subjects,
       gradeQuotas,
       classes,
@@ -368,6 +383,7 @@ export function App() {
   // 10. Nạp Dữ Liệu Từ File Sao Lưu (.json)
   const handleImportBackupJson = (jsonData) => {
     if (jsonData.schoolInfo) setSchoolInfo(jsonData.schoolInfo);
+    if (jsonData.periods) setPeriods(jsonData.periods);
     if (jsonData.subjects) setSubjects(jsonData.subjects);
     if (jsonData.gradeQuotas) setGradeQuotas(jsonData.gradeQuotas);
     if (jsonData.classes) setClasses(jsonData.classes);
@@ -385,6 +401,7 @@ export function App() {
         setActiveTab={setActiveTab}
         onAutoSchedule={handleOpenAutoScheduleModal}
         onOpenExcelModal={() => setIsExcelModalOpen(true)}
+        onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onResetSampleData={handleResetSampleData}
         onClearTimetable={handleClearTimetable}
         onExportBackupJson={handleExportBackupJson}
@@ -406,6 +423,8 @@ export function App() {
             setTimetable={setTimetable}
             conflicts={conflicts}
             subjects={subjects}
+            periods={periods}
+            schoolInfo={schoolInfo}
             selectedClassId={selectedStudioClassId}
             onSelectClass={setSelectedStudioClassId}
             onOpenConflictModal={() => setIsConflictModalOpen(true)}
@@ -422,6 +441,8 @@ export function App() {
             setClasses={setClasses}
             timetable={timetable}
             subjects={subjects}
+            periods={periods}
+            schoolInfo={schoolInfo}
             onViewTeacherSchedule={(t) => {
               setActiveTab('studio');
             }}
@@ -468,6 +489,8 @@ export function App() {
             timetable={timetable}
             conflicts={conflicts}
             subjects={subjects}
+            periods={periods}
+            schoolInfo={schoolInfo}
             onOpenConflictModal={() => setIsConflictModalOpen(true)}
           />
         )}
@@ -483,9 +506,21 @@ export function App() {
             setSubjects={setSubjects}
             assignments={assignments}
             setAssignments={setAssignments}
+            periods={periods}
+            schoolInfo={schoolInfo}
           />
         )}
       </main>
+
+      {/* School and Period Times Settings Modal */}
+      <SchoolSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        schoolInfo={schoolInfo}
+        setSchoolInfo={setSchoolInfo}
+        periods={periods}
+        setPeriods={setPeriods}
+      />
 
       {/* Excel Import/Export Modal */}
       <ExcelModal
