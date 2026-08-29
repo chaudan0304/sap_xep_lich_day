@@ -27,7 +27,7 @@ import { QUYNH_LOC_DATA } from './data/quynhLocSchoolData';
 import { checkAllConflicts } from './services/conflictDetector';
 import { solveTimetable } from './services/autoScheduler';
 
-const DATA_VERSION = '2026_08_29_V32_OFFICIAL_CLEAN_DATA';
+const DATA_VERSION = '2026_08_29_V34_AUTHENTIC_SHORT_NAMES';
 
 export function App() {
   const currentVersion = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_VERSION') : null;

@@ -97,6 +97,29 @@ export function resolveTeacher(teacherRaw, classId, teachers) {
   return teachers.find(t => t.homeroomClassId === classId) || null;
 }
 
+export function getTeacherShortName(fullName, homeroomClassId, task) {
+  const name = normalizeStr(fullName);
+  if (name.includes('Nga (A)')) return 'Nguyễn Nga (A)';
+  if (name === 'Nguyễn Thị Nga' && homeroomClassId === '1A1') return 'Nguyễn Nga';
+  if (name === 'Bùi Văn Việt') return 'Bùi Việt';
+  if (name === 'Lữ Đặng Sinh') return 'Lữ Sinh';
+  if (name === 'Nguyễn Văn Châu Đàn') return 'Châu Đàn';
+  if (name === 'Nguyễn Thị Huyền Trang') return 'Huyền Trang';
+  if (name === 'Thái Thị Hoa Mai') return 'Thái Mai';
+  if (name === 'Lê Thị Thúy Hải') return 'Lê Hải';
+  if (name === 'Lê Như Quỳnh') return 'Lê Quỳnh';
+  if (name === 'Đặng Phương Linh') return 'Đặng Linh';
+  if (name === 'Nguyễn Thảo Vy') return 'Nguyễn Vy';
+  if (name === 'Phan Hạnh Huyền') return 'Hạnh Huyền';
+
+  // Quy tắc chuẩn: Họ + Tên gọi (ví dụ: Lê Thủy, Hồ Thương, Trần Mừng, Hoàng Hòa)
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]} ${parts[parts.length - 1]}`;
+  }
+  return name;
+}
+
 /**
  * Bóc tách sheet 'Phân công chuyên môn'
  */
@@ -151,10 +174,8 @@ export function parseAssignmentSheet(ws) {
     }
     usedIds.add(id);
 
-    const nameParts = name.split(/\s+/);
-    const lastName = nameParts[nameParts.length - 1];
-    const initials = nameParts.slice(0, -1).map(p => p[0]).join('');
-    const code = `${lastName.toUpperCase()}.${initials.toUpperCase()}`;
+    // Tên viết tắt chính thức hiển thị trên Thời khóa biểu
+    const code = getTeacherShortName(name, homeroomClassId, task);
 
     const position = dept === 'Ban Giám Hiệu' 
       ? (tt === 1 ? 'Hiệu Trưởng' : 'Phó Hiệu Trưởng') 
@@ -172,7 +193,7 @@ export function parseAssignmentSheet(ws) {
       task,
       assignedPeriods: totalPeriods,
       dinhMuc,
-      maxPeriodsPerDay: 6,
+      maxPeriodsPerDay: 7,
       offSessions: [],
       color: '#3b82f6'
     });
@@ -359,6 +380,7 @@ export function parseExcelWorkbook(dataOrBuffer) {
           if (subjRaw) {
             const { subjectId, roomId } = mapSubjectCodeAndRoom(subjRaw);
             const teacherObj = resolveTeacher(teacherRaw, classId, parsed.teachers);
+            const cleanTeacherName = teacherObj ? teacherObj.code : (teacherRaw ? teacherRaw.replace(/^Đ\/c\s+/i, '').trim() : '');
 
             const slotItem = {
               sheet: sheetName,
@@ -372,8 +394,9 @@ export function parseExcelWorkbook(dataOrBuffer) {
               subjectId,
               subjectRaw: subjRaw,
               teacherId: teacherObj ? teacherObj.id : '',
-              teacherRaw: teacherRaw || (teacherObj ? teacherObj.name : ''),
-              teacherName: teacherObj ? teacherObj.name : '',
+              teacherRaw: cleanTeacherName,
+              teacherName: teacherObj ? teacherObj.name : cleanTeacherName,
+              teacherCode: cleanTeacherName,
               roomId,
               isLocked: true
             };
@@ -385,7 +408,7 @@ export function parseExcelWorkbook(dataOrBuffer) {
                 subjectId,
                 subjectRaw: subjRaw,
                 teacherId: teacherObj ? teacherObj.id : '',
-                teacherRaw: teacherRaw || (teacherObj ? teacherObj.name : ''),
+                teacherRaw: cleanTeacherName,
                 roomId,
                 isLocked: true
               };
