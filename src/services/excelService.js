@@ -273,8 +273,8 @@ export const exportMasterTimetable = async (timetable, classes = [], teachers = 
     sheetClasses.forEach((c, idx) => {
       const colSubIdx = 4 + (idx * 2);
       const colTchIdx = colSubIdx + 1;
-      ws.getCell(headerRowIdx, colSubIdx).value = `Lớp ${c.name}\n(Môn học)`;
-      ws.getCell(headerRowIdx, colTchIdx).value = `Lớp ${c.name}\n(Giáo viên)`;
+      ws.getCell(headerRowIdx, colSubIdx).value = `${c.name}\n(Môn học)`;
+      ws.getCell(headerRowIdx, colTchIdx).value = `${c.name}\n(Giáo viên)`;
     });
 
     for (let col = 1; col <= totalCols; col++) {
@@ -521,7 +521,7 @@ export const exportClassTimetables = async (timetable, classes = [], teachers = 
 
     ws.mergeCells('D4:F4');
     const r4_2 = ws.getCell('D4');
-    r4_2.value = `🏫 Phòng học: ${cls.mainRoom || (`Phòng ${cls.name}`)}`;
+    r4_2.value = `🏫 Phòng học: ${cls.mainRoom || (cls.name.startsWith('Lớp ') ? cls.name.replace('Lớp ', 'P.') : `P.${cls.name}`)}`;
     r4_2.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1E293B' } };
     r4_2.alignment = { vertical: 'middle', horizontal: 'center' };
 
@@ -788,7 +788,7 @@ export const exportTeacherTimetables = async (timetable, teachers = [], classes 
           const slot = timetable[cls.id]?.[day.id]?.[p.id];
           if (slot && slot.teacherId === teacher.id) {
             const subName = _subjects[slot.subjectId]?.name || slot.subjectRaw || slot.subjectId;
-            lessonFound = `${subName}\n(Lớp ${cls.name})`;
+            lessonFound = `${subName}\n(${cls.name})`;
             totalScheduled++;
           }
         });

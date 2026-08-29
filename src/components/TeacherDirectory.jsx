@@ -1786,7 +1786,7 @@ export const TeacherDirectory = ({
               {/* National / School Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 600 }}>PHÒNG GD&ĐT THỊ XÃ HOÀNG MAI</div>
+                  <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>UBND PHƯỜNG TÂN MAI</div>
                   <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>TRƯỜNG TIỂU HỌC QUỲNH LỘC B</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
@@ -1804,7 +1804,7 @@ export const TeacherDirectory = ({
                   Giáo viên: {previewTeacher.name} ({previewTeacher.code || previewTeacher.id})
                 </div>
                 <div style={{ fontSize: '9.5pt', fontStyle: 'italic', marginTop: '3px' }}>
-                  Chức vụ / Nhiệm vụ: {previewTeacher.position || previewTeacher.task || 'Giáo viên'} • Năm học 2025 - 2026
+                  Chức vụ / Nhiệm vụ: {previewTeacher.position || previewTeacher.task || 'Giáo viên'} • Năm học 2026 - 2027
                 </div>
               </div>
 
@@ -1876,7 +1876,7 @@ export const TeacherDirectory = ({
                                     {sub?.name || matchSlot.subjectId}
                                   </div>
                                   <div style={{ fontSize: '8.5pt', fontWeight: 700, color: '#000', marginTop: '1px' }}>
-                                    Lớp: {matchClass?.name}
+                                    {matchClass?.name}
                                   </div>
                                 </div>
                               ) : (
@@ -1904,13 +1904,15 @@ export const TeacherDirectory = ({
                 <div style={{ textAlign: 'center', width: '220px' }}>
                   <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>GIÁO VIÊN</div>
                   <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-                  <div style={{ height: '50px' }} />
+                  <div style={{ height: '45px' }} />
+                  <div style={{ fontWeight: 800 }}>{previewTeacher.name}</div>
                 </div>
                 <div style={{ textAlign: 'center', width: '240px' }}>
-                  <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Quỳnh Lộc, ngày ... tháng ... năm 202...</div>
+                  <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
                   <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
                   <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
-                  <div style={{ height: '50px' }} />
+                  <div style={{ height: '45px' }} />
+                  <div style={{ fontWeight: 800 }}>Bùi Văn Việt</div>
                 </div>
               </div>
             </div>

@@ -446,7 +446,7 @@ export const MasterMatrixView = ({
         {/* National / School Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 600 }}>PHÒNG GD&ĐT THỊ XÃ HOÀNG MAI</div>
+            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>UBND PHƯỜNG TÂN MAI</div>
             <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>TRƯỜNG TIỂU HỌC QUỲNH LỘC B</div>
           </div>
           <div style={{ textAlign: 'center' }}>
@@ -461,7 +461,7 @@ export const MasterMatrixView = ({
             BẢNG TỔNG HỢP THỜI KHÓA BIỂU TOÀN TRƯỜNG
           </h1>
           <div style={{ fontSize: '9pt', fontStyle: 'italic', marginTop: '3px' }}>
-            Áp dụng từ ngày {new Date().toLocaleDateString('vi-VN')} • Quy mô: {filteredClasses.length} lớp học • Năm học 2025 - 2026
+            Áp dụng từ ngày 05/09/2026 • Quy mô: {filteredClasses.length} lớp học • Năm học 2026 - 2027
           </div>
         </div>
 
@@ -542,10 +542,11 @@ export const MasterMatrixView = ({
             <div style={{ height: '45px' }} />
           </div>
           <div style={{ textAlign: 'center', width: '240px' }}>
-            <div style={{ fontStyle: 'italic', fontSize: '8pt' }}>Quỳnh Lộc, ngày ... tháng ... năm 202...</div>
+            <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
             <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
             <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
             <div style={{ height: '45px' }} />
+            <div style={{ fontWeight: 800 }}>Bùi Văn Việt</div>
           </div>
         </div>
       </div>

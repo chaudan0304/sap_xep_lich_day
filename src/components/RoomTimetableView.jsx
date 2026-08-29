@@ -625,7 +625,7 @@ export const RoomTimetableView = ({
         {/* National / School Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 600 }}>PHÒNG GD&ĐT THỊ XÃ HOÀNG MAI</div>
+            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>UBND PHƯỜNG TÂN MAI</div>
             <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>TRƯỜNG TIỂU HỌC QUỲNH LỘC B</div>
           </div>
           <div style={{ textAlign: 'center' }}>
@@ -640,7 +640,7 @@ export const RoomTimetableView = ({
             LỊCH SỬ DỤNG {currentRoom?.name?.toUpperCase() || 'PHÒNG CHỨC NĂNG'}
           </h1>
           <div style={{ fontSize: '9.5pt', fontStyle: 'italic', marginTop: '4px' }}>
-            Áp dụng từ ngày {new Date().toLocaleDateString('vi-VN')} • Năm học 2025 - 2026
+            Áp dụng từ ngày 05/09/2026 • Năm học 2026 - 2027
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '6px', fontSize: '9.5pt', fontWeight: 600 }}>
             <span>Phụ trách: <strong>{currentRoom?.inCharge || 'Nhà trường'}</strong></span>
@@ -749,13 +749,14 @@ export const RoomTimetableView = ({
           <div style={{ textAlign: 'center', width: '220px' }}>
             <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>NGƯỜI LẬP BIỂU</div>
             <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-            <div style={{ height: '50px' }} />
+            <div style={{ height: '45px' }} />
           </div>
           <div style={{ textAlign: 'center', width: '240px' }}>
-            <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Quỳnh Lộc, ngày ... tháng ... năm 202...</div>
+            <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
             <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
             <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
-            <div style={{ height: '50px' }} />
+            <div style={{ height: '45px' }} />
+            <div style={{ fontWeight: 800 }}>Bùi Văn Việt</div>
           </div>
         </div>
       </div>

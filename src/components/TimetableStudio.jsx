@@ -953,7 +953,7 @@ export const TimetableStudio = ({
         {/* National / School Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 600 }}>PHÒNG GD&ĐT THỊ XÃ HOÀNG MAI</div>
+            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>UBND PHƯỜNG TÂN MAI</div>
             <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>TRƯỜNG TIỂU HỌC QUỲNH LỘC B</div>
           </div>
           <div style={{ textAlign: 'center' }}>
@@ -968,7 +968,7 @@ export const TimetableStudio = ({
             THỜI KHÓA BIỂU {selectedClass?.name?.startsWith('Lớp ') ? selectedClass.name.toUpperCase() : `LỚP ${(selectedClass?.name || '').toUpperCase()}`}
           </h1>
           <div style={{ fontSize: '9.5pt', fontStyle: 'italic', marginTop: '4px' }}>
-            Áp dụng từ ngày {new Date().toLocaleDateString('vi-VN')} • Năm học 2025 - 2026
+            Áp dụng từ ngày 05/09/2026 • Năm học 2026 - 2027
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '6px', fontSize: '9.5pt', fontWeight: 600 }}>
             <span>Giáo viên chủ nhiệm: <strong>{teacherMap.get(selectedClass?.homeroomTeacherId)?.name || 'Chưa phân công'}</strong></span>
@@ -984,9 +984,9 @@ export const TimetableStudio = ({
               <th style={{ border: '1px solid #000', width: '45px', padding: '6px 2px', fontWeight: 800 }}>Buổi</th>
               <th style={{ border: '1px solid #000', width: '38px', padding: '6px 2px', fontWeight: 800 }}>Tiết</th>
               <th style={{ border: '1px solid #000', width: '85px', padding: '6px 2px', fontWeight: 800 }}>Thời gian</th>
-              {DAYS_OF_WEEK.map(day => (
-                <th key={day.id} style={{ border: '1px solid #000', padding: '6px 4px', fontWeight: 800 }}>
-                  {day.name.toUpperCase()}
+              {DAYS_OF_WEEK.map(d => (
+                <th key={d.id} style={{ border: '1px solid #000', padding: '6px 4px', fontWeight: 800 }}>
+                  {d.name.toUpperCase()}
                 </th>
               ))}
             </tr>
@@ -994,6 +994,7 @@ export const TimetableStudio = ({
           <tbody>
             {PERIODS.map(period => {
               const isMorning = period.session === 'morning';
+              const isAfternoon = period.session === 'afternoon';
               const isLunch = period.id === 4;
 
               return (
@@ -1069,10 +1070,10 @@ export const TimetableStudio = ({
           <div style={{ textAlign: 'center', width: '220px' }}>
             <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>NGƯỜI LẬP BIỂU</div>
             <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-            <div style={{ height: '50px' }} />
+            <div style={{ height: '45px' }} />
           </div>
           <div style={{ textAlign: 'center', width: '240px' }}>
-            <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Quỳnh Lộc, ngày ... tháng ... năm 202...</div>
+            <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
             <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
             <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
             <div style={{ height: '50px' }} />
