@@ -46,8 +46,9 @@ export const MasterMatrixView = ({
 
   return (
     <div className="animate-fade-in" style={{ padding: '24px', maxWidth: '1600px', margin: '0 auto' }}>
-      {/* 1. Header & Controls */}
-      <div style={{
+      <div className="no-print">
+        {/* 1. Header & Controls */}
+        <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -437,6 +438,7 @@ export const MasterMatrixView = ({
             </tbody>
           </table>
         </div>
+      </div>
       </div>
 
       {/* ───────────────────────────────────────────────────────────── */}

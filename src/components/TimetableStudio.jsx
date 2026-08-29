@@ -213,8 +213,9 @@ export const TimetableStudio = ({
 
   return (
     <div className="animate-fade-in" style={{ padding: '24px', maxWidth: '1600px', margin: '0 auto' }}>
-      {/* Top Class Selector & Stats Bar */}
-      <div style={{
+      <div className="no-print">
+        {/* Top Class Selector & Stats Bar */}
+        <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -944,6 +945,7 @@ export const TimetableStudio = ({
             </table>
           </div>
         </div>
+      </div>
       </div>
 
       {/* ───────────────────────────────────────────────────────────── */}

@@ -395,8 +395,9 @@ export const TeacherDirectory = ({
 
   return (
     <div className="animate-fade-in" style={{ padding: '24px', maxWidth: '1600px', margin: '0 auto' }}>
-      {/* 1. Header & Summary Stats */}
-      <div style={{
+      <div className="no-print">
+        {/* 1. Header & Summary Stats */}
+        <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -1547,10 +1548,11 @@ export const TeacherDirectory = ({
         </div>,
         document.body
       )}
+      </div>
 
       {/* 6. QUICK TIMETABLE PREVIEW MODAL (PORTAL TO ROOT BODY) */}
       {previewTeacher && createPortal(
-        <div style={{
+        <div className="portal-print-modal" style={{
           position: 'fixed',
           top: 0,
           left: 0,
