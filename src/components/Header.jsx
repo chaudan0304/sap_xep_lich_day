@@ -25,7 +25,6 @@ export const Header = ({
   setActiveTab,
   onAutoSchedule,
   onOpenExcelModal,
-  onLoadRealSchoolData,
   onResetSampleData,
   onClearTimetable,
   onExportBackupJson,
@@ -162,31 +161,6 @@ export const Header = ({
                 <span>0 Trùng Giờ {warningCount > 0 ? `(${warningCount} Cảnh báo)` : '(Chuẩn)'}</span>
               </>
             )}
-          </button>
-
-          {/* Quick Load Real Excel Data */}
-          <button
-            onClick={onLoadRealSchoolData}
-            title="Nạp dữ liệu thực tế từ file Excel STKB Quỳnh Lộc B (23 lớp, 40 GV)"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '10px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              background: 'rgba(99, 102, 241, 0.25)',
-              border: '1px solid rgba(165, 180, 252, 0.4)',
-              color: '#ffffff',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.4)'}
-            onMouseOut={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.25)'}
-          >
-            <School size={15} color="#a5b4fc" />
-            <span>Nạp Excel Quỳnh Lộc B</span>
           </button>
 
           {/* Excel Import / Export Button */}

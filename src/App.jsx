@@ -291,23 +291,6 @@ export function App() {
     }, 300);
   };
 
-  // 4. Nạp Lại Dữ Liệu Trường TH Quỳnh Lộc B (23 lớp, 41 GV)
-  const handleLoadRealSchoolData = () => {
-    localStorage.clear();
-    localStorage.setItem('EDUTIMETABLE_VERSION', DATA_VERSION);
-    setSchoolInfo({
-      name: 'Trường TH Quỳnh Lộc B',
-      year: 'Năm học 2026 - 2027'
-    });
-    setSubjects(JSON.parse(JSON.stringify(INITIAL_SUBJECTS)));
-    setGradeQuotas(JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS)));
-    setClasses([...QUYNH_LOC_DATA.classes]);
-    setTeachers([...QUYNH_LOC_DATA.teachers]);
-    setRooms([...SAMPLE_ROOMS]);
-    setAssignments(QUYNH_LOC_DATA.assignments || generateSampleAssignments(QUYNH_LOC_DATA.classes, DEFAULT_GRADE_QUOTAS, QUYNH_LOC_DATA.teachers));
-    setTimetable(QUYNH_LOC_DATA.timetable);
-  };
-
   // 5. Khôi Phục Dữ Liệu Thu Gọn (10 lớp)
   const handleResetSampleData = () => {
     if (window.confirm('Chuyển sang Dữ Liệu Thu Gọn (10 lớp học, 20 GV)?')) {
@@ -402,7 +385,6 @@ export function App() {
         setActiveTab={setActiveTab}
         onAutoSchedule={handleOpenAutoScheduleModal}
         onOpenExcelModal={() => setIsExcelModalOpen(true)}
-        onLoadRealSchoolData={handleLoadRealSchoolData}
         onResetSampleData={handleResetSampleData}
         onClearTimetable={handleClearTimetable}
         onExportBackupJson={handleExportBackupJson}
