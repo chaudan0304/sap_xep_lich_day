@@ -41,6 +41,7 @@ export const ExcelModal = ({
   gradeQuotas = {},
   timetable = {},
   subjects = {},
+  schoolInfo = {},
   onImportSuccess
 }) => {
   const [isImporting, setIsImporting] = useState(false);
@@ -590,7 +591,7 @@ export const ExcelModal = ({
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
                 <button
-                  onClick={() => exportMasterTimetable(timetable, classes, teachers, subjects)}
+                  onClick={() => exportMasterTimetable(timetable, classes, teachers, subjects, schoolInfo)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -608,12 +609,12 @@ export const ExcelModal = ({
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f172a' }}>Ma Trận Toàn Trường</div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Bảng tổng hợp tất cả các lớp</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Bảng tổng hợp tất cả các lớp & từng khối</div>
                   </div>
                 </button>
 
                 <button
-                  onClick={() => exportClassTimetables(timetable, classes, teachers, subjects)}
+                  onClick={() => exportClassTimetables(timetable, classes, teachers, subjects, schoolInfo)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -636,7 +637,7 @@ export const ExcelModal = ({
                 </button>
 
                 <button
-                  onClick={() => exportTeacherTimetables(timetable, teachers, classes, subjects)}
+                  onClick={() => exportTeacherTimetables(timetable, teachers, classes, subjects, schoolInfo)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -659,7 +660,7 @@ export const ExcelModal = ({
                 </button>
 
                 <button
-                  onClick={() => exportTeacherDirectory(teachers, assignments, timetable, classes)}
+                  onClick={() => exportTeacherDirectory(teachers, assignments, timetable, classes, schoolInfo)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

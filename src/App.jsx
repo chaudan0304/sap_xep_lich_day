@@ -497,6 +497,7 @@ export function App() {
         gradeQuotas={gradeQuotas}
         timetable={timetable}
         subjects={subjects}
+        schoolInfo={schoolInfo}
         onImportSuccess={handleImportSuccess}
       />
 
