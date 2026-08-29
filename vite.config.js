@@ -48,5 +48,6 @@ function autoSavePlugin() {
 }
 
 export default defineConfig({
+  base: './',
   plugins: [react(), autoSavePlugin()],
 })
