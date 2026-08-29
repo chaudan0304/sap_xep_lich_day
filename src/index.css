@@ -126,51 +126,77 @@ button, input, select, textarea {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm 10mm;
+    margin: 6mm 8mm 6mm 8mm;
   }
 
-  html, body {
+  /* 1. Reset document flow */
+  html, body, #root {
     background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
     font-size: 10pt !important;
     font-family: "Times New Roman", Times, serif !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* 1. Hide everything on the screen */
-  body * {
-    visibility: hidden !important;
+  /* 2. Hide all non-printable screen elements completely from layout flow */
+  .no-print,
+  button,
+  nav,
+  header,
+  aside,
+  .modal-screen-content {
+    display: none !important;
   }
 
-  /* 2. Show only the printable sheet and all its descendants */
-  .printable-sheet,
-  .printable-sheet * {
-    visibility: visible !important;
+  /* 3. Strip portal modal fixed overlay styles */
+  div:has(> .printable-sheet),
+  div:has(> * > .printable-sheet),
+  .animate-fade-in {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
-  /* 3. Position the printable sheet at the top of the printed page */
+  /* 4. Display the single printable sheet perfectly on 1 page */
   .printable-sheet {
     display: block !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: static !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
-    z-index: 999999 !important;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .printable-sheet * {
+    visibility: visible !important;
   }
 
   .printable-sheet table {
     width: 100% !important;
     border-collapse: collapse !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .printable-sheet th,
@@ -181,5 +207,6 @@ button, input, select, textarea {
 
   .printable-sheet th {
     background-color: #f1f5f9 !important;
+    font-weight: 800 !important;
   }
 }

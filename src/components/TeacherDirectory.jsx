@@ -1577,9 +1577,11 @@ export const TeacherDirectory = ({
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
             padding: '28px'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Screen-Only Header & Interactive Grid */}
+            <div className="no-print">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Calendar size={24} color="#2563eb" />
                   <span>Thời Khóa Biểu: {previewTeacher.name}</span>
                   <span style={{ fontSize: '0.8rem', padding: '2px 8px', borderRadius: '6px', background: '#eff6ff', color: '#2563eb', fontWeight: 700 }}>
@@ -1778,6 +1780,7 @@ export const TeacherDirectory = ({
                 </tbody>
               </table>
             </div>
+            </div>
 
             {/* ───────────────────────────────────────────────────────────── */}
             {/* DEDICATED OFFICIAL PRINTABLE SHEET FOR TEACHER (A4 PORTRAIT)  */}
@@ -1917,7 +1920,7 @@ export const TeacherDirectory = ({
               </div>
             </div>
 
-            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+            <div className="no-print" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setPreviewTeacher(null)}
                 style={{
