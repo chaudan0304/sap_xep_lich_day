@@ -30,11 +30,33 @@ Dự án tích hợp thuật toán giải ràng buộc thông minh (**Constraint
 
 ### 📚 2.3. Danh Mục Môn Học Chuẩn CTGDPT 2018
 Đầy đủ các môn học và hoạt động giáo dục:
-* **Môn Cơ bản**: Tiếng Việt, Toán, Tự nhiên và Xã hội, Khoa học - Lịch sử - Địa lí, Đạo đức, Hoạt động củng cố (HĐCC), Phát triển năng lực (PTNL).
-* **Môn Ngoại ngữ & Chuyên biệt**: Tiếng Anh, Tin học, Công nghệ, Giáo dục thể chất, Âm nhạc, Mỹ thuật.
+* **Môn Cơ bản**: Tiếng Việt, Toán, Tự nhiên và Xã hội (TNXH), Lịch sử và Địa lí - Khoa học (LS-ĐL), Đạo đức, Hoạt động củng cố (HĐCC).
+* **Môn Ngoại ngữ & Chuyên biệt**: Tiếng Anh, Tin học, Công nghệ, Giáo dục thể chất (GDTC), Âm nhạc, Mĩ thuật.
 * **Hoạt động Giáo dục & Kỹ năng**: Hoạt động trải nghiệm (HĐTN), Đọc thư viện (Đọc TV), Giáo dục kĩ năng công dân số (GDKNCDS).
 
-### 👩‍🏫 2.4. Quản Lý Giáo Viên & Phân Công Chuyên Môn
+### 📊 2.4. Bảng Định Mức Số Tiết Chuẩn Theo Từng Khối Lớp (32 tiết/tuần)
+Hệ thống được cấu hình định mức chính xác theo đúng chương trình thực tế của nhà trường:
+
+| STT | Môn Học / Hoạt Động Giáo Dục | Khối 1 | Khối 2 | Khối 3 | Khối 4 | Khối 5 | Ghi chú & Phòng học |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| 1 | **Tiếng Việt** | 12 | 10 | 7 | 7 | 7 | Phòng học tại lớp |
+| 2 | **Toán** | 3 | 5 | 5 | 5 | 5 | Phòng học tại lớp |
+| 3 | **Tiếng Anh** | 2 | 2 | 4 | 4 | 4 | GV chuyên trách Ngoại ngữ |
+| 4 | **Tự nhiên và Xã hội (TNXH)** | 2 | 2 | 2 | - | - | Khối 1, 2, 3 |
+| 5 | **Lịch sử - Địa lí & Khoa học** | - | - | - | 4 | 4 | Khối 4, 5 (Khoa học 2t + Sử-Địa 2t) |
+| 6 | **Công nghệ** | - | - | 1 | 1 | 1 | Khối 3, 4, 5 |
+| 7 | **Tin học** | 1 | 1 | 1 | 1 | 1 | **Phòng máy vi tính chuyên dụng** |
+| 8 | **Giáo dục thể chất (GDTC)** | 2 | 2 | 2 | 2 | 2 | **Sân / Nhà đa năng thể chất** |
+| 9 | **Đạo đức** | 1 | 1 | 1 | 1 | 1 | Phòng học tại lớp |
+| 10 | **Âm nhạc** | 1 | 1 | 1 | 1 | 1 | GV chuyên trách Âm nhạc |
+| 11 | **Mĩ thuật** | 1 | 1 | 1 | 1 | 1 | GV chuyên trách Mĩ thuật |
+| 12 | **Hoạt động trải nghiệm (HĐTN)** | 3 | 3 | 3 | 3 | 3 | Sinh hoạt dưới cờ, HĐTN, SH lớp |
+| 13 | **Đọc thư viện (Đọc TV)** | 1 | 1 | 1 | 1 | 1 | Theo lịch phân phòng Thư viện |
+| 14 | **Hoạt động củng cố (HĐCC)** | 2 | 2 | 2 | - | - | Bổ trợ rèn luyện Khối 1, 2, 3 |
+| 15 | **Kỹ năng công dân số (GDKNCDS)** | 1 | 1 | 1 | 1 | 1 | Giáo dục năng lực số Tiểu học |
+| | **TỔNG CỘNG TIẾT / TUẦN** | **32** | **32** | **32** | **32** | **32** | **Đúng chuẩn 32 tiết/tuần** |
+
+### 👩‍🏫 2.5. Quản Lý Giáo Viên & Phân Công Chuyên Môn
 - Quản lý thông tin hồ sơ giáo viên, tổ chuyên môn, định mức tiết chuẩn/tuần.
 - Phân định rõ ràng: **Giáo viên Chủ nhiệm (GVCN)** và **Giáo viên Bộ môn (Chuyên trách)**.
 - Bảng thống kê định mức thời gian thực: So sánh số tiết phân công với số tiết thực tế đã xếp trên thời khóa biểu.

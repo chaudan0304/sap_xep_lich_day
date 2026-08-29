@@ -68,7 +68,17 @@ export function App() {
 
   const [gradeQuotas, setGradeQuotas] = useState(() => {
     const saved = localStorage.getItem('EDUTIMETABLE_GRADE_QUOTAS');
-    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Kiểm tra nếu dữ liệu cũ có môn Tự chọn hoặc thiếu môn Đọc thư viện / HĐCC
+        const isOutdated = parsed['1']?.subjects?.some(s => s.subjectId === 'TU_CHON') || !parsed['1']?.subjects?.some(s => s.subjectId === 'DOC_THU_VIEN');
+        if (!isOutdated) return parsed;
+      } catch (e) {
+        console.error('Error parsing saved grade quotas:', e);
+      }
+    }
+    return JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS));
   });
 
   const [classes, setClasses] = useState(() => {

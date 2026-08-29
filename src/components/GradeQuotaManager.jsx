@@ -60,6 +60,7 @@ export const GradeQuotaManager = ({
 
   // Thêm môn học mới vào khối
   const handleAddSubject = () => {
+    const existingIds = new Set(currentQuota.subjects.map(s => s.subjectId));
     // Tìm môn học chưa có trong danh sách
     const availableKey = Object.keys(subjects).find(k => !existingIds.has(k)) || 'TU_CHON';
 
