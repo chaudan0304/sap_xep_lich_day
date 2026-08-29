@@ -1,11 +1,17 @@
 // src/services/excelService.js
 // Xử lý Toàn diện Nhập & Xuất File Excel (SheetJS XLSX)
-// Tương thích cả định dạng chuẩn Bộ GD&ĐT và định dạng STKB thực tế nhiều Sheet (Khối 1 -> 5, Phân công chuyên môn)
+// Tương thích cả định dạng chuẩn Bộ GD&ĐT và định dạng STKB thực tế nhiều Sheet (Khối 1 -> 5, Phân công chuyên môn, Tiết đọc TV)
 
 import * as XLSX from 'xlsx';
-import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
-import { DAYS_OF_WEEK, PERIODS, DEFAULT_GRADE_QUOTAS } from '../constants/defaultCurriculum';
-import { SAMPLE_ROOMS, SAMPLE_CLASSES, SAMPLE_TEACHERS, generateSampleAssignments } from '../data/sampleData';
+import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects.js';
+import { DAYS_OF_WEEK, PERIODS, DEFAULT_GRADE_QUOTAS } from '../constants/defaultCurriculum.js';
+import { SAMPLE_ROOMS, SAMPLE_CLASSES, SAMPLE_TEACHERS, generateSampleAssignments } from '../data/sampleData.js';
+
+import { parseExcelWorkbook, mapSubjectCodeAndRoom, resolveTeacher } from './excelParser.js';
+import { validateParsedExcelData } from './excelValidator.js';
+import { mapParsedExcelToAppModel } from './excelMapper.js';
+
+export { mapSubjectCodeAndRoom, resolveTeacher };
 
 /**
  * 1. TẢI FILE MẪU CHUẨN ĐỊNH MỨC (.xlsx)
@@ -37,7 +43,6 @@ export const downloadExcelTemplate = () => {
     'Mã GV': t.id,
     'Họ và Tên': t.name,
     'Mã Viết Tắt': t.code,
-
     'Là GV Chủ Nhiệm (CÓ/KHÔNG)': t.isHomeroom ? 'CÓ' : 'KHÔNG',
     'Chủ Nhiệm Lớp': t.homeroomClassId || '',
     'Số Điện Thoại': t.phone || '',
@@ -87,388 +92,32 @@ export const downloadExcelTemplate = () => {
 };
 
 /**
- * Helper: Ánh xạ tên môn viết tắt trong Excel sang mã chuẩn và phòng học
+ * 2. ĐỌC VÀ PHÂN TÍCH FILE EXCEL VỚI PREVIEW & VALIDATION ĐẦY ĐỦ
+ * @param {File} file File Excel từ trình duyệt
+ * @returns {Promise<Object>} { success, previewData, errors, warnings, summary, data }
  */
-export function mapSubjectCodeAndRoom(subRaw, defaultRoom = 'LOP_HOC') {
-  if (!subRaw) return { subjectId: 'TU_CHON', roomId: defaultRoom };
-  const s = String(subRaw).trim();
-  if (s.includes('HĐTN')) return { subjectId: 'HDTN', roomId: 'LOP_HOC' };
-  if (s.includes('Tiếng Anh') || s.includes('T.Anh')) return { subjectId: 'TIENG_ANH', roomId: 'LOP_HOC' };
-  if (s.includes('Tin học') || s.includes('Tin')) return { subjectId: 'TIN_HOC', roomId: 'PHONG_TIN_HOC' };
-  if (s.includes('Công nghệ') || s === 'CN') return { subjectId: 'CONG_NGHE', roomId: 'LOP_HOC' };
-  if (s.includes('GDTC') || s.includes('Thể dục')) return { subjectId: 'THE_DUC', roomId: 'SAN_THE_CHAT' };
-  if (s.includes('Mĩ thuật') || s.includes('Mỹ thuật')) return { subjectId: 'MY_THUAT', roomId: 'LOP_HOC' };
-  if (s.includes('Âm nhạc')) return { subjectId: 'AM_NHAC', roomId: 'LOP_HOC' };
-  if (s.includes('TNXH')) return { subjectId: 'TNXH', roomId: 'LOP_HOC' };
-  // KH và LS_DL là 1 môn (Khoa-Sử-Địa)
-  if (s.includes('Khoa-Sử-Địa') || s.includes('Sử-Địa') || s.includes('LS_DL') || s.includes('Khoa học')) {
-    return { subjectId: 'LS_DL', roomId: 'LOP_HOC' };
-  }
-  if (s.includes('Toán')) return { subjectId: 'TOAN', roomId: 'LOP_HOC' };
-  if (s.includes('Tiếng Việt') || s.includes('T.Việt')) return { subjectId: 'TIENG_VIET', roomId: 'LOP_HOC' };
-  if (s.includes('Đạo đức') || s.includes('ĐĐ')) return { subjectId: 'DAO_DUC', roomId: 'LOP_HOC' };
-  if (s.includes('Công dân số') || s.includes('công dân số') || s.includes('GDCDS') || s.includes('GDKNCD')) {
-    return { subjectId: 'GD_CONG_DAN_SO', roomId: 'LOP_HOC' };
-  }
-  if (s.includes('Củng cố') || s.includes('củng cố') || s.includes('HĐ củng cố') || s.includes('Hoạt động củng cố') || s === 'HĐCC') {
-    return { subjectId: 'HD_CUNG_CO', roomId: 'LOP_HOC' };
-  }
-  if (s.includes('Đọc thư viện') || s.includes('Thư viện') || s.includes('Đọc TV') || s.includes('ĐTV')) {
-    return { subjectId: 'DOC_THU_VIEN', roomId: 'LOP_HOC' };
-  }
-
-  if (s.includes('Đ/c Hoàng Hòa')) return { subjectId: 'CONG_NGHE', roomId: 'LOP_HOC' };
-  return { subjectId: 'TU_CHON', roomId: defaultRoom };
-}
-
-/**
- * Helper: Tìm giáo viên từ tên viết tắt trong cell Excel
- */
-export function resolveTeacher(teacherRaw, classId, teachers) {
-  if (!teacherRaw) {
-    const homeroomTeacher = teachers.find(t => t.homeroomClassId === classId);
-    return homeroomTeacher || null;
-  }
-
-  let clean = teacherRaw.replace(/^Đ\/c\s+/i, '').trim().toLowerCase();
-
-  if (clean === 'nguyễn nga') {
-    if (classId && classId.startsWith('5')) {
-      return teachers.find(t => t.name.includes('Nga A')) || teachers.find(t => t.homeroomClassId === '5A3');
-    }
-    return teachers.find(t => t.homeroomClassId === '1A1') || teachers.find(t => t.name === 'Nguyễn Thị Nga');
-  }
-  if (clean === 'nguyễn minh' || clean === 'bùi việt') {
-    return teachers.find(t => t.name.includes('Bùi Văn Việt')) || teachers.find(t => t.id === 'GV_01');
-  }
-  if (clean === 'lê quỳnh') {
-    if (classId === '4A3') {
-      return teachers.find(t => t.homeroomClassId === '4A3') || teachers.find(t => t.name.includes('Nguyễn Văn Trí'));
-    }
-    return teachers.find(t => t.name.includes('Lê Như Quỳnh'));
-  }
-  if (clean === 'lữ sinh') return teachers.find(t => t.name.includes('Lữ Đặng Sinh'));
-  if (clean === 'châu đàn') return teachers.find(t => t.name.includes('Châu Đàn'));
-  if (clean === 'hồ huyền') return teachers.find(t => t.name.includes('Hồ Thị Huyền') || t.name.includes('Hồ Thị Huyền'));
-  if (clean === 'hồ hằng') return teachers.find(t => t.name.includes('Hồ Thị Hằng'));
-  if (clean === 'trần mừng') return teachers.find(t => t.name.includes('Trần Thị Mừng'));
-  if (clean === 'trần thủy') return teachers.find(t => t.name.includes('Trần Thị Thủy'));
-  if (clean === 'đặng ba') return teachers.find(t => t.name.includes('Đặng Thị Ba'));
-  if (clean === 'hồ duy') return teachers.find(t => t.name.includes('Hồ Quốc Duy'));
-  if (clean === 'hoàng hòa') return teachers.find(t => t.name.includes('Hoàng Thị Hòa'));
-  if (clean === 'nguyễn an') return teachers.find(t => t.name === 'Nguyễn Thị An');
-  if (clean === 'hồ cường' || clean === 'việt cường') return teachers.find(t => t.name.includes('Hồ Việt Cường'));
-
-  for (const t of teachers) {
-    const tLower = t.name.toLowerCase();
-    if (tLower === clean || tLower.endsWith(clean) || tLower.includes(clean)) {
-      return t;
-    }
-  }
-
-  const homeroomTeacher = teachers.find(t => t.homeroomClassId === classId);
-  return homeroomTeacher || null;
-}
-
-/**
- * 2. ĐỌC FILE EXCEL ĐƯỢC TẢI LÊN (HỖ TRỢ CẢ ĐỊNH DẠNG CHUẨN VÀ ĐỊNH DẠNG BẢNG TOÀN TRƯỜNG THỰC TẾ)
- */
-export const importExcelData = (file) => {
+export const importExcelWithPreview = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
     reader.onload = (e) => {
       try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const errors = [];
-        const result = {};
+        const buffer = new Uint8Array(e.target.result);
+        const parsed = parseExcelWorkbook(buffer);
+        const validation = validateParsedExcelData(parsed);
+        const mappedData = mapParsedExcelToAppModel(parsed);
 
-        // TRƯỜNG HỢP 1: File định dạng thực tế (Có Sheet 'Phân công chuyên môn' và các Sheet '1', '2', '3.', '4', '5')
-        if (workbook.Sheets['Phân công chuyên môn']) {
-          const pcSheet = workbook.Sheets['Phân công chuyên môn'];
-          const pcData = XLSX.utils.sheet_to_json(pcSheet, { header: 1, defval: '' });
-
-          // 1. Phân tích danh sách 41 Cán bộ / Giáo viên
-          const teachers = [];
-          for (let i = 8; i < pcData.length; i++) {
-            const row = pcData[i];
-            if (!row || !row[1]) continue;
-            const rawTt = row[0];
-            const name = String(row[1]).trim();
-            const task = String(row[2] || '').trim();
-            const totalP = Number(row[12]) || 0;
-            const dinhMuc = Number(row[14]) || 23;
-
-            let dept = 'Giáo viên';
-            let isHomeroom = false;
-            let homeroomClassId = null;
-
-            const matchHome = task.match(/Chủ nhiệm\s+([1-5]A[1-5])/i);
-            if (matchHome) {
-              isHomeroom = true;
-              homeroomClassId = matchHome[1].toUpperCase();
-            }
-
-            if (name.includes('Hồ Thị Nhung')) {
-              homeroomClassId = '5A2';
-              isHomeroom = true;
-            }
-            if (name.includes('Nguyễn Văn Trí')) {
-              homeroomClassId = '4A3';
-              isHomeroom = true;
-            }
-
-            if (task.includes('Phụ trách chung') || task.includes('Hiệu trưởng')) {
-              dept = 'Ban Giám Hiệu';
-            } else if (task.includes('Phụ trách chuyên môn')) {
-              dept = 'Ban Giám Hiệu';
-            } else if (task.includes('Kế toán') || task.includes('Văn thư') || task.includes('Y tế') || task.includes('Bảo vệ')) {
-              dept = 'Tổ Văn Phòng';
-            } else if (task.includes('Tổng phụ trách')) {
-              dept = 'Tổ Chuyên Môn';
-            } else if (task.includes('Tiếng Anh')) {
-              dept = 'Tổ Ngoại Ngữ';
-            } else if (task.includes('Tin Khối') || task.includes('Tin học')) {
-              dept = 'Tổ Tin Học';
-            } else if (task.includes('Âm nhạc') || task.includes('Mỹ thuật') || task.includes('Mĩ thuật') || task.includes('GDTC')) {
-              dept = 'Tổ Thể Chất - Nghệ Thuật';
-            } else {
-              dept = 'Giáo viên';
-            }
-
-            const nameParts = name.split(/\s+/);
-            const lastName = nameParts[nameParts.length - 1];
-            const initials = nameParts.slice(0, -1).map(p => p[0]).join('');
-            const code = `${lastName.toUpperCase()}.${initials.toUpperCase()}`;
-
-            let id;
-            let tt;
-            if (rawTt && !isNaN(rawTt)) {
-              tt = Number(rawTt);
-              id = `GV_${String(tt).padStart(2, '0')}`;
-            } else {
-              tt = 41;
-              id = `GV_41`;
-            }
-
-            const position = dept === 'Ban Giám Hiệu' 
-              ? (tt === 1 ? 'Hiệu Trưởng' : 'Phó Hiệu Trưởng') 
-              : (isHomeroom ? `GVCN Lớp ${homeroomClassId}` : (dept === 'Tổ Văn Phòng' ? task : (dept.includes('Tổ') ? 'GV Bộ Môn' : 'Giáo Viên')));
-
-            teachers.push({
-              id,
-              tt,
-              name,
-              code,
-              department: dept,
-              position,
-              isHomeroom,
-              homeroomClassId,
-              task,
-              assignedPeriods: totalP,
-              dinhMuc,
-              maxPeriodsPerDay: 6,
-              offSessions: [],
-              color: '#3b82f6'
-            });
-          }
-          result.teachers = teachers;
-
-          // 2. Danh sách 23 Lớp học
-          const gradeSheetMap = {
-            1: { sheet: '1', classes: ['1A1', '1A2', '1A3', '1A4'] },
-            2: { sheet: '2', classes: ['2A1', '2A2', '2A3', '2A4', '2A5'] },
-            3: { sheet: workbook.Sheets['3.'] ? '3.' : '3', classes: ['3A1', '3A2', '3A3', '3A4'] },
-            4: { sheet: '4', classes: ['4A1', '4A2', '4A3', '4A4', '4A5'] },
-            5: { sheet: '5', classes: ['5A1', '5A2', '5A3', '5A4', '5A5'] }
-          };
-
-          const classes = [];
-          Object.entries(gradeSheetMap).forEach(([gStr, gInfo]) => {
-            const grade = Number(gStr);
-            gInfo.classes.forEach(cName => {
-              const teacher = teachers.find(t => t.homeroomClassId === cName);
-              classes.push({
-                id: cName,
-                name: `Lớp ${cName}`,
-                grade,
-                homeroomTeacherId: teacher ? teacher.id : 'GV_01',
-                mainRoom: `P.${cName}`,
-                studentCount: 35
-              });
-            });
-          });
-          result.classes = classes;
-
-          // 3. Khởi tạo Ma Trận Thời Khóa Biểu
-          const timetable = {};
-          classes.forEach(c => {
-            timetable[c.id] = {
-              2: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
-              3: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
-              4: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
-              5: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
-              6: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null }
-            };
-          });
-
-          // Trích xuất tiết dạy từ Sheet Khối 1 -> 5
-          Object.entries(gradeSheetMap).forEach(([gStr, gInfo]) => {
-            const ws = workbook.Sheets[gInfo.sheet];
-            if (!ws) return;
-            const sData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-            const header = sData[7];
-
-            let currentDay = 2;
-            let currentSession = 'Sáng';
-
-            for (let r = 9; r < sData.length; r++) {
-              const row = sData[r];
-              if (!row || row.length === 0) continue;
-              if (typeof row[0] === 'string' && row[0].includes('Tân Mai')) break;
-
-              if (row[0] && !isNaN(row[0])) currentDay = Number(row[0]);
-              if (row[1] && typeof row[1] === 'string' && row[1].trim()) currentSession = row[1].trim();
-              const rawPeriod = Number(row[2]);
-              if (!rawPeriod || isNaN(rawPeriod)) continue;
-
-              const periodId = currentSession.toLowerCase().includes('chiều') ? (4 + rawPeriod) : rawPeriod;
-              if (periodId > 7) continue;
-
-              for (let c = 3; c < row.length; c += 2) {
-                const clsName = (header[c] || '').trim();
-                if (!gInfo.classes.includes(clsName)) continue;
-
-                let subjRaw = (row[c] || '').trim();
-                let teacherRaw = (row[c + 1] || '').trim();
-
-                if (subjRaw === 'Đ/c Hoàng Hòa' && !teacherRaw) {
-                  subjRaw = 'Công nghệ';
-                  teacherRaw = 'Đ/c Hoàng Hòa';
-                }
-
-                if (subjRaw || teacherRaw) {
-                  const tObj = resolveTeacher(teacherRaw, clsName, teachers);
-                  const { subjectId, roomId } = mapSubjectCodeAndRoom(subjRaw);
-
-                  timetable[clsName][currentDay][periodId] = {
-                    subjectId,
-                    subjectRaw: subjRaw || (subjectId === 'LS_DL' ? 'Khoa-Sử-Địa' : subjectId),
-                    teacherId: tObj ? tObj.id : '',
-                    teacherRaw: teacherRaw || (tObj ? tObj.name : ''),
-                    roomId,
-                    isLocked: true
-                  };
-                }
-              }
-            }
-          });
-
-          result.timetable = timetable;
-
-          // 4. Sinh Danh Sách Phân Công Chuyên Môn (assignments)
-          const assignments = [];
-          classes.forEach(cls => {
-            const gvHome = teachers.find(t => t.id === cls.homeroomTeacherId);
-            const homeId = gvHome ? gvHome.id : 'GV_01';
-            const gQuota = DEFAULT_GRADE_QUOTAS[cls.grade];
-
-            gQuota.subjects.forEach(sub => {
-              let assignedTeacher = homeId;
-
-              // Specialist mapping from Phân công chuyên môn
-              if (sub.subjectId === 'TIENG_ANH') {
-                if (cls.grade === 1 || cls.grade === 2 || cls.id === '3A1' || cls.id === '3A2') assignedTeacher = 'GV_33'; // Hồ Quốc Duy
-                else if (cls.id === '3A3' || cls.grade === 4) assignedTeacher = 'GV_32'; // Đặng Thị Ba
-                else if (cls.id === '3A4' || cls.grade === 5) assignedTeacher = 'GV_31'; // Trần Thị Thủy
-              } else if (sub.subjectId === 'TIN_HOC') {
-                assignedTeacher = 'GV_34'; // Nguyễn Văn Châu Đàn
-              } else if (sub.subjectId === 'CONG_NGHE') {
-                if (cls.grade === 3 || cls.grade === 5) assignedTeacher = 'GV_27'; // Hoàng Thị Hòa (K3, K5)
-                else assignedTeacher = homeId; // Khối 4 do GVCN dạy
-              } else if (sub.subjectId === 'AM_NHAC') {
-                assignedTeacher = 'GV_29'; // Hồ Thị Hằng
-              } else if (sub.subjectId === 'MY_THUAT') {
-                assignedTeacher = 'GV_30'; // Hồ Thị Huyền
-              } else if (sub.subjectId === 'THE_DUC') {
-                if (cls.grade === 1 || ['2A4', '2A5', '4A2', '4A3', '4A4'].includes(cls.id)) assignedTeacher = 'GV_26'; // Trần Thị Mừng
-                else if (['2A1', '2A2'].includes(cls.id)) assignedTeacher = 'GV_02'; // Lữ Đặng Sinh
-                else if (cls.id === '2A3') assignedTeacher = 'GV_41'; // Nguyễn Thị An
-                else if (cls.id === '4A1') assignedTeacher = 'GV_01'; // Bùi Văn Việt
-                else if (cls.grade === 5) assignedTeacher = 'GV_28'; // Hồ Việt Cường
-                else assignedTeacher = homeId;
-              } else if (sub.subjectId === 'TNXH') {
-                if (['1A1', '1A2', '1A3'].includes(cls.id)) assignedTeacher = 'GV_26'; // Trần Thị Mừng
-                else if (cls.id === '1A4' || cls.grade === 2 || cls.id === '3A4') assignedTeacher = 'GV_27'; // Hoàng Thị Hòa
-                else assignedTeacher = homeId;
-              } else if (sub.subjectId === 'DAO_DUC') {
-                if (['2A2', '3A1', '3A2', '3A3'].includes(cls.id)) assignedTeacher = 'GV_41'; // Nguyễn Thị An
-                else assignedTeacher = homeId;
-              }
-
-              assignments.push({
-                id: `ASG_${cls.id}_${sub.subjectId}`,
-                classId: cls.id,
-                grade: cls.grade,
-                subjectId: sub.subjectId,
-                teacherId: assignedTeacher,
-                weeklyPeriods: sub.weeklyPeriods,
-                roomType: sub.roomType,
-                allowDouble: sub.allowDouble
-              });
-            });
-          });
-
-          result.assignments = assignments;
-          result.gradeQuotas = JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS));
-          result.rooms = [
-            { id: 'PHONG_TIN_HOC', name: 'Phòng Tin học 1', code: 'TIN-01', capacity: 35, isSpecialized: true },
-            { id: 'SAN_THE_CHAT', name: 'Nhà thi đấu / Sân Thể chất', code: 'SAN-TC', capacity: 100, isSpecialized: true, allowMultiple: true }
-          ];
-
-          resolve({ success: true, data: result, errors });
-          return;
-        }
-
-        // TRƯỜNG HỢP 2: File theo Sheet Mẫu Chuẩn
-        if (workbook.Sheets['Danh_Sach_Giao_Vien']) {
-          const rawTeachers = XLSX.utils.sheet_to_json(workbook.Sheets['Danh_Sach_Giao_Vien']);
-          result.teachers = rawTeachers.map(r => {
-            const offSessionsStr = String(r['Buổi Đăng Ký Nghỉ'] || r['Buổi Đăng Ký Nghỉ (VD: 4_morning, 2_afternoon)'] || '');
-            const offSessions = offSessionsStr ? offSessionsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
-            const isHome = String(r['Là GV Chủ Nhiệm (CÓ/KHÔNG)']).toUpperCase().includes('CÓ');
-
-            return {
-              id: String(r['Mã GV'] || '').trim(),
-              name: String(r['Họ và Tên'] || '').trim(),
-              code: String(r['Mã Viết Tắt'] || '').trim(),
-              department: String(r['Tổ Chuyên Môn'] || 'Giáo viên').trim(),
-              isHomeroom: isHome,
-              homeroomClassId: r['Chủ Nhiệm Lớp'] ? String(r['Chủ Nhiệm Lớp']).trim() : null,
-              phone: String(r['Số Điện Thoại'] || '').trim(),
-              email: String(r['Email'] || '').trim(),
-              maxPeriodsPerDay: Number(r['Số Tiết Tối Đa / Ngày']) || 6,
-              offSessions,
-              color: '#3b82f6'
-            };
-          }).filter(t => t.id && t.name);
-        }
-
-        if (workbook.Sheets['Danh_Sach_Lop']) {
-          const rawClasses = XLSX.utils.sheet_to_json(workbook.Sheets['Danh_Sach_Lop']);
-          result.classes = rawClasses.map(r => ({
-            id: String(r['Mã Lớp'] || '').trim(),
-            name: String(r['Tên Lớp'] || '').trim(),
-            grade: Number(r['Khối']) || 1,
-            homeroomTeacherId: String(r['Mã GVCN'] || '').trim(),
-            mainRoom: String(r['Phòng Học Chính'] || 'P.101').trim(),
-            studentCount: Number(r['Sĩ Số Học Sinh']) || 35
-          })).filter(c => c.id && c.name);
-        }
-
-        resolve({ success: true, data: result, errors });
+        resolve({
+          success: true,
+          isValid: validation.isValid,
+          previewData: parsed,
+          errors: validation.errors,
+          warnings: validation.warnings,
+          summary: validation.summary,
+          data: mappedData
+        });
       } catch (err) {
+        console.error('Error in importExcelWithPreview:', err);
         reject(err);
       }
     };
@@ -476,6 +125,14 @@ export const importExcelData = (file) => {
     reader.onerror = (error) => reject(error);
     reader.readAsArrayBuffer(file);
   });
+};
+
+/**
+ * Hàm import tương thích ngược
+ */
+export const importExcelData = async (file) => {
+  const result = await importExcelWithPreview(file);
+  return result;
 };
 
 /**
@@ -630,7 +287,6 @@ export const exportTeacherDirectory = (teachers, assignments, timetable, classes
       'Mã GV': t.id,
       'Họ và Tên': t.name,
       'Mã Viết Tắt': t.code,
-
       'Nhiệm Vụ': t.task || (t.isHomeroom ? `GVCN Lớp ${t.homeroomClassId}` : 'GV Bộ Môn'),
       'Định Mức Tiết/Tuần': t.dinhMuc || t.weeklyQuota || 23,
       'Tổng Số Tiết Phân Công / Tuần': assignedPeriods || t.assignedPeriods || 0,
