@@ -12,6 +12,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "desktop:build": "vite build && electron-packager . \"EduTimetable_TieuHoc\" --platform=win32 --arch=x64 --out=dist-desktop --overwrite --prune=true",
+    "release:zip": "npm run desktop:build && powershell -Command \"Compress-Archive -Path dist-desktop\\EduTimetable_TieuHoc-win32-x64\\* -DestinationPath dist-desktop\\EduTimetable_TieuHoc.zip -Force\"",
     "electron:dev": "concurrently -k \"cross-env BROWSER=none vite\" \"wait-on tcp:5173 && electron .\"",
     "electron:build": "vite build && electron-builder --win nsis portable",
     "electron:build:installer": "vite build && electron-builder --win nsis",
