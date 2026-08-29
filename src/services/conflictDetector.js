@@ -213,42 +213,7 @@ export const checkAllConflicts = (timetable = {}, assignments = [], teachers = [
     }
   }
 
-  // 2. Kiểm tra Số tiết dạy tối đa/ngày của từng Giáo viên
-  teachers.forEach(teacher => {
-    const maxPerDay = teacher.maxPeriodsPerDay || 7;
-    for (let day = 2; day <= 6; day++) {
-      let dailyCount = 0;
-      const classLessons = [];
-      classes.forEach(cls => {
-        for (let period = 1; period <= 7; period++) {
-          const slot = timetable[cls.id]?.[day]?.[period];
-          if (slot && slot.teacherId === teacher.id) {
-            dailyCount++;
-            classLessons.push({ classId: cls.id, className: cls.name, period, subjectId: slot.subjectId });
-          }
-        }
-      });
 
-      if (dailyCount > maxPerDay) {
-        const dayName = getDayName(day);
-        conflicts.push({
-          id: `max_daily_${day}_${teacher.id}`,
-          type: CONFLICT_TYPES.TEACHER_MAX_DAILY,
-          severity: 'warning',
-          title: 'Vượt số tiết dạy trong ngày',
-          teacherId: teacher.id,
-          teacherName: teacher.name,
-          teacherCode: teacher.code || teacher.name,
-          day,
-          dayName,
-          dailyCount,
-          maxPerDay,
-          classLessons,
-          message: `Vượt định mức ngày: ${teacher.name} (${teacher.code}) đang dạy ${dailyCount} tiết vào ${dayName} (vượt quá ${maxPerDay} tiết/ngày)`
-        });
-      }
-    }
-  });
 
   // 3. Kiểm tra Thừa / Thiếu số tiết so với phân công của từng lớp
   classes.forEach(cls => {
