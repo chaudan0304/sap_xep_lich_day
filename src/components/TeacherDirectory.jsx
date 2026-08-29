@@ -1814,14 +1814,14 @@ export const TeacherDirectory = ({
               </div>
 
               {/* Official Printable Table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', textAlign: 'center', fontSize: '9pt' }}>
+              <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1.5px solid #000', textAlign: 'center', fontSize: '8.5pt' }}>
                 <thead>
                   <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #000' }}>
-                    <th style={{ border: '1px solid #000', width: '45px', padding: '6px 2px', fontWeight: 800 }}>Buổi</th>
-                    <th style={{ border: '1px solid #000', width: '38px', padding: '6px 2px', fontWeight: 800 }}>Tiết</th>
-                    <th style={{ border: '1px solid #000', width: '85px', padding: '6px 2px', fontWeight: 800 }}>Thời gian</th>
+                    <th style={{ border: '1px solid #000', width: '36px', padding: '5px 2px', fontWeight: 800 }}>Buổi</th>
+                    <th style={{ border: '1px solid #000', width: '28px', padding: '5px 2px', fontWeight: 800 }}>Tiết</th>
+                    <th style={{ border: '1px solid #000', width: '68px', padding: '5px 2px', fontWeight: 800 }}>Thời gian</th>
                     {DAYS_OF_WEEK.map(d => (
-                      <th key={d.id} style={{ border: '1px solid #000', padding: '6px 4px', fontWeight: 800 }}>
+                      <th key={d.id} style={{ border: '1px solid #000', padding: '5px 2px', fontWeight: 800 }}>
                         {d.name.toUpperCase()}
                       </th>
                     ))}
@@ -1874,13 +1874,13 @@ export const TeacherDirectory = ({
                           }
 
                           return (
-                            <td key={day.id} style={{ border: '1px solid #000', height: '40px', padding: '3px 4px', verticalAlign: 'middle' }}>
+                            <td key={day.id} style={{ border: '1px solid #000', height: '36px', padding: '2px 2px', verticalAlign: 'middle', wordBreak: 'break-word' }}>
                               {matchSlot ? (
                                 <div>
-                                  <div style={{ fontWeight: 800, fontSize: '9.5pt', color: '#000' }}>
+                                  <div style={{ fontWeight: 800, fontSize: '9pt', color: '#000', lineHeight: 1.15 }}>
                                     {sub?.name || matchSlot.subjectId}
                                   </div>
-                                  <div style={{ fontSize: '8.5pt', fontWeight: 700, color: '#000', marginTop: '1px' }}>
+                                  <div style={{ fontSize: '8pt', fontWeight: 700, color: '#000', marginTop: '1px' }}>
                                     {matchClass?.name}
                                   </div>
                                 </div>
@@ -1894,7 +1894,7 @@ export const TeacherDirectory = ({
 
                       {p.id === 4 && (
                         <tr style={{ background: '#f1f5f9', border: '1px solid #000' }}>
-                          <td colSpan={8} style={{ border: '1px solid #000', padding: '4px', fontSize: '8.5pt', fontWeight: 800, fontStyle: 'italic' }}>
+                          <td colSpan={8} style={{ border: '1px solid #000', padding: '3px', fontSize: '8pt', fontWeight: 800, fontStyle: 'italic' }}>
                             🍱 NGHỈ TRƯA (10:30 - 14:00)
                           </td>
                         </tr>
@@ -1905,18 +1905,18 @@ export const TeacherDirectory = ({
               </table>
 
               {/* Footer Signatures */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '22px', fontSize: '9.5pt' }}>
-                <div style={{ textAlign: 'center', width: '220px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '9pt' }}>
+                <div style={{ textAlign: 'center', width: '200px' }}>
                   <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>GIÁO VIÊN</div>
                   <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-                  <div style={{ height: '45px' }} />
+                  <div style={{ height: '40px' }} />
                   <div style={{ fontWeight: 800 }}>{previewTeacher.name}</div>
                 </div>
-                <div style={{ textAlign: 'center', width: '240px' }}>
+                <div style={{ textAlign: 'center', width: '220px' }}>
                   <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
                   <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
                   <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
-                  <div style={{ height: '45px' }} />
+                  <div style={{ height: '40px' }} />
                   <div style={{ fontWeight: 800 }}>Bùi Văn Việt</div>
                 </div>
               </div>

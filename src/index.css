@@ -126,15 +126,17 @@ button, input, select, textarea {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 6mm 8mm 6mm 8mm;
+    margin: 8mm 8mm 8mm 8mm;
   }
 
   /* 1. Reset document flow */
-  html, body, #root {
+  html, body {
     background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
@@ -145,7 +147,8 @@ button, input, select, textarea {
     print-color-adjust: exact !important;
   }
 
-  /* 2. Hide all non-printable screen elements completely from layout flow */
+  /* 2. Hide everything except printable sheets */
+  #root,
   .no-print,
   button,
   nav,
@@ -155,21 +158,28 @@ button, input, select, textarea {
     display: none !important;
   }
 
-  /* 3. Strip portal modal fixed overlay styles */
-  div:has(> .printable-sheet),
-  div:has(> * > .printable-sheet),
-  .animate-fade-in {
+  /* 3. Strip all modal fixed viewport centering properties */
+  .portal-print-modal,
+  .portal-print-modal > div,
+  .portal-print-modal > div > div {
     position: static !important;
-    background: transparent !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
+    display: block !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-height: 0 !important;
     height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
     overflow: visible !important;
+    transform: none !important;
+    inset: auto !important;
   }
 
   /* 4. Display the single printable sheet perfectly on 1 page */
@@ -190,10 +200,12 @@ button, input, select, textarea {
 
   .printable-sheet * {
     visibility: visible !important;
+    box-sizing: border-box !important;
   }
 
   .printable-sheet table {
     width: 100% !important;
+    table-layout: fixed !important;
     border-collapse: collapse !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
@@ -203,6 +215,7 @@ button, input, select, textarea {
   .printable-sheet td {
     border: 1px solid #000000 !important;
     color: #000000 !important;
+    word-break: break-word !important;
   }
 
   .printable-sheet th {
