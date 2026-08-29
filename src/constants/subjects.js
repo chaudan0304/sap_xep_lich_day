@@ -1,0 +1,228 @@
+// src/constants/subjects.js
+
+export const SUBJECT_CATEGORIES = {
+  CORE: 'Cơ bản',
+  LANGUAGE: 'Ngoại ngữ',
+  SPECIALIZED: 'Chuyên môn & Năng khiếu',
+  PHYSICAL: 'Thể chất',
+  EXPERIENCE: 'Hoạt động trải nghiệm',
+  FIXED: 'Cố định'
+};
+
+export const SUBJECTS = {
+  TIENG_VIET: {
+    id: 'TIENG_VIET',
+    name: 'Tiếng Việt',
+    shortName: 'T.Việt',
+    category: SUBJECT_CATEGORIES.CORE,
+    color: '#ef4444',
+    bg: '#fef2f2',
+    border: '#fca5a5',
+    text: '#991b1b',
+    icon: 'BookOpen',
+    defaultRoom: 'LOP_HOC',
+    description: 'Rèn luyện kỹ năng đọc, viết, nói và nghe'
+  },
+  TOAN: {
+    id: 'TOAN',
+    name: 'Toán',
+    shortName: 'Toán',
+    category: SUBJECT_CATEGORIES.CORE,
+    color: '#2563eb',
+    bg: '#eff6ff',
+    border: '#93c5fd',
+    text: '#1e40af',
+    icon: 'Calculator',
+    defaultRoom: 'LOP_HOC',
+    description: 'Phát triển tư duy logic và tính toán'
+  },
+  TIENG_ANH: {
+    id: 'TIENG_ANH',
+    name: 'Tiếng Anh',
+    shortName: 'T.Anh',
+    category: SUBJECT_CATEGORIES.LANGUAGE,
+    color: '#7c3aed',
+    bg: '#f5f3ff',
+    border: '#c4b5fd',
+    text: '#5b21b6',
+    icon: 'Languages',
+    defaultRoom: 'LOP_HOC',
+    description: 'Giao tiếp tiếng Anh theo chuẩn quốc tế'
+  },
+  TIN_HOC: {
+    id: 'TIN_HOC',
+    name: 'Tin học',
+    shortName: 'Tin học',
+    category: SUBJECT_CATEGORIES.SPECIALIZED,
+    color: '#0284c7',
+    bg: '#f0f9ff',
+    border: '#7dd3fc',
+    text: '#075985',
+    icon: 'Laptop',
+    defaultRoom: 'PHONG_TIN_HOC',
+    description: 'Kỹ năng tin học và thực hành máy tính'
+  },
+  CONG_NGHE: {
+    id: 'CONG_NGHE',
+    name: 'Công nghệ',
+    shortName: 'Công nghệ',
+    category: SUBJECT_CATEGORIES.SPECIALIZED,
+    color: '#0891b2',
+    bg: '#ecfeff',
+    border: '#a5f3fc',
+    text: '#155e75',
+    icon: 'Cpu',
+    defaultRoom: 'LOP_HOC',
+    description: 'Kiến thức kỹ thuật và công nghệ đời sống'
+  },
+  THE_DUC: {
+    id: 'THE_DUC',
+    name: 'Giáo dục thể chất',
+    shortName: 'GDTC',
+    category: SUBJECT_CATEGORIES.PHYSICAL,
+    color: '#059669',
+    bg: '#ecfdf5',
+    border: '#6ee7b7',
+    text: '#065f46',
+    icon: 'Activity',
+    defaultRoom: 'SAN_THE_CHAT',
+    description: 'Rèn luyện sức khỏe và vận động'
+  },
+  DAO_DUC: {
+    id: 'DAO_DUC',
+    name: 'Đạo đức',
+    shortName: 'Đạo đức',
+    category: SUBJECT_CATEGORIES.CORE,
+    color: '#10b981',
+    bg: '#f0fdf4',
+    border: '#86efac',
+    text: '#166534',
+    icon: 'Heart',
+    defaultRoom: 'LOP_HOC',
+    description: 'Giáo dục phẩm chất và kỹ năng sống'
+  },
+  TNXH: {
+    id: 'TNXH',
+    name: 'Tự nhiên và Xã hội',
+    shortName: 'TNXH',
+    category: SUBJECT_CATEGORIES.CORE,
+    color: '#0d9488',
+    bg: '#f0fdfa',
+    border: '#5eead4',
+    text: '#115e59',
+    icon: 'Compass',
+    defaultRoom: 'LOP_HOC',
+    description: 'Khám phá thế giới tự nhiên và xã hội xung quanh'
+  },
+  LS_DL: {
+    id: 'LS_DL',
+    name: 'Khoa học - Lịch sử - Địa lí',
+    shortName: 'Khoa-Sử-Địa',
+    category: SUBJECT_CATEGORIES.CORE,
+    color: '#b45309',
+    bg: '#fffbeb',
+    border: '#fcd34d',
+    text: '#78350f',
+    icon: 'Globe',
+    defaultRoom: 'LOP_HOC',
+    description: 'Khoa học, Lịch sử và Địa lí'
+  },
+  AM_NHAC: {
+    id: 'AM_NHAC',
+    name: 'Âm nhạc',
+    shortName: 'Âm nhạc',
+    category: SUBJECT_CATEGORIES.SPECIALIZED,
+    color: '#d97706',
+    bg: '#fffbeb',
+    border: '#fde68a',
+    text: '#92400e',
+    icon: 'Music',
+    defaultRoom: 'LOP_HOC',
+    description: 'Cảm thụ âm nhạc và học hát'
+  },
+  MY_THUAT: {
+    id: 'MY_THUAT',
+    name: 'Mỹ thuật',
+    shortName: 'Mỹ thuật',
+    category: SUBJECT_CATEGORIES.SPECIALIZED,
+    color: '#ea580c',
+    bg: '#fff7ed',
+    border: '#fdba74',
+    text: '#9a3412',
+    icon: 'Palette',
+    defaultRoom: 'LOP_HOC',
+    description: 'Sáng tạo hội họa và thủ công'
+  },
+  HDTN: {
+    id: 'HDTN',
+    name: 'Hoạt động trải nghiệm',
+    shortName: 'HĐTN',
+    category: SUBJECT_CATEGORIES.EXPERIENCE,
+    color: '#4f46e5',
+    bg: '#eef2ff',
+    border: '#a5b4fc',
+    text: '#3730a3',
+    icon: 'Sparkles',
+    defaultRoom: 'LOP_HOC',
+    description: 'Rèn luyện kỹ năng thực tế và trải nghiệm tập thể'
+  },
+  DOC_THU_VIEN: {
+    id: 'DOC_THU_VIEN',
+    name: 'Đọc thư viện',
+    shortName: 'Đọc TV',
+    category: SUBJECT_CATEGORIES.EXPERIENCE,
+    color: '#0284c7',
+    bg: '#f0f9ff',
+    border: '#7dd3fc',
+    text: '#075985',
+    icon: 'BookOpen',
+    defaultRoom: 'LOP_HOC',
+    description: 'Tiết đọc thư viện và phát triển văn hóa đọc'
+  },
+  HD_CUNG_CO: {
+    id: 'HD_CUNG_CO',
+    name: 'Hoạt động củng cố',
+    shortName: 'HĐCC',
+    category: SUBJECT_CATEGORIES.CORE,
+    color: '#16a34a',
+    bg: '#f0fdf4',
+    border: '#86efac',
+    text: '#15803d',
+    icon: 'CheckCircle2',
+    defaultRoom: 'LOP_HOC',
+    description: 'Củng cố, ôn luyện và khắc sâu kiến thức môn học'
+  },
+  GDKN_CONG_DAN_SO: {
+    id: 'GDKN_CONG_DAN_SO',
+    name: 'Giáo dục kĩ năng công dân số',
+    shortName: 'GDKNCDS',
+    category: SUBJECT_CATEGORIES.SPECIALIZED,
+    color: '#6366f1',
+    bg: '#eef2ff',
+    border: '#c7d2fe',
+    text: '#4338ca',
+    icon: 'ShieldCheck',
+    defaultRoom: 'LOP_HOC',
+    description: 'Giáo dục kỹ năng số, an toàn mạng và năng lực công nghệ số'
+  },
+  TU_CHON: {
+    id: 'TU_CHON',
+    name: 'Phát triển năng lực',
+    shortName: 'PTNL',
+    category: SUBJECT_CATEGORIES.CORE,
+    color: '#65a30d',
+    bg: '#f7fee7',
+    border: '#bef264',
+    text: '#3f6212',
+    icon: 'PenTool',
+    defaultRoom: 'LOP_HOC',
+    description: 'Phát triển phẩm chất, năng lực và tự học'
+  }
+};
+
+export const ROOM_TYPES = [
+  { id: 'LOP_HOC', name: 'Phòng học tại lớp', isSpecialized: false },
+  { id: 'PHONG_TIN_HOC', name: 'Phòng Tin học / Máy tính', isSpecialized: true },
+  { id: 'SAN_THE_CHAT', name: 'Sân / Nhà đa năng Thể chất', isSpecialized: true },
+  { id: 'SAN_TRUONG', name: 'Sân trường toàn trường', isSpecialized: false }
+];
