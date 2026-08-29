@@ -15,6 +15,7 @@ import { AutoScheduleModal } from './components/AutoScheduleModal';
 import { ConflictModal } from './components/ConflictModal';
 import SchoolSettingsModal, { DEFAULT_SCHOOL_INFO } from './components/SchoolSettingsModal';
 import { UpdateModal } from './components/UpdateModal';
+import { WelcomeModal } from './components/WelcomeModal';
 import { checkForAppUpdates } from './services/updateChecker';
 
 import { DEFAULT_GRADE_QUOTAS, PERIODS as DEFAULT_PERIODS } from './constants/defaultCurriculum';
@@ -107,6 +108,9 @@ export function App() {
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(() => {
+    return !localStorage.getItem('EDUTIMETABLE_INITIALIZED_CHOICE');
+  });
   const [updateInfo, setUpdateInfo] = useState(null);
   const [isAutoScheduling, setIsAutoScheduling] = useState(false);
   const [selectedStudioClassId, setSelectedStudioClassId] = useState('1A1');
@@ -344,6 +348,54 @@ export function App() {
     }
   };
 
+  // 5. Khởi tạo / Nạp Dữ Liệu Mẫu Chuẩn (Quỳnh Lộc B - 23 lớp)
+  const handleSelectSampleData = () => {
+    localStorage.setItem('EDUTIMETABLE_INITIALIZED_CHOICE', 'sample');
+    setSchoolInfo({
+      name: QUYNH_LOC_DATA.schoolName || DEFAULT_SCHOOL_INFO.name,
+      district: 'UBND Phường Tân Mai',
+      year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year,
+      principal: 'Bùi Văn Việt',
+      scheduler: 'Châu Đàn',
+      address: 'Phường Tân Mai, TX Hoàng Mai, Nghệ An',
+      lunchBreak: '10:30 - 14:00'
+    });
+    setSubjects(JSON.parse(JSON.stringify(INITIAL_SUBJECTS)));
+    setGradeQuotas(JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS)));
+    setClasses([...QUYNH_LOC_DATA.classes]);
+    setTeachers([...QUYNH_LOC_DATA.teachers]);
+    setRooms([...(QUYNH_LOC_DATA.rooms || SAMPLE_ROOMS)]);
+    setAssignments([...QUYNH_LOC_DATA.assignments]);
+    setTimetable(JSON.parse(JSON.stringify(QUYNH_LOC_DATA.timetable)));
+    setSelectedStudioClassId('1A1');
+  };
+
+  // Khởi tạo Dự Án Mới Trắng Hoàn Toàn Cho Trường Của Người Dùng
+  const handleStartBlankProject = (customInfo) => {
+    localStorage.setItem('EDUTIMETABLE_INITIALIZED_CHOICE', 'blank');
+    setSchoolInfo(customInfo || {
+      name: 'Trường Tiểu học Mới',
+      district: 'Phòng GD&ĐT',
+      year: 'Năm học 2026 - 2027',
+      principal: '',
+      scheduler: '',
+      address: '',
+      lunchBreak: '10:30 - 14:00'
+    });
+    const default5Classes = [
+      { id: '1A1', name: 'Lớp 1A1', grade: 1, studentCount: 35, mainRoom: 'Phòng 101' },
+      { id: '2A1', name: 'Lớp 2A1', grade: 2, studentCount: 35, mainRoom: 'Phòng 102' },
+      { id: '3A1', name: 'Lớp 3A1', grade: 3, studentCount: 35, mainRoom: 'Phòng 201' },
+      { id: '4A1', name: 'Lớp 4A1', grade: 4, studentCount: 35, mainRoom: 'Phòng 202' },
+      { id: '5A1', name: 'Lớp 5A1', grade: 5, studentCount: 35, mainRoom: 'Phòng 301' }
+    ];
+    setClasses(default5Classes);
+    setTeachers([]);
+    setAssignments([]);
+    setTimetable(initializeEmptyTimetable(default5Classes));
+    setSelectedStudioClassId('1A1');
+  };
+
   // 6. Xóa Sạch Thời Khóa Biểu
   const handleClearTimetable = () => {
     if (window.confirm('Xóa sạch thời khóa biểu tất cả các lớp?')) {
@@ -420,6 +472,7 @@ export function App() {
         onOpenExcelModal={() => setIsExcelModalOpen(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenUpdateModal={() => setIsUpdateModalOpen(true)}
+        onOpenWelcomeModal={() => setIsWelcomeModalOpen(true)}
         updateInfo={updateInfo}
         onResetSampleData={handleResetSampleData}
         onClearTimetable={handleClearTimetable}
@@ -587,6 +640,15 @@ export function App() {
         onClose={() => setIsUpdateModalOpen(false)}
         initialUpdateInfo={updateInfo}
         onUpdateInfoChange={setUpdateInfo}
+      />
+
+      {/* Welcome & Project Initialization Modal */}
+      <WelcomeModal
+        isOpen={isWelcomeModalOpen}
+        onClose={() => setIsWelcomeModalOpen(false)}
+        onSelectSampleData={handleSelectSampleData}
+        onStartBlankProject={handleStartBlankProject}
+        onOpenExcelModal={() => setIsExcelModalOpen(true)}
       />
     </div>
   );

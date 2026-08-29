@@ -29,6 +29,7 @@ export const Header = ({
   onOpenExcelModal,
   onOpenSettingsModal,
   onOpenUpdateModal,
+  onOpenWelcomeModal,
   updateInfo = null,
   onResetSampleData,
   onClearTimetable,
@@ -206,6 +207,38 @@ export const Header = ({
               <span>v1.0.0</span>
             </button>
           )}
+
+          {/* Project Initialization / Welcome Modal Button */}
+          <button
+            onClick={onOpenWelcomeModal}
+            title="Khởi tạo dự án mới: Chuyển đổi giữa Dữ liệu mẫu (Demo) và Dự án trắng cho trường của bạn"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              color: '#ffffff',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.22)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+            }}
+          >
+            <Bookmark size={16} />
+            <span>Dự Án & Dữ Liệu</span>
+          </button>
 
           {/* School & Period Time Settings Button */}
           <button
