@@ -16,18 +16,64 @@ import { CURRENT_APP_VERSION, checkForAppUpdates } from '../services/updateCheck
 export const UpdateModal = ({ isOpen, onClose, initialUpdateInfo, onUpdateInfoChange }) => {
   const [updateInfo, setUpdateInfo] = useState(initialUpdateInfo || null);
   const [isChecking, setIsChecking] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(null);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+  const [downloadError, setDownloadError] = useState(null);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      if (window.electronAPI.onDownloadProgress) {
+        window.electronAPI.onDownloadProgress((progress) => {
+          setIsDownloading(true);
+          setDownloadProgress(progress);
+        });
+      }
+      if (window.electronAPI.onUpdateDownloaded) {
+        window.electronAPI.onUpdateDownloaded(() => {
+          setIsDownloading(false);
+          setIsDownloaded(true);
+        });
+      }
+    }
+  }, []);
 
   if (!isOpen) return null;
 
   const handleManualCheck = async () => {
     setIsChecking(true);
+    setDownloadError(null);
     const result = await checkForAppUpdates();
     setUpdateInfo(result);
     if (onUpdateInfoChange) onUpdateInfoChange(result);
     setIsChecking(false);
   };
 
+  const handleStartInAppUpdate = async () => {
+    if (!window.electronAPI?.startInAppUpdate) return;
+    setIsDownloading(true);
+    setDownloadError(null);
+    setDownloadProgress({ percent: 0 });
+    try {
+      const res = await window.electronAPI.startInAppUpdate(updateInfo.downloadUrl, updateInfo.fileName);
+      if (!res?.success && res?.error) {
+        setDownloadError(res.error);
+        setIsDownloading(false);
+      }
+    } catch (err) {
+      setDownloadError(err.message);
+      setIsDownloading(false);
+    }
+  };
+
+  const handleRestartNow = () => {
+    if (window.electronAPI?.restartAndInstall) {
+      window.electronAPI.restartAndInstall();
+    }
+  };
+
   const hasUpdate = updateInfo?.hasUpdate;
+  const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
   return (
     <div style={{
@@ -148,7 +194,7 @@ export const UpdateModal = ({ isOpen, onClose, initialUpdateInfo, onUpdateInfoCh
                   padding: '14px',
                   fontSize: '0.82rem',
                   color: '#475569',
-                  maxHeight: '160px',
+                  maxHeight: '140px',
                   overflowY: 'auto',
                   whiteSpace: 'pre-line',
                   lineHeight: '1.5'
@@ -157,58 +203,145 @@ export const UpdateModal = ({ isOpen, onClose, initialUpdateInfo, onUpdateInfoCh
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
-                <a
-                  href={updateInfo.downloadUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    padding: '12px 20px',
-                    borderRadius: '12px',
-                    background: '#2563eb',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '0.9rem',
-                    textDecoration: 'none',
-                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseOver={e => e.currentTarget.style.background = '#1d4ed8'}
-                  onMouseOut={e => e.currentTarget.style.background = '#2563eb'}
-                >
-                  <Download size={18} />
-                  <span>Tải Bản Cập Nhật Ngay</span>
-                </a>
+              {/* Download Error Alert */}
+              {downloadError && (
+                <div style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: '#fee2e2',
+                  border: '1px solid #fca5a5',
+                  color: '#991b1b',
+                  fontSize: '0.82rem',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <AlertCircle size={16} />
+                  <span>{downloadError}</span>
+                </div>
+              )}
 
-                {updateInfo.htmlUrl && (
+              {/* In-App Progress Bar */}
+              {isDownloading && (
+                <div style={{
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '12px',
+                  padding: '14px',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <RefreshCw size={14} className="spin" /> Đang tự động tải bản cập nhật...
+                    </span>
+                    <span style={{ color: '#2563eb' }}>{downloadProgress?.percent || 0}%</span>
+                  </div>
+                  <div style={{
+                    width: '100%',
+                    height: '10px',
+                    borderRadius: '999px',
+                    background: '#e2e8f0',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${downloadProgress?.percent || 0}%`,
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #3b82f6, #6366f1)',
+                      borderRadius: '999px',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                  {downloadProgress?.transferred && downloadProgress?.total && (
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '6px', textAlign: 'right' }}>
+                      {(downloadProgress.transferred / 1024 / 1024).toFixed(1)} MB / {(downloadProgress.total / 1024 / 1024).toFixed(1)} MB
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+                {isDownloaded ? (
+                  <button
+                    onClick={handleRestartNow}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '14px 20px',
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '0.95rem',
+                      border: 'none',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                      transition: 'all 0.2s',
+                      animation: 'pulse 1.5s infinite'
+                    }}
+                  >
+                    <CheckCircle2 size={20} />
+                    <span>🎉 Khởi Động Lại Để Áp Dụng Ngay (Tự Động)</span>
+                  </button>
+                ) : isElectron ? (
+                  <button
+                    onClick={handleStartInAppUpdate}
+                    disabled={isDownloading}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '14px 20px',
+                      borderRadius: '12px',
+                      background: isDownloading ? '#94a3b8' : 'linear-gradient(135deg, #2563eb, #4f46e5)',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '0.95rem',
+                      border: 'none',
+                      cursor: isDownloading ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {isDownloading ? (
+                      <>
+                        <RefreshCw size={18} className="spin" />
+                        <span>Đang Tải Bản Cập Nhật ({downloadProgress?.percent || 0}%)...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download size={18} />
+                        <span>⚡ Cập Nhật Tự Động Trong Phần Mềm</span>
+                      </>
+                    )}
+                  </button>
+                ) : null}
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center' }}>
                   <a
-                    href={updateInfo.htmlUrl}
+                    href={updateInfo.downloadUrl}
                     target="_blank"
                     rel="noreferrer"
                     style={{
-                      display: 'flex',
+                      display: 'inline-flex',
                       alignItems: 'center',
                       gap: '6px',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      background: '#f1f5f9',
-                      border: '1px solid #cbd5e1',
-                      color: '#475569',
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      textDecoration: 'none'
+                      color: '#64748b',
+                      fontSize: '0.8rem',
+                      textDecoration: 'underline',
+                      fontWeight: 600
                     }}
                   >
-                    <ExternalLink size={16} />
-                    <span>Chi tiết GitHub</span>
+                    <ExternalLink size={14} />
+                    <span>Hoặc Tải thủ công từ trình duyệt</span>
                   </a>
-                )}
+                </div>
               </div>
             </div>
           ) : (
