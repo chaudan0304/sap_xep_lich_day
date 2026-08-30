@@ -19,8 +19,10 @@ import {
   Save,
   Upload,
   Settings,
-  ArrowUpCircle
+  ArrowUpCircle,
+  HelpCircle
 } from 'lucide-react';
+import { CURRENT_APP_VERSION } from '../services/updateChecker';
 
 export const Header = ({
   activeTab,
@@ -30,6 +32,7 @@ export const Header = ({
   onOpenSettingsModal,
   onOpenUpdateModal,
   onOpenWelcomeModal,
+  onOpenUserGuideModal,
   updateInfo = null,
   onResetSampleData,
   onClearTimetable,
@@ -106,10 +109,75 @@ export const Header = ({
             <GraduationCap size={26} color="#ffffff" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-                EduTimetable <span style={{ color: '#a5b4fc', fontWeight: 600 }}>Tiểu Học</span>
-              </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h1 style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>EduTimetable</span>
+                  <span style={{ color: '#a5b4fc', fontWeight: 600 }}>Tiểu Học</span>
+                </h1>
+
+                {/* Version Badge aligned with Software Name */}
+                {updateInfo?.hasUpdate ? (
+                  <button
+                    onClick={onOpenUpdateModal}
+                    title={`Đã có phiên bản mới v${updateInfo.latestVersion}! Bấm để xem và tải về`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 9px',
+                      borderRadius: '999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+                      border: '1px solid #fda4af',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      boxShadow: '0 0 12px rgba(244, 63, 94, 0.5)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.06)'}
+                    onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  >
+                    <Sparkles size={12} />
+                    <span>v{updateInfo.latestVersion} Mới</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={onOpenUpdateModal}
+                    title="Kiểm tra bản cập nhật mới nhất từ GitHub"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 9px',
+                      borderRadius: '999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      background: 'rgba(255, 255, 255, 0.12)',
+                      border: '1px solid rgba(255, 255, 255, 0.22)',
+                      color: '#cbd5e1',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.22)';
+                      e.currentTarget.style.color = '#ffffff';
+                      e.currentTarget.style.transform = 'scale(1.04)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
+                      e.currentTarget.style.color = '#cbd5e1';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                  >
+                    <ArrowUpCircle size={12} />
+                    <span>v{CURRENT_APP_VERSION}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* School Badge */}
               <button
                 type="button"
                 onClick={onOpenSettingsModal}
@@ -142,301 +210,269 @@ export const Header = ({
                 <span style={{ fontSize: '0.65rem', background: '#4f46e5', padding: '1px 5px', borderRadius: '4px', marginLeft: '2px' }}>Sửa</span>
               </button>
             </div>
-            <p style={{ fontSize: '0.78rem', color: '#c7d2fe', marginTop: '2px' }}>
+            <p style={{ fontSize: '0.78rem', color: '#c7d2fe', marginTop: '2px', margin: 0 }}>
               Hệ thống Xếp Thời Khóa Biểu & Quản Lý Định Mức Chuẩn CTGDPT 2018
             </p>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Update Notification Pill (Show when update is available or general checker) */}
-          {updateInfo?.hasUpdate ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
+          {/* Group 1: Data & Files Segment */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            background: 'rgba(255, 255, 255, 0.08)',
+            borderRadius: '10px',
+            padding: '3px',
+            border: '1px solid rgba(255, 255, 255, 0.16)',
+            gap: '2px'
+          }}>
+            {/* User Guide & Manual Button */}
             <button
-              onClick={onOpenUpdateModal}
-              title={`Đã có phiên bản mới v${updateInfo.latestVersion}! Bấm để xem và tải về`}
+              onClick={onOpenUserGuideModal}
+              title="Mở cẩm nang hướng dẫn sử dụng chi tiết từng bước (Quy trình chuẩn, Studio, In A4, AI...)"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                borderRadius: '10px',
-                fontSize: '0.82rem',
-                fontWeight: 800,
-                background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
-                border: '1px solid #fda4af',
-                color: '#ffffff',
-                cursor: 'pointer',
-                boxShadow: '0 0 14px rgba(244, 63, 94, 0.5)',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.04)'}
-              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              <Sparkles size={16} />
-              <span>Bản Mới v{updateInfo.latestVersion}</span>
-            </button>
-          ) : (
-            <button
-              onClick={onOpenUpdateModal}
-              title="Kiểm tra bản cập nhật mới nhất từ GitHub"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 12px',
-                borderRadius: '10px',
+                gap: '5px',
+                padding: '6px 10px',
+                borderRadius: '7px',
                 fontSize: '0.78rem',
                 fontWeight: 700,
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.18)',
-                color: '#cbd5e1',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4))',
+                border: '1px solid rgba(165, 180, 252, 0.4)',
+                color: '#ffffff',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.15s ease'
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.16)';
-                e.currentTarget.style.color = '#ffffff';
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(99, 102, 241, 0.7), rgba(168, 85, 247, 0.7))';
+                e.currentTarget.style.transform = 'scale(1.03)';
               }}
               onMouseOut={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                e.currentTarget.style.color = '#cbd5e1';
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4))';
+                e.currentTarget.style.transform = 'scale(1)';
               }}
             >
-              <ArrowUpCircle size={14} />
-              <span>v1.0.0</span>
+              <HelpCircle size={14} color="#a5b4fc" />
+              <span>Hướng Dẫn</span>
             </button>
-          )}
 
-          {/* Project Initialization / Welcome Modal Button */}
-          <button
-            onClick={onOpenWelcomeModal}
-            title="Khởi tạo dự án mới: Chuyển đổi giữa Dữ liệu mẫu (Demo) và Dự án trắng cho trường của bạn"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '10px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              background: 'rgba(255, 255, 255, 0.12)',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              color: '#ffffff',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.22)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-            }}
-          >
-            <Bookmark size={16} />
-            <span>Dự Án & Dữ Liệu</span>
-          </button>
+            {/* Project / Welcome Button */}
+            <button
+              onClick={onOpenWelcomeModal}
+              title="Khởi tạo dự án mới: Chuyển đổi giữa Dữ liệu mẫu (Demo) và Dự án trắng"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 10px',
+                borderRadius: '7px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: 'transparent',
+                border: 'none',
+                color: '#ffffff',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <Bookmark size={14} />
+              <span>Dự Án</span>
+            </button>
 
-          {/* School & Period Time Settings Button */}
-          <button
-            onClick={onOpenSettingsModal}
-            title="Cài đặt thông tin trường học, cơ quan quản lý, hiệu trưởng và khung giờ các tiết học"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '10px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              background: 'rgba(255, 255, 255, 0.12)',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              color: '#ffffff',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.22)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-            }}
-          >
-            <Settings size={16} />
-            <span>Cài Đặt Trường & Tiết Học</span>
-          </button>
+            {/* Save JSON Backup */}
+            <button
+              onClick={onExportBackupJson}
+              title="Lưu file sao lưu toàn bộ dữ liệu dự án (.json) về máy tính"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 10px',
+                borderRadius: '7px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: 'transparent',
+                border: 'none',
+                color: '#93c5fd',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(37, 99, 235, 0.25)'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <Save size={14} />
+              <span>Lưu File</span>
+            </button>
 
-          {/* Conflict Status Badge (Interactive Button) */}
+            {/* Load JSON Backup */}
+            <button
+              onClick={() => jsonFileInputRef.current?.click()}
+              title="Tải nạp file sao lưu (.json) từ máy tính"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 10px',
+                borderRadius: '7px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: 'transparent',
+                border: 'none',
+                color: '#e2e8f0',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <Upload size={14} />
+              <span>Nạp File</span>
+            </button>
+            <input
+              type="file"
+              ref={jsonFileInputRef}
+              onChange={handleJsonFileChange}
+              accept=".json"
+              style={{ display: 'none' }}
+            />
+
+            {/* Excel Import / Export Button */}
+            <button
+              onClick={onOpenExcelModal}
+              title="Nhập / Xuất dữ liệu Excel chuẩn mẫu BGD"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 11px',
+                borderRadius: '7px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: '#059669',
+                border: 'none',
+                color: '#ffffff',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(5, 150, 105, 0.3)',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = '#047857'}
+              onMouseOut={(e) => e.currentTarget.style.background = '#059669'}
+            >
+              <FileSpreadsheet size={14} />
+              <span>Excel</span>
+            </button>
+          </div>
+
+          {/* Group 2: Conflict Status Badge */}
           <button
             onClick={onOpenConflictModal}
             title="Bấm để xem chi tiết danh sách xung đột: tiết nào, lớp nào và ai trùng"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              padding: '6px 14px',
-              borderRadius: '10px',
-              fontSize: '0.8rem',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '9px',
+              fontSize: '0.78rem',
               fontWeight: 700,
               cursor: 'pointer',
-              background: errorCount > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)',
-              border: `1.5px solid ${errorCount > 0 ? 'rgba(239, 68, 68, 0.6)' : 'rgba(16, 185, 129, 0.6)'}`,
+              background: errorCount > 0 ? 'rgba(239, 68, 68, 0.22)' : 'rgba(16, 185, 129, 0.2)',
+              border: `1px solid ${errorCount > 0 ? 'rgba(248, 113, 113, 0.5)' : 'rgba(52, 211, 153, 0.4)'}`,
               color: errorCount > 0 ? '#fca5a5' : '#6ee7b7',
-              transition: 'all 0.2s ease',
-              boxShadow: errorCount > 0 ? '0 0 12px rgba(239, 68, 68, 0.3)' : 'none'
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s ease'
             }}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
             onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             {errorCount > 0 ? (
               <>
-                <AlertTriangle size={16} />
-                <span>{errorCount} Trùng Giờ / Phòng (Xem Chi Tiết)</span>
+                <AlertTriangle size={14} />
+                <span>{errorCount} Trùng Lịch</span>
               </>
             ) : (
               <>
-                <CheckCircle2 size={16} />
-                <span>0 Trùng Giờ {warningCount > 0 ? `(${warningCount} Cảnh báo)` : '(Chuẩn)'}</span>
+                <CheckCircle2 size={14} />
+                <span>0 Trùng Giờ</span>
               </>
             )}
           </button>
 
-          {/* Excel Import / Export Button */}
-          <button
-            onClick={onOpenExcelModal}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              borderRadius: '10px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              background: '#059669',
-              border: '1px solid #10b981',
-              color: '#ffffff',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(5, 150, 105, 0.3)',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#047857'}
-            onMouseOut={(e) => e.currentTarget.style.background = '#059669'}
-          >
-            <FileSpreadsheet size={16} />
-            <span>Nhập / Xuất Excel</span>
-          </button>
+          {/* Group 3: Core Scheduling Actions (Auto Schedule + Clear Timetable in One Segment) */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            background: 'rgba(15, 23, 42, 0.45)',
+            borderRadius: '10px',
+            padding: '2px',
+            border: '1px solid rgba(251, 191, 36, 0.35)',
+            gap: '2px'
+          }}>
+            {/* Auto Schedule AI Button */}
+            <button
+              onClick={onAutoSchedule}
+              disabled={isAutoScheduling}
+              title="Tự động xếp lịch thông minh AI cho toàn bộ các lớp"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 14px',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                border: 'none',
+                color: '#ffffff',
+                cursor: isAutoScheduling ? 'not-allowed' : 'pointer',
+                boxShadow: '0 2px 10px rgba(245, 158, 11, 0.4)',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => { if (!isAutoScheduling) e.currentTarget.style.transform = 'scale(1.02)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <Sparkles size={15} className={isAutoScheduling ? 'animate-spin' : ''} />
+              <span>{isAutoScheduling ? 'Đang Xếp...' : 'Tự Động Xếp Lịch'}</span>
+            </button>
 
-          {/* Export JSON Data File */}
-          <button
-            onClick={onExportBackupJson}
-            title="Lưu file sao lưu toàn bộ dữ liệu dự án (.json) về máy tính"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '10px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              background: '#2563eb',
-              border: '1px solid #3b82f6',
-              color: '#ffffff',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#1d4ed8'}
-            onMouseOut={(e) => e.currentTarget.style.background = '#2563eb'}
-          >
-            <Save size={16} />
-            <span>Lưu File Dữ Liệu</span>
-          </button>
-
-          {/* Import JSON Data File */}
-          <button
-            onClick={() => jsonFileInputRef.current?.click()}
-            title="Tải nạp file sao lưu (.json) từ máy tính"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '10px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              background: 'rgba(255, 255, 255, 0.15)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              color: '#ffffff',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)'}
-            onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
-          >
-            <Upload size={16} />
-            <span>Nạp File (.json)</span>
-          </button>
-          <input
-            type="file"
-            ref={jsonFileInputRef}
-            onChange={handleJsonFileChange}
-            accept=".json"
-            style={{ display: 'none' }}
-          />
-
-          {/* Auto Schedule AI Button */}
-          <button
-            onClick={onAutoSchedule}
-            disabled={isAutoScheduling}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 18px',
-              borderRadius: '10px',
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-              border: '1px solid #fbbf24',
-              color: '#ffffff',
-              cursor: isAutoScheduling ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 14px rgba(245, 158, 11, 0.4)',
-              transform: isAutoScheduling ? 'scale(0.98)' : 'scale(1)',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseOver={(e) => { if (!isAutoScheduling) e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
-          >
-            <Sparkles size={16} className={isAutoScheduling ? 'animate-spin' : ''} />
-            <span>{isAutoScheduling ? 'Đang Xếp Lịch...' : 'Tự Động Xếp Lịch'}</span>
-          </button>
-
-          {/* Clear Button */}
-          <button
-            onClick={onClearTimetable}
-            title="Xóa thời khóa biểu để xếp lại từ đầu"
-            style={{
-              padding: '8px 10px',
-              borderRadius: '10px',
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#fca5a5',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)'}
-            onMouseOut={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'}
-          >
-            <Trash2 size={15} />
-          </button>
+            {/* Clear Timetable Button (Paired in same scheduling group) */}
+            <button
+              onClick={onClearTimetable}
+              title="Xóa toàn bộ thời khóa biểu tất cả các lớp để xếp lại từ đầu (có xác nhận)"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '7px 10px',
+                borderRadius: '8px',
+                background: 'transparent',
+                border: 'none',
+                color: '#fca5a5',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)';
+                e.currentTarget.style.color = '#ffffff';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = '#fca5a5';
+              }}
+            >
+              <Trash2 size={13} />
+              <span>Xóa TKB</span>
+            </button>
+          </div>
         </div>
       </div>
 

@@ -16,7 +16,7 @@ import {
   BookOpen,
   Plus
 } from 'lucide-react';
-import { DAYS_OF_WEEK, PERIODS } from '../constants/defaultCurriculum';
+import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { exportTeacherDirectory } from '../services/excelService';
 

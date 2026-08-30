@@ -24,6 +24,7 @@ export const WelcomeModal = ({
   onSelectSampleData,
   onStartBlankProject,
   onOpenExcelModal,
+  onOpenUserGuideModal,
   onImportBackupJsonClick
 }) => {
   const [blankSchoolName, setBlankSchoolName] = useState('');
@@ -447,7 +448,27 @@ export const WelcomeModal = ({
           fontSize: '0.75rem',
           color: '#64748b'
         }}>
-          <span>Bạn có thể chuyển đổi hoặc nạp lại dữ liệu mẫu bất cứ lúc nào trong menu Header.</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span>Bạn có thể chuyển đổi hoặc nạp lại dữ liệu mẫu bất cứ lúc nào trong menu Header.</span>
+            {onOpenUserGuideModal && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenUserGuideModal();
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#4f46e5',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                📖 Xem Cẩm Nang Hướng Dẫn Sử Dụng
+              </button>
+            )}
+          </div>
           <button
             onClick={onClose}
             style={{

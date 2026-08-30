@@ -16,6 +16,7 @@ import { ConflictModal } from './components/ConflictModal';
 import SchoolSettingsModal, { DEFAULT_SCHOOL_INFO } from './components/SchoolSettingsModal';
 import { UpdateModal } from './components/UpdateModal';
 import { WelcomeModal } from './components/WelcomeModal';
+import { UserGuideModal } from './components/UserGuideModal';
 import { checkForAppUpdates } from './services/updateChecker';
 
 import { DEFAULT_GRADE_QUOTAS, PERIODS as DEFAULT_PERIODS } from './constants/defaultCurriculum';
@@ -108,6 +109,7 @@ export function App() {
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isUserGuideModalOpen, setIsUserGuideModalOpen] = useState(false);
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(() => {
     return !localStorage.getItem('EDUTIMETABLE_INITIALIZED_CHOICE');
   });
@@ -492,6 +494,7 @@ export function App() {
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenUpdateModal={() => setIsUpdateModalOpen(true)}
         onOpenWelcomeModal={() => setIsWelcomeModalOpen(true)}
+        onOpenUserGuideModal={() => setIsUserGuideModalOpen(true)}
         updateInfo={updateInfo}
         onResetSampleData={handleResetSampleData}
         onClearTimetable={handleClearTimetable}
@@ -508,6 +511,7 @@ export function App() {
         {activeTab === 'studio' && (
           <TimetableStudio
             classes={classes}
+            setClasses={setClasses}
             teachers={teachers}
             assignments={assignments}
             timetable={timetable}
@@ -668,6 +672,17 @@ export function App() {
         onSelectSampleData={handleSelectSampleData}
         onStartBlankProject={handleStartBlankProject}
         onOpenExcelModal={() => setIsExcelModalOpen(true)}
+        onOpenUserGuideModal={() => setIsUserGuideModalOpen(true)}
+      />
+
+      {/* Comprehensive User Guide & Manual Modal */}
+      <UserGuideModal
+        isOpen={isUserGuideModalOpen}
+        onClose={() => setIsUserGuideModalOpen(false)}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab);
+          setIsUserGuideModalOpen(false);
+        }}
       />
 
       {/* Floating Auto-Update Ready Toast (Tự động thông báo khi tải ngầm xong) */}

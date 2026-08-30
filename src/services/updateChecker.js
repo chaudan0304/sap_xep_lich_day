@@ -1,7 +1,7 @@
 // src/services/updateChecker.js
 // Kiểm tra bản cập nhật mới từ GitHub Releases
 
-export const CURRENT_APP_VERSION = '1.0.0';
+export const CURRENT_APP_VERSION = '1.0.1';
 // Kho GitHub Public chuyên dụng để đăng các bản phát hành .exe (Kho code chính để Private bảo mật 100%)
 export const GITHUB_REPO = 'chaudan0304/edutimetable-app';
 

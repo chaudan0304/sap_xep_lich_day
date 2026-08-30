@@ -118,7 +118,8 @@ button, input, select, textarea {
 
 /* Print Overrides */
 @media screen {
-  .printable-sheet {
+  .printable-sheet,
+  .printable-batch-container {
     display: none !important;
   }
 }
@@ -126,7 +127,7 @@ button, input, select, textarea {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm 8mm 8mm 8mm;
+    margin: 6mm 8mm 6mm 8mm;
   }
 
   /* 1. Reset document flow */
@@ -147,42 +148,50 @@ button, input, select, textarea {
     print-color-adjust: exact !important;
   }
 
-  /* 2. Hide everything except printable sheets */
-  #root,
+  /* 2. Hide screen-only UI elements & interactive modal */
   .no-print,
+  .no-print *,
   button,
   nav,
   header,
   aside,
-  .modal-screen-content {
+  input,
+  select,
+  .modal-screen-content,
+  .print-hide {
     display: none !important;
   }
 
-  /* 3. Strip all modal fixed viewport centering properties */
-  .portal-print-modal,
-  .portal-print-modal > div,
-  .portal-print-modal > div > div {
+  /* 3. When portal print modal is active, hide #root completely */
+  body:has(.portal-print-modal) #root {
+    display: none !important;
+  }
+
+  /* 4. Portal modal wrapper reset for print */
+  .portal-print-modal {
     position: static !important;
     display: block !important;
     width: 100% !important;
-    max-width: 100% !important;
     height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
     background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    box-shadow: none !important;
-    border: none !important;
-    border-radius: 0 !important;
-    overflow: visible !important;
-    transform: none !important;
     inset: auto !important;
+    transform: none !important;
   }
 
-  /* 4. Display the single printable sheet perfectly on 1 page */
+  /* 5. Display printable sheets cleanly with A4 page breaks */
+  .printable-batch-container {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   .printable-sheet {
     display: block !important;
     position: static !important;
@@ -194,8 +203,16 @@ button, input, select, textarea {
     color: #000000 !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    page-break-after: avoid !important;
-    break-after: avoid !important;
+  }
+
+  .printable-sheet.page-break {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .printable-sheet:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 
   .printable-sheet * {

@@ -15,14 +15,27 @@ import {
   Flag,
   Users as UsersIcon,
   Search,
-  Building
+  Building,
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  GraduationCap,
+  Filter,
+  Edit2,
+  Edit3,
+  Check,
+  X as CloseIcon,
+  Save
 } from 'lucide-react';
-import { DAYS_OF_WEEK, PERIODS } from '../constants/defaultCurriculum';
+import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { validateSlotPlacement } from '../services/conflictDetector';
+import { ClassTimetablePrintModal } from './ClassTimetablePrintModal';
+import { ClassStudentCountModal } from './ClassStudentCountModal';
 
 export const TimetableStudio = ({
   classes,
+  setClasses,
   teachers,
   assignments,
   timetable,
@@ -40,15 +53,131 @@ export const TimetableStudio = ({
   const selectedClassId = externalClassId || internalClassId;
   const setSelectedClassId = externalSetClassId || setInternalClassId;
 
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isStudentCountModalOpen, setIsStudentCountModalOpen] = useState(false);
+  const [isEditingInlineCount, setIsEditingInlineCount] = useState(false);
+  const [inlineCountVal, setInlineCountVal] = useState('');
   const [draggedSubject, setDraggedSubject] = useState(null); // { subjectId, teacherId, roomType, classId }
   const [draggedSlot, setDraggedSlot] = useState(null); // { fromDay, fromPeriod }
   const [swapSource, setSwapSource] = useState(null); // { day, period, slot } for click-to-swap mode
   const [drawerSearch, setDrawerSearch] = useState('');
 
+  // 1. Grade detection & grouping
+  const getGradeOfClass = (cls) => {
+    if (!cls) return 1;
+    if (cls.grade) return cls.grade;
+    const match = cls.name?.match(/(\d+)/) || cls.id?.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 1;
+  };
+
+  const availableGrades = useMemo(() => {
+    const grades = new Set();
+    classes.forEach(c => grades.add(getGradeOfClass(c)));
+    return Array.from(grades).sort((a, b) => a - b);
+  }, [classes]);
+
+  // Tab filter: 'all' | 1 | 2 | 3 | 4 | 5
+  const [selectedGradeTab, setSelectedGradeTab] = useState('all');
+
   const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
   const selectedClass = currentClass;
   const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
   const classMap = useMemo(() => new Map(classes.map(c => [c.id, c])), [classes]);
+
+  // 2. Class Stats (Scheduled periods count & conflicts count for every class)
+  const classStatsMap = useMemo(() => {
+    const map = new Map();
+    classes.forEach(c => {
+      let count = 0;
+      const classTt = timetable[c.id];
+      if (classTt) {
+        for (let d = 2; d <= 6; d++) {
+          if (classTt[d]) {
+            for (let p = 1; p <= 7; p++) {
+              if (classTt[d][p] && classTt[d][p].subjectId) {
+                count++;
+              }
+            }
+          }
+        }
+      }
+      const cConflicts = (conflicts || []).filter(
+        conf => conf.classId === c.id || (conf.conflictingClassIds && conf.conflictingClassIds.includes(c.id))
+      ).length;
+
+      map.set(c.id, { scheduledCount: count, conflictCount: cConflicts });
+    });
+    return map;
+  }, [classes, timetable, conflicts]);
+
+  // 3. Classes grouped by grade
+  const classesByGrade = useMemo(() => {
+    const grouped = {};
+    availableGrades.forEach(g => { grouped[g] = []; });
+    classes.forEach(c => {
+      const g = getGradeOfClass(c);
+      if (!grouped[g]) grouped[g] = [];
+      grouped[g].push(c);
+    });
+    return grouped;
+  }, [classes, availableGrades]);
+
+  // 4. Quick Prev / Next Class
+  const currentClassIndex = classes.findIndex(c => c.id === selectedClassId);
+  const handlePrevClass = () => {
+    if (currentClassIndex > 0) {
+      setSelectedClassId(classes[currentClassIndex - 1].id);
+      setSwapSource(null);
+      setIsEditingInlineCount(false);
+    }
+  };
+  const handleNextClass = () => {
+    if (currentClassIndex < classes.length - 1) {
+      setSelectedClassId(classes[currentClassIndex + 1].id);
+      setSwapSource(null);
+      setIsEditingInlineCount(false);
+    }
+  };
+
+  // 5. Save Inline Student Count
+  const handleStartInlineEdit = (e) => {
+    e.stopPropagation();
+    setInlineCountVal(currentClass?.studentCount || 35);
+    setIsEditingInlineCount(true);
+  };
+
+  const handleSaveInlineCount = (e) => {
+    if (e) e.stopPropagation();
+    const num = parseInt(inlineCountVal, 10);
+    if (!isNaN(num) && num >= 1 && num <= 70) {
+      if (setClasses) {
+        setClasses(prev => prev.map(c => c.id === selectedClassId ? { ...c, studentCount: num } : c));
+      }
+    }
+    setIsEditingInlineCount(false);
+  };
+
+  const handleCancelInlineCount = (e) => {
+    if (e) e.stopPropagation();
+    setIsEditingInlineCount(false);
+  };
+
+  // 6. Xóa sạch lịch đã xếp riêng cho lớp hiện tại
+  const handleClearCurrentClass = () => {
+    const classData = timetable[selectedClassId];
+    const hasSlots = classData && Object.values(classData).some(day => day && Object.values(day).some(slot => slot && slot.subjectId));
+    if (!hasSlots) {
+      alert(`${currentClass?.name || 'Lớp này'} hiện chưa có tiết nào được xếp!`);
+      return;
+    }
+    if (window.confirm(`Bạn có chắc chắn muốn xóa toàn bộ lịch đã xếp của ${currentClass?.name || 'lớp này'} để xếp lại từ đầu?\n(Lịch các lớp khác vẫn được giữ nguyên)`)) {
+      setTimetable(prev => ({
+        ...prev,
+        [selectedClassId]: {}
+      }));
+      setSwapSource(null);
+    }
+  };
 
   // Lấy phân công của lớp hiện tại
   const classAssignments = useMemo(() => {
@@ -218,130 +347,586 @@ export const TimetableStudio = ({
       <div className="no-print">
         {/* Top Class Selector & Stats Bar */}
         <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        background: '#ffffff',
-        padding: '14px 20px',
-        borderRadius: '14px',
-        border: '1px solid #e2e8f0',
-        marginBottom: '20px',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        {/* Class Tabs */}
-        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-          {classes.map(cls => {
-            const isSelected = selectedClassId === cls.id;
-            return (
-              <button
-                key={cls.id}
-                onClick={() => {
-                  setSelectedClassId(cls.id);
-                  setSwapSource(null);
-                }}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '10px',
-                  fontSize: '0.875rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  border: isSelected ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                  background: isSelected ? '#eef2ff' : '#ffffff',
-                  color: isSelected ? '#4338ca' : '#475569',
-                  transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {cls.name}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Status & Quick Print */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Progress */}
+          background: '#ffffff',
+          padding: '16px 20px',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          marginBottom: '20px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '14px'
+        }}>
+          {/* Row 1: Grade Filter Tabs & Status & Quick Navigation */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '6px 14px',
-            borderRadius: '8px',
-            background: totalScheduled >= 32 ? '#ecfdf5' : '#eff6ff',
-            color: totalScheduled >= 32 ? '#065f46' : '#1e40af',
-            fontWeight: 700,
-            fontSize: '0.85rem'
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            borderBottom: '1px solid #f1f5f9',
+            paddingBottom: '12px'
           }}>
-            <CheckCircle2 size={16} color={totalScheduled >= 32 ? '#10b981' : '#3b82f6'} />
-            <span>Tiến độ: {totalScheduled} / 32 tiết</span>
-          </div>
+            {/* Grade Filter Pills */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                color: '#64748b',
+                textTransform: 'uppercase',
+                marginRight: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <Layers size={14} />
+                <span>Khối:</span>
+              </span>
 
-          {/* Conflict Badge */}
-          {classConflicts.length > 0 ? (
-            <button
-              onClick={() => onOpenConflictModal && onOpenConflictModal()}
-              title="Bấm để xem danh sách chi tiết: tiết nào, lớp nào, ai trùng"
-              style={{
+              {/* Tất cả button */}
+              <button
+                onClick={() => setSelectedGradeTab('all')}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  border: selectedGradeTab === 'all' ? '1.5px solid #4f46e5' : '1px solid #e2e8f0',
+                  background: selectedGradeTab === 'all' ? '#eef2ff' : '#ffffff',
+                  color: selectedGradeTab === 'all' ? '#4338ca' : '#64748b',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Tất cả ({classes.length})
+              </button>
+
+              {/* Individual Grade Buttons */}
+              {availableGrades.map(g => {
+                const count = (classesByGrade[g] || []).length;
+                const isSel = selectedGradeTab === g;
+                return (
+                  <button
+                    key={g}
+                    onClick={() => {
+                      setSelectedGradeTab(g);
+                      // If current selected class is not in this grade, auto-select first class in this grade
+                      const firstInGrade = classesByGrade[g]?.[0];
+                      if (firstInGrade && getGradeOfClass(currentClass) !== g) {
+                        setSelectedClassId(firstInGrade.id);
+                        setSwapSource(null);
+                      }
+                    }}
+                    style={{
+                      padding: '5px 14px',
+                      borderRadius: '20px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: isSel ? '1.5px solid #4f46e5' : '1px solid #e2e8f0',
+                      background: isSel ? '#eef2ff' : '#ffffff',
+                      color: isSel ? '#4338ca' : '#64748b',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Khối {g} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Right: Quick Nav & Status & Print */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Prev / Next Class Navigation with Student Count & Homeroom */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#f8fafc',
+                padding: '3px 10px',
+                borderRadius: '10px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                  <button
+                    onClick={handlePrevClass}
+                    disabled={currentClassIndex <= 0}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '4px 6px',
+                      cursor: currentClassIndex <= 0 ? 'not-allowed' : 'pointer',
+                      color: currentClassIndex <= 0 ? '#cbd5e1' : '#475569',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    title="Lớp trước"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b', padding: '0 4px', minWidth: '46px', textAlign: 'center' }}>
+                    {currentClass?.name?.replace('Lớp ', '') || currentClass?.id}
+                  </span>
+                  <button
+                    onClick={handleNextClass}
+                    disabled={currentClassIndex >= classes.length - 1}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '4px 6px',
+                      cursor: currentClassIndex >= classes.length - 1 ? 'not-allowed' : 'pointer',
+                      color: currentClassIndex >= classes.length - 1 ? '#cbd5e1' : '#475569',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    title="Lớp kế tiếp"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+
+                <div style={{ width: '1px', height: '14px', background: '#cbd5e1' }} />
+
+                {/* Sĩ số lớp hiện tại (Editable & Click to change) */}
+                {isEditingInlineCount ? (
+                  <div
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: '#ffffff',
+                      padding: '1px 6px',
+                      borderRadius: '6px',
+                      border: '1.5px solid #4f46e5'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4338ca' }}>Sĩ số:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="70"
+                      value={inlineCountVal}
+                      onChange={e => setInlineCountVal(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleSaveInlineCount(e);
+                        if (e.key === 'Escape') handleCancelInlineCount(e);
+                      }}
+                      autoFocus
+                      style={{
+                        width: '46px',
+                        padding: '2px 4px',
+                        borderRadius: '4px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.8rem',
+                        fontWeight: 800,
+                        textAlign: 'center'
+                      }}
+                    />
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>HS</span>
+                    <button
+                      onClick={handleSaveInlineCount}
+                      style={{ background: '#10b981', border: 'none', borderRadius: '4px', padding: '2px 5px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      title="Lưu (Enter)"
+                    >
+                      <Check size={12} />
+                    </button>
+                    <button
+                      onClick={handleCancelInlineCount}
+                      style={{ background: '#ef4444', border: 'none', borderRadius: '4px', padding: '2px 5px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      title="Hủy (Esc)"
+                    >
+                      <CloseIcon size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={handleStartInlineEdit}
+                    title="Bấm để chỉnh sửa nhanh sĩ số lớp này, hoặc mở quản lý sĩ số"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '0.78rem',
+                      color: '#475569',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: '2px 6px',
+                      borderRadius: '6px',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.background = '#eef2ff'}
+                    onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <UsersIcon size={13} color="#4f46e5" />
+                    <span>Sĩ số: <strong style={{ color: '#0f172a' }}>{currentClass?.studentCount || 35}</strong> HS</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsStudentCountModalOpen(true);
+                      }}
+                      title="Mở bảng chỉnh sửa sĩ số tất cả các lớp"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#6366f1',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '1px'
+                      }}
+                    >
+                      <Edit3 size={12} />
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ width: '1px', height: '14px', background: '#cbd5e1' }} />
+
+                {/* GVCN lớp hiện tại */}
+                <div style={{
+                  fontSize: '0.78rem',
+                  color: '#475569',
+                  fontWeight: 600
+                }}>
+                  <span>GVCN: <strong style={{ color: '#0f172a' }}>{teacherMap.get(currentClass?.homeroomTeacherId)?.name || 'Chưa gán'}</strong></span>
+                </div>
+              </div>
+
+              {/* Progress */}
+              <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '6px 14px',
+                padding: '6px 12px',
                 borderRadius: '8px',
-                background: '#fef2f2',
-                border: '1.5px solid #f87171',
-                color: '#b91c1c',
-                fontSize: '0.8rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                boxShadow: '0 0 10px rgba(239, 68, 68, 0.25)',
-                transition: 'transform 0.15s ease'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.04)'}
-              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              <AlertTriangle size={15} color="#dc2626" />
-              <span>{classConflicts.length} Xung Đột (Xem Chi Tiết)</span>
-            </button>
-          ) : (
+                background: totalScheduled >= 32 ? '#ecfdf5' : '#eff6ff',
+                color: totalScheduled >= 32 ? '#065f46' : '#1e40af',
+                fontWeight: 700,
+                fontSize: '0.82rem'
+              }}>
+                <CheckCircle2 size={15} color={totalScheduled >= 32 ? '#10b981' : '#3b82f6'} />
+                <span>{totalScheduled} / 32 tiết</span>
+              </div>
+
+              {/* Conflict Badge */}
+              {classConflicts.length > 0 ? (
+                <button
+                  onClick={() => onOpenConflictModal && onOpenConflictModal()}
+                  title="Bấm để xem danh sách chi tiết: tiết nào, lớp nào, ai trùng"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    background: '#fef2f2',
+                    border: '1.5px solid #f87171',
+                    color: '#b91c1c',
+                    fontSize: '0.8rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    boxShadow: '0 0 10px rgba(239, 68, 68, 0.25)',
+                    transition: 'transform 0.15s ease'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.04)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <AlertTriangle size={14} color="#dc2626" />
+                  <span>{classConflicts.length} Xung Đột</span>
+                </button>
+              ) : (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  color: '#15803d',
+                  fontSize: '0.8rem',
+                  fontWeight: 700
+                }}>
+                  <CheckCircle2 size={14} />
+                  <span>0 Trùng Giờ</span>
+                </div>
+              )}
+
+              {/* Print Button */}
+              <button
+                onClick={() => setIsPrintModalOpen(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 14px',
+                  borderRadius: '9px',
+                  background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 3px 10px rgba(79, 70, 229, 0.25)',
+                  transition: 'transform 0.15s ease'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                title="Mở xem trước và tùy chọn in thời khóa biểu (In từng lớp hoặc toàn trường chuẩn A4)"
+              >
+                <Printer size={15} />
+                <span>In Thời Khóa Biểu</span>
+              </button>
+
+              {/* Clear Current Class Timetable Button */}
+              <button
+                onClick={handleClearCurrentClass}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '7px 12px',
+                  borderRadius: '9px',
+                  background: '#ffffff',
+                  border: '1px solid #fecdd3',
+                  color: '#e11d48',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#ffe4e6';
+                  e.currentTarget.style.borderColor = '#fda4af';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = '#ffffff';
+                  e.currentTarget.style.borderColor = '#fecdd3';
+                }}
+                title={`Xóa sạch lịch đã xếp của ${currentClass?.name || 'lớp này'} để xếp lại (các lớp khác giữ nguyên)`}
+              >
+                <Trash2 size={14} color="#e11d48" />
+                <span>Xóa Lịch Lớp</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: Grouped Class Chips */}
+          {selectedGradeTab === 'all' ? (
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              background: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              color: '#15803d',
-              fontSize: '0.8rem',
-              fontWeight: 700
+              flexWrap: 'wrap',
+              gap: '12px'
             }}>
-              <CheckCircle2 size={15} />
-              <span>0 Trùng Giờ</span>
-            </div>
-          )}
+              {availableGrades.map(g => {
+                const gradeClasses = classesByGrade[g] || [];
+                return (
+                  <div
+                    key={g}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: '#f8fafc',
+                      padding: '4px 8px 4px 6px',
+                      borderRadius: '12px',
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
+                    <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      color: '#475569',
+                      padding: '4px 8px',
+                      borderRadius: '8px',
+                      background: '#e2e8f0',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.3px'
+                    }}>
+                      K{g}
+                    </span>
 
-          <button
-            onClick={() => window.print()}
-            style={{
+                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                      {gradeClasses.map(cls => {
+                        const isSelected = selectedClassId === cls.id;
+                        const stats = classStatsMap.get(cls.id) || { scheduledCount: 0, conflictCount: 0 };
+                        const homeroom = teacherMap.get(cls.homeroomTeacherId);
+                        const isFull = stats.scheduledCount >= 32;
+
+                        return (
+                          <button
+                            key={cls.id}
+                            onClick={() => {
+                              setSelectedClassId(cls.id);
+                              setSwapSource(null);
+                            }}
+                            title={`${cls.name} • Sĩ số: ${cls.studentCount || 35} học sinh • GVCN: ${homeroom?.name || 'Chưa gán'} • Đã xếp: ${stats.scheduledCount}/32 tiết${stats.conflictCount > 0 ? ` • ${stats.conflictCount} Xung đột` : ''}`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 11px',
+                              borderRadius: '8px',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              border: isSelected ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                              background: isSelected ? '#4f46e5' : '#ffffff',
+                              color: isSelected ? '#ffffff' : '#334155',
+                              boxShadow: isSelected ? '0 3px 8px rgba(79, 70, 229, 0.3)' : 'none',
+                              transition: 'all 0.15s ease',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <span>{cls.name}</span>
+
+                            {/* Sĩ số badge */}
+                            <span style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 600,
+                              color: isSelected ? '#e0e7ff' : '#64748b',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '2px',
+                              opacity: 0.9
+                            }}>
+                              <UsersIcon size={11} />
+                              <span>{cls.studentCount || 35}</span>
+                            </span>
+                            
+                            {/* Indicator badge */}
+                            {stats.conflictCount > 0 ? (
+                              <span style={{
+                                fontSize: '0.68rem',
+                                padding: '1px 5px',
+                                borderRadius: '10px',
+                                background: isSelected ? '#ffffff' : '#fef2f2',
+                                color: '#dc2626',
+                                fontWeight: 800,
+                                border: isSelected ? 'none' : '1px solid #fecaca'
+                              }}>
+                                !{stats.conflictCount}
+                              </span>
+                            ) : (
+                              <span style={{
+                                fontSize: '0.68rem',
+                                padding: '1px 5px',
+                                borderRadius: '10px',
+                                background: isSelected ? 'rgba(255, 255, 255, 0.25)' : (isFull ? '#f0fdf4' : '#f8fafc'),
+                                color: isSelected ? '#ffffff' : (isFull ? '#15803d' : '#64748b'),
+                                fontWeight: 700
+                              }}>
+                                {stats.scheduledCount}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Specific Grade View: spacious, rich class cards */
+            <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              color: '#334155',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            <Printer size={15} />
-            <span>In Bản A4</span>
-          </button>
+              gap: '10px',
+              flexWrap: 'wrap'
+            }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#4338ca', background: '#eef2ff', padding: '6px 12px', borderRadius: '8px' }}>
+                Danh sách lớp Khối {selectedGradeTab}:
+              </span>
+
+              {(classesByGrade[selectedGradeTab] || []).map(cls => {
+                const isSelected = selectedClassId === cls.id;
+                const stats = classStatsMap.get(cls.id) || { scheduledCount: 0, conflictCount: 0 };
+                const homeroom = teacherMap.get(cls.homeroomTeacherId);
+                const isFull = stats.scheduledCount >= 32;
+
+                return (
+                  <button
+                    key={cls.id}
+                    onClick={() => {
+                      setSelectedClassId(cls.id);
+                      setSwapSource(null);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '8px 16px',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      border: isSelected ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                      background: isSelected ? 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' : '#ffffff',
+                      color: isSelected ? '#ffffff' : '#1e293b',
+                      boxShadow: isSelected ? '0 4px 12px rgba(79, 70, 229, 0.25)' : '0 1px 2px rgba(0,0,0,0.05)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: 800, fontSize: '0.92rem', textAlign: 'left' }}>{cls.name}</span>
+                        <span style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '6px',
+                          background: isSelected ? 'rgba(255,255,255,0.2)' : '#f1f5f9',
+                          color: isSelected ? '#ffffff' : '#475569',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}>
+                          <UsersIcon size={11} />
+                          <span>{cls.studentCount || 35} HS</span>
+                        </span>
+                      </div>
+                      <div style={{
+                        fontSize: '0.72rem',
+                        color: isSelected ? '#e0e7ff' : '#64748b',
+                        marginTop: '2px',
+                        textAlign: 'left'
+                      }}>
+                        GVCN: {homeroom?.name ? homeroom.name.split(' ').pop() : 'Chưa gán'}
+                      </div>
+                    </div>
+
+                    {stats.conflictCount > 0 ? (
+                      <span style={{
+                        fontSize: '0.7rem',
+                        padding: '2px 7px',
+                        borderRadius: '12px',
+                        background: isSelected ? '#ffffff' : '#fef2f2',
+                        color: '#dc2626',
+                        fontWeight: 800
+                      }}>
+                        {stats.conflictCount} xung đột
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: '0.72rem',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        background: isSelected ? 'rgba(255, 255, 255, 0.25)' : (isFull ? '#f0fdf4' : '#f1f5f9'),
+                        color: isSelected ? '#ffffff' : (isFull ? '#15803d' : '#64748b'),
+                        fontWeight: 700
+                      }}>
+                        {stats.scheduledCount}/32
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </div>
 
       {/* DETAILED CONFLICT ALERT BANNER FOR THIS CLASS */}
       {classConflicts.length > 0 && (
@@ -950,142 +1535,28 @@ export const TimetableStudio = ({
       </div>
       </div>
 
-      {/* ───────────────────────────────────────────────────────────── */}
-      {/* DEDICATED OFFICIAL PRINTABLE SHEET FOR CLASS (A4 PORTRAIT)   */}
-      {/* ───────────────────────────────────────────────────────────── */}
-      <div className="printable-sheet">
-        {/* National / School Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>{schoolInfo.district || 'UBND PHƯỜNG TÂN MAI'}</div>
-            <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>{(schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B').toUpperCase()}</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '10pt', fontWeight: 800 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-            <div style={{ fontSize: '9pt', fontStyle: 'italic', textDecoration: 'underline', marginTop: '2px' }}>Độc lập - Tự do - Hạnh phúc</div>
-          </div>
-        </div>
+      {/* CLASS TIMETABLE PRINT PREVIEW & BATCH PRINT MODAL */}
+      <ClassTimetablePrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        classes={classes}
+        teachers={teachers}
+        timetable={timetable}
+        subjects={subjects}
+        periods={periods}
+        schoolInfo={schoolInfo}
+        initialClassId={selectedClassId}
+      />
 
-        {/* Timetable Title */}
-        <div style={{ textAlign: 'center', margin: '10px 0 12px 0' }}>
-          <h1 style={{ fontSize: '16pt', fontWeight: 900, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            THỜI KHÓA BIỂU {selectedClass?.name?.startsWith('Lớp ') ? selectedClass.name.toUpperCase() : `LỚP ${(selectedClass?.name || '').toUpperCase()}`}
-          </h1>
-          <div style={{ fontSize: '9.5pt', fontStyle: 'italic', marginTop: '4px' }}>
-            Áp dụng từ ngày 05/09/2026 • {schoolInfo.year || 'Năm học 2026 - 2027'}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '6px', fontSize: '9.5pt', fontWeight: 600 }}>
-            <span>Giáo viên chủ nhiệm: <strong>{teacherMap.get(selectedClass?.homeroomTeacherId)?.name || 'Chưa phân công'}</strong></span>
-            <span>Phòng học: <strong>{selectedClass?.mainRoom || 'Phòng học lớp'}</strong></span>
-            <span>Sĩ số: <strong>{selectedClass?.studentCount || 35} học sinh</strong></span>
-          </div>
-        </div>
-
-        {/* Official Printable Table */}
-        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1.5px solid #000', textAlign: 'center', fontSize: '8.5pt' }}>
-          <thead>
-            <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #000' }}>
-              <th style={{ border: '1px solid #000', width: '36px', padding: '5px 2px', fontWeight: 800 }}>Buổi</th>
-              <th style={{ border: '1px solid #000', width: '28px', padding: '5px 2px', fontWeight: 800 }}>Tiết</th>
-              <th style={{ border: '1px solid #000', width: '68px', padding: '5px 2px', fontWeight: 800 }}>Thời gian</th>
-              {DAYS_OF_WEEK.map(d => (
-                <th key={d.id} style={{ border: '1px solid #000', padding: '5px 2px', fontWeight: 800 }}>
-                  {d.name.toUpperCase()}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {periods.map(period => {
-              const isMorning = period.session === 'morning';
-              const isAfternoon = period.session === 'afternoon';
-              const isLunch = period.id === 4;
-
-              return (
-                <React.Fragment key={period.id}>
-                  <tr>
-                    {period.id === 1 && (
-                      <td rowSpan={4} style={{ border: '1px solid #000', fontWeight: 800, verticalAlign: 'middle', fontSize: '9.5pt' }}>
-                        SÁNG
-                      </td>
-                    )}
-                    {period.id === 5 && (
-                      <td rowSpan={3} style={{ border: '1px solid #000', fontWeight: 800, verticalAlign: 'middle', fontSize: '9.5pt' }}>
-                        CHIỀU
-                      </td>
-                    )}
-
-                    <td style={{ border: '1px solid #000', fontWeight: 800, verticalAlign: 'middle', fontSize: '10pt' }}>
-                      {period.id <= 4 ? period.id : (period.id - 4)}
-                    </td>
-
-                    <td style={{ border: '1px solid #000', fontSize: '8pt', verticalAlign: 'middle', color: '#222' }}>
-                      {period.time}
-                    </td>
-
-                    {DAYS_OF_WEEK.map(day => {
-                      const slot = timetable[selectedClassId]?.[day.id]?.[period.id];
-                      const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { name: slot.subjectRaw || slot.subjectId }) : null;
-                      const teacher = slot ? teacherMap.get(slot.teacherId) : null;
-                      const isWedOff = day.id === 4 && period.id > 4;
-
-                      if (isWedOff) {
-                        return (
-                          <td key={day.id} style={{ border: '1px solid #000', fontStyle: 'italic', color: '#555', background: '#f8fafc', height: '36px', verticalAlign: 'middle' }}>
-                            Nghỉ
-                          </td>
-                        );
-                      }
-
-                      return (
-                        <td key={day.id} style={{ border: '1px solid #000', height: '36px', padding: '2px 2px', verticalAlign: 'middle', wordBreak: 'break-word' }}>
-                          {slot ? (
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: '9pt', color: '#000', lineHeight: 1.15 }}>
-                                {sub?.name || slot.subjectId}
-                              </div>
-                              <div style={{ fontSize: '7.5pt', color: '#333', marginTop: '1px' }}>
-                                {teacher?.code || teacher?.name ? `(${teacher?.code || teacher?.name})` : ''}
-                              </div>
-                            </div>
-                          ) : (
-                            <span style={{ color: '#aaa' }}>-</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-
-                  {isLunch && (
-                    <tr style={{ background: '#f1f5f9', border: '1px solid #000' }}>
-                      <td colSpan={8} style={{ border: '1px solid #000', padding: '3px', fontSize: '8pt', fontWeight: 800, fontStyle: 'italic' }}>
-                        {schoolInfo.lunchBreak ? `🍱 NGHỈ TRƯA & ĂN BÁN TRÚ (${schoolInfo.lunchBreak})` : '🍱 NGHỈ TRƯA & ĂN BÁN TRÚ (10:30 - 14:00)'}
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {/* Footer Signatures */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '9pt' }}>
-          <div style={{ textAlign: 'center', width: '200px' }}>
-            <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>NGƯỜI LẬP BIỂU</div>
-            <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-            <div style={{ height: '40px' }} />
-            <div style={{ fontWeight: 800 }}>{schoolInfo.scheduler || ''}</div>
-          </div>
-          <div style={{ textAlign: 'center', width: '220px' }}>
-            <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
-            <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
-            <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
-            <div style={{ height: '50px' }} />
-          </div>
-        </div>
-      </div>
+      {/* CLASS STUDENT COUNT MANAGEMENT MODAL */}
+      <ClassStudentCountModal
+        isOpen={isStudentCountModalOpen}
+        onClose={() => setIsStudentCountModalOpen(false)}
+        classes={classes}
+        setClasses={setClasses}
+        teachers={teachers}
+      />
     </div>
   </div>
-);
+  );
 };

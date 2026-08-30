@@ -3,7 +3,7 @@
   "productName": "EduTimetable Tiểu Học",
   "description": "Phần mềm Xếp Thời Khóa Biểu Tiểu Học Chuẩn CTGDPT 2018",
   "author": "Châu Đàn",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
