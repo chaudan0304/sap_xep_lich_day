@@ -44,8 +44,26 @@ InstallDirRegKey HKCU "Software\EduTimetable_TieuHoc" "Install_Dir"
 !insertmacro MUI_LANGUAGE "Vietnamese"
 !insertmacro MUI_LANGUAGE "English"
 
+; Tự động đóng ứng dụng nếu đang chạy trước khi bắt đầu cài đặt
+Function .onInit
+  nsExec::Exec 'cmd.exe /c taskkill /F /IM EduTimetable_TieuHoc.exe > nul 2>&1'
+  nsExec::Exec 'cmd.exe /c taskkill /F /IM "EduTimetable Tiểu Học.exe" > nul 2>&1'
+  Sleep 500
+FunctionEnd
+
+; Tự động đóng ứng dụng trước khi gỡ cài đặt
+Function un.onInit
+  nsExec::Exec 'cmd.exe /c taskkill /F /IM EduTimetable_TieuHoc.exe > nul 2>&1'
+  nsExec::Exec 'cmd.exe /c taskkill /F /IM "EduTimetable Tiểu Học.exe" > nul 2>&1'
+  Sleep 500
+FunctionEnd
+
 ; Phân Đoạn Cài Đặt Chính
 Section "MainSection" SEC01
+  ; Đảm bảo ứng dụng đã đóng hoàn toàn trước khi ghi đè file
+  nsExec::Exec 'cmd.exe /c taskkill /F /IM EduTimetable_TieuHoc.exe > nul 2>&1'
+  Sleep 500
+
   SetOutPath "$INSTDIR"
   SetOverwrite on
 
