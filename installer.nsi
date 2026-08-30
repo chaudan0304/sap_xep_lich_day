@@ -7,12 +7,12 @@ Unicode True
 Name "EduTimetable Tiểu Học"
 Caption "Cài Đặt Phần Mềm EduTimetable Tiểu Học - Chuẩn CTGDPT 2018"
 OutFile "dist-desktop\EduTimetable_TieuHoc_Setup_v1.0.1.exe"
-RequestExecutionLevel user
+RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 
-; Thư mục cài đặt mặc định trong AppData (Không cần quyền Admin)
-InstallDir "$LOCALAPPDATA\Programs\EduTimetable_TieuHoc"
-InstallDirRegKey HKCU "Software\EduTimetable_TieuHoc" "Install_Dir"
+; Thư mục cài đặt mặc định
+InstallDir "$PROGRAMFILES64\EduTimetable Tiểu Học"
+InstallDirRegKey HKLM "Software\EduTimetable_TieuHoc" "Install_Dir"
 
 ; Cấu hình giao diện Modern UI
 !define MUI_ABORTWARNING
@@ -46,23 +46,27 @@ InstallDirRegKey HKCU "Software\EduTimetable_TieuHoc" "Install_Dir"
 
 ; Tự động đóng ứng dụng nếu đang chạy trước khi bắt đầu cài đặt
 Function .onInit
-  nsExec::Exec 'cmd.exe /c taskkill /F /IM EduTimetable_TieuHoc.exe > nul 2>&1'
-  nsExec::Exec 'cmd.exe /c taskkill /F /IM "EduTimetable Tiểu Học.exe" > nul 2>&1'
+  nsExec::Exec 'taskkill /F /IM EduTimetable_TieuHoc.exe /T'
+  nsExec::Exec 'taskkill /F /IM "EduTimetable Tiểu Học.exe" /T'
   Sleep 500
 FunctionEnd
 
 ; Tự động đóng ứng dụng trước khi gỡ cài đặt
 Function un.onInit
-  nsExec::Exec 'cmd.exe /c taskkill /F /IM EduTimetable_TieuHoc.exe > nul 2>&1'
-  nsExec::Exec 'cmd.exe /c taskkill /F /IM "EduTimetable Tiểu Học.exe" > nul 2>&1'
+  nsExec::Exec 'taskkill /F /IM EduTimetable_TieuHoc.exe /T'
+  nsExec::Exec 'taskkill /F /IM "EduTimetable Tiểu Học.exe" /T'
   Sleep 500
 FunctionEnd
 
 ; Phân Đoạn Cài Đặt Chính
 Section "MainSection" SEC01
   ; Đảm bảo ứng dụng đã đóng hoàn toàn trước khi ghi đè file
-  nsExec::Exec 'cmd.exe /c taskkill /F /IM EduTimetable_TieuHoc.exe > nul 2>&1'
+  nsExec::Exec 'taskkill /F /IM EduTimetable_TieuHoc.exe /T'
   Sleep 500
+
+  ; Đảm bảo thư mục đích tồn tại và xóa file exe cũ nếu đang tồn tại
+  CreateDirectory "$INSTDIR"
+  Delete /REBOOTOK "$INSTDIR\EduTimetable_TieuHoc.exe"
 
   SetOutPath "$INSTDIR"
   SetOverwrite on
@@ -71,20 +75,23 @@ Section "MainSection" SEC01
   File /r "dist-desktop\EduTimetable_TieuHoc-win32-x64\*.*"
 
   ; Ghi nhớ đường dẫn cài đặt vào Registry
-  WriteRegStr HKCU "Software\EduTimetable_TieuHoc" "Install_Dir" "$INSTDIR"
+  WriteRegStr HKLM "Software\EduTimetable_TieuHoc" "Install_Dir" "$INSTDIR"
 
   ; Tạo trình gỡ cài đặt (Uninstall.exe)
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   ; Đăng ký vào Windows Settings & Control Panel (Apps & Features)
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "DisplayName" "EduTimetable Tiểu Học"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "DisplayVersion" "1.0.1"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "Publisher" "Châu Đàn"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "DisplayIcon" "$INSTDIR\EduTimetable_TieuHoc.exe"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "UninstallString" '"$INSTDIR\Uninstall.exe"'
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "InstallLocation" "$INSTDIR"
-  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "NoModify" 1
-  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "NoRepair" 1
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "DisplayName" "EduTimetable Tiểu Học"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "DisplayVersion" "1.0.1"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "Publisher" "Châu Đàn"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "DisplayIcon" "$INSTDIR\EduTimetable_TieuHoc.exe"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "UninstallString" '"$INSTDIR\Uninstall.exe"'
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "InstallLocation" "$INSTDIR"
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "NoModify" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "NoRepair" 1
+
+  ; Thiết lập ngữ cảnh All Users để tạo biểu tượng dùng chung
+  SetShellVarContext all
 
   ; Tạo biểu tượng trong Start Menu
   CreateDirectory "$SMPROGRAMS\EduTimetable Tiểu Học"
@@ -97,6 +104,8 @@ SectionEnd
 
 ; Phân Đoạn Gỡ Cài Đặt (Uninstall)
 Section "Uninstall"
+  SetShellVarContext all
+
   ; Xóa biểu tượng ngoài Desktop
   Delete "$DESKTOP\EduTimetable Tiểu Học.lnk"
 
@@ -106,8 +115,8 @@ Section "Uninstall"
   RMDir "$SMPROGRAMS\EduTimetable Tiểu Học"
 
   ; Xóa khóa đăng ký Registry
-  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc"
-  DeleteRegKey HKCU "Software\EduTimetable_TieuHoc"
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc"
+  DeleteRegKey HKLM "Software\EduTimetable_TieuHoc"
 
   ; Xóa toàn bộ file và thư mục cài đặt
   RMDir /r "$INSTDIR"
