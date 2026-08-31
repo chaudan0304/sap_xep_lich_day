@@ -493,7 +493,7 @@ export const TeacherDirectory = ({
                 {schoolInfo.district || 'UBND PHƯỜNG TÂN MAI'}
               </div>
               <div style={{ fontSize: '10.5pt', textTransform: 'uppercase', fontWeight: 800 }}>
-                {(schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B').toUpperCase()}
+                {(schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC').toUpperCase()}
               </div>
             </div>
             <div style={{ textAlign: 'center', width: '50%' }}>

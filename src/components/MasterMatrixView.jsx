@@ -64,7 +64,7 @@ export const MasterMatrixView = ({
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Grid3X3 size={28} color="#4f46e5" />
-            <span>Ma Trận Thời Khóa Biểu Toàn Trường (Trường TH Quỳnh Lộc B)</span>
+            <span>Ma Trận Thời Khóa Biểu Toàn Trường (Trường TH Quỳnh Lộc)</span>
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
             Bảng ma trận chuẩn xác 100% từng tiết học của 23 lớp khớp với file Excel chính thức

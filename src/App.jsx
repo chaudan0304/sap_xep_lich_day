@@ -370,7 +370,7 @@ export function App() {
     }
   };
 
-  // 5. Khởi tạo / Nạp Dữ Liệu Mẫu Chuẩn (Quỳnh Lộc B - 23 lớp)
+  // 5. Khởi tạo / Nạp Dữ Liệu Mẫu Chuẩn (Quỳnh Lộc - 23 lớp)
   const handleSelectSampleData = () => {
     localStorage.setItem('EDUTIMETABLE_INITIALIZED_CHOICE', 'sample');
     setSchoolInfo({

@@ -313,7 +313,7 @@ export const ExcelModal = ({
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                     <div>
                       <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Đơn vị:</span>
-                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{importResult.data?.schoolInfo?.name || 'Trường TH Quỳnh Lộc B'}</div>
+                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{importResult.data?.schoolInfo?.name || 'Trường TH Quỳnh Lộc'}</div>
                     </div>
                     <div>
                       <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Năm học:</span>

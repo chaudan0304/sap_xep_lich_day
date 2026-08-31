@@ -214,7 +214,7 @@ export const importExcelData = async (file) => {
 // ==========================================
 export const exportMasterTimetable = async (timetable, classes = [], teachers = [], subjects = {}, schoolInfo = {}) => {
   const _subjects = subjects || DEFAULT_SUBJECTS;
-  const sName = schoolInfo.name || 'Trường Tiểu Học Quỳnh Lộc B';
+  const sName = schoolInfo.name || 'Trường Tiểu Học Quỳnh Lộc';
   const sYear = schoolInfo.year || 'Năm học 2026 - 2027';
   const teacherMap = new Map((teachers || []).map(t => [t.id, t]));
 
@@ -462,7 +462,7 @@ export const exportMasterTimetable = async (timetable, classes = [], teachers = 
 // ==========================================
 export const exportClassTimetables = async (timetable, classes = [], teachers = [], subjects = {}, schoolInfo = {}) => {
   const _subjects = subjects || DEFAULT_SUBJECTS;
-  const sName = schoolInfo.name || 'Trường Tiểu Học Quỳnh Lộc B';
+  const sName = schoolInfo.name || 'Trường Tiểu Học Quỳnh Lộc';
   const sYear = schoolInfo.year || 'Năm học 2026 - 2027';
   const teacherMap = new Map((teachers || []).map(t => [t.id, t]));
 
@@ -727,7 +727,7 @@ export const exportClassTimetables = async (timetable, classes = [], teachers = 
 // ==========================================
 export const exportTeacherTimetables = async (timetable, teachers = [], classes = [], subjects = {}, schoolInfo = {}) => {
   const _subjects = subjects || DEFAULT_SUBJECTS;
-  const sName = schoolInfo.name || 'Trường Tiểu Học Quỳnh Lộc B';
+  const sName = schoolInfo.name || 'Trường Tiểu Học Quỳnh Lộc';
   const sYear = schoolInfo.year || 'Năm học 2026 - 2027';
 
   const wb = new ExcelJS.Workbook();
@@ -1028,7 +1028,7 @@ export const exportTeacherTimetables = async (timetable, teachers = [], classes 
 // 6. XUẤT BẢNG TỔNG HỢP DANH BẠ & ĐỊNH MỨC GIẢNG DẠY
 // ==========================================
 export const exportTeacherDirectory = async (teachers = [], assignments = [], timetable = {}, classes = [], schoolInfo = {}) => {
-  const sName = schoolInfo.name || 'Trường Tiểu Học Quỳnh Lộc B';
+  const sName = schoolInfo.name || 'Trường Tiểu Học Quỳnh Lộc';
   const sYear = schoolInfo.year || 'Năm học 2026 - 2027';
 
   const wb = new ExcelJS.Workbook();

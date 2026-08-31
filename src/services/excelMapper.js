@@ -18,7 +18,7 @@ export function mapParsedExcelToAppModel(parsedData, currentAppState = {}) {
     assignments = [],
     gradeQuotas = DEFAULT_GRADE_QUOTAS,
     rooms = [],
-    schoolInfo = { name: 'Trường TH Quỳnh Lộc B', year: 'Năm học 2026 - 2027' }
+    schoolInfo = { name: 'Trường TH Quỳnh Lộc', year: 'Năm học 2026 - 2027' }
   } = parsedData || {};
 
   // 1. Chuẩn hóa danh sách giáo viên
@@ -122,6 +122,6 @@ export function mapParsedExcelToAppModel(parsedData, currentAppState = {}) {
     gradeQuotas: gradeQuotas || DEFAULT_GRADE_QUOTAS,
     assignments: cleanAssignments,
     timetable: cleanTimetable,
-    schoolInfo: schoolInfo || { name: 'Trường TH Quỳnh Lộc B', year: 'Năm học 2026 - 2027' }
+    schoolInfo: schoolInfo || { name: 'Trường TH Quỳnh Lộc', year: 'Năm học 2026 - 2027' }
   };
 }

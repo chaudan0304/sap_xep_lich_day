@@ -18,7 +18,7 @@ import {
 import { PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 
 export const DEFAULT_SCHOOL_INFO = {
-  name: 'Trường Tiểu học Quỳnh Lộc B',
+  name: 'Trường Tiểu học Quỳnh Lộc',
   district: 'UBND Phường Tân Mai',
   year: 'Năm học 2026 - 2027',
   principal: 'Bùi Văn Việt',
@@ -346,7 +346,7 @@ const SchoolSettingsModal = ({
                     required
                     value={localSchool.name}
                     onChange={(e) => setLocalSchool({ ...localSchool, name: e.target.value })}
-                    placeholder="VD: Trường Tiểu học Quỳnh Lộc B"
+                    placeholder="VD: Trường Tiểu học Quỳnh Lộc"
                     style={{
                       width: '100%',
                       padding: '10px 14px',

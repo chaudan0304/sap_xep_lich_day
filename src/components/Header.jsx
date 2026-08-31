@@ -41,7 +41,7 @@ export const Header = ({
   onOpenConflictModal,
   conflicts = [],
   isAutoScheduling = false,
-  schoolInfo = { name: 'Trường TH Quỳnh Lộc B', year: 'Năm học 2026 - 2027' }
+  schoolInfo = { name: 'Trường TH Quỳnh Lộc', year: 'Năm học 2026 - 2027' }
 }) => {
   const jsonFileInputRef = React.useRef(null);
 

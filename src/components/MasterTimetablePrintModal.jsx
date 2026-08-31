@@ -67,7 +67,7 @@ export const MasterTimetablePrintModal = ({
   // 4. Print Meta
   const [printMeta, setPrintMeta] = useState({
     district: schoolInfo.district || 'UBND PHƯỜNG TÂN MAI',
-    schoolName: schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B',
+    schoolName: schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC',
     year: schoolInfo.year || 'Năm học 2026 - 2027',
     effectiveDate: 'Áp dụng từ ngày 05/09/2026',
     signLocationDate: 'Tân Mai, ngày 05 tháng 09 năm 2026',
@@ -750,7 +750,7 @@ export const MasterTimetablePrintModal = ({
                 {printMeta.district || 'UBND PHƯỜNG TÂN MAI'}
               </div>
               <div style={{ fontSize: '10.5pt', textTransform: 'uppercase', fontWeight: 800 }}>
-                {printMeta.schoolName || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B'}
+                {printMeta.schoolName || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC'}
               </div>
             </div>
             <div style={{ textAlign: 'center', width: '50%' }}>

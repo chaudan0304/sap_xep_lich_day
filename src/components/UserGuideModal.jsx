@@ -338,7 +338,7 @@ export const UserGuideModal = ({ isOpen, onClose, onNavigateTab }) => {
                             Khởi tạo dự án & Cài đặt thông tin trường
                           </h4>
                           <p style={{ fontSize: '0.85rem', color: '#475569', margin: '0 0 8px 0' }}>
-                            Bấm vào <strong>[📂 Dự Án]</strong> ở góc trên để chọn nạp <em>Dữ liệu mẫu chuẩn (Quỳnh Lộc B - 23 lớp)</em> để làm quen, hoặc chọn <em>Dự án trắng</em>. Sau đó nhấp vào <strong>[🏫 Tên Trường (Sửa)]</strong> để đặt tên trường, hiệu trưởng, năm học và khung giờ tiết học.
+                            Bấm vào <strong>[📂 Dự Án]</strong> ở góc trên để chọn nạp <em>Dữ liệu mẫu chuẩn (Quỳnh Lộc - 23 lớp)</em> để làm quen, hoặc chọn <em>Dự án trắng</em>. Sau đó nhấp vào <strong>[🏫 Tên Trường (Sửa)]</strong> để đặt tên trường, hiệu trưởng, năm học và khung giờ tiết học.
                           </p>
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>

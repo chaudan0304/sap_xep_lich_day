@@ -254,7 +254,7 @@ export function parseExcelWorkbook(dataOrBuffer) {
       { id: 'SAN_THE_CHAT', name: 'Sân / Nhà đa năng Thể chất', code: 'SAN-TC', capacity: 100, isSpecialized: true, allowMultiple: true }
     ],
     schoolInfo: {
-      name: 'Trường TH Quỳnh Lộc B',
+      name: 'Trường TH Quỳnh Lộc',
       year: 'Năm học 2026 - 2027'
     }
   };
