@@ -1693,7 +1693,7 @@ export const TeacherDirectory = ({
                               }}
                               style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, background: '#e0e7ff', color: '#3730a3', border: '1px solid #c7d2fe', cursor: 'pointer' }}
                             >
-                              Chọn Cả 23 Lớp
+                              Chọn Tất Cả Lớp
                             </button>
                             <button
                               type="button"
@@ -1725,7 +1725,7 @@ export const TeacherDirectory = ({
                           </div>
                         </div>
 
-                      {/* Danh sách 23 lớp checkboxes */}
+                      {/* Danh sách lớp checkboxes */}
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4f46e5', marginBottom: '6px' }}>
                         Lớp dạy môn {subjectObj.name}: {(subItem.classIds || []).length} / {classes.length} lớp
                       </div>

@@ -138,7 +138,7 @@ export const AssignmentManager = ({
             <span>Phân Công Chuyên Môn Giảng Dạy Từng Lớp</span>
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
-            Chỉ định giáo viên phụ trách và phòng bộ môn cho từng môn học của 23 lớp học
+            Chỉ định giáo viên phụ trách và phòng bộ môn cho từng môn học của các lớp
           </p>
         </div>
 
@@ -188,7 +188,7 @@ export const AssignmentManager = ({
 
           <button
             onClick={handleSyncAllClassesFromGradeQuotas}
-            title="Tự động đồng bộ phân công môn học cho toàn bộ 23 lớp theo Định Mức Khối"
+            title="Tự động đồng bộ phân công môn học cho toàn bộ các lớp theo Định Mức Khối"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -205,7 +205,7 @@ export const AssignmentManager = ({
             }}
           >
             <RotateCcw size={16} />
-            <span>Đồng Bộ Tất Cả 23 Lớp</span>
+            <span>Đồng Bộ Tất Cả {classes.length} Lớp</span>
           </button>
         </div>
       </div>
