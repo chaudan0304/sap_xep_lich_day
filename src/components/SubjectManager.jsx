@@ -280,7 +280,7 @@ export const SubjectManager = ({
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <BookOpen size={28} color="#4f46e5" />
-            <span>Quản Lý Danh Mục Môn Học & Hoạt Động Giáo Dục ({subjectList.length})</span>
+            <span>Quản Lý Danh Mục Môn Học & Hoạt Động Giáo Dục</span>
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
             Cấu hình tên môn, mã hiển thị trên TKB, nhóm chuyên môn, phòng thực hành và màu sắc nhận diện

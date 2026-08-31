@@ -1204,7 +1204,7 @@ export const TimetableStudio = ({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b' }}>
-              🎒 Giỏ Môn Học ({classAssignments.length})
+              🎒 Giỏ Môn Học
             </h3>
             <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
               Kéo thả vào bảng

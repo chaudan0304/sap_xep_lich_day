@@ -465,7 +465,7 @@ export const ClassDirectory = ({
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <GraduationCap size={28} color="#4f46e5" />
-            <span>Danh Sách Lớp Toàn Trường ({stats.total} Lớp)</span>
+            <span>Danh Sách Lớp Toàn Trường</span>
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
             Quản lý cơ cấu lớp học theo từng khối (1 đến 5), giáo viên chủ nhiệm, phòng học và sĩ số học sinh.
