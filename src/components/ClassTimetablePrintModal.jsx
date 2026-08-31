@@ -73,6 +73,8 @@ export const ClassTimetablePrintModal = ({
 
   // 4. Display options
   const [displayOptions, setDisplayOptions] = useState({
+    showHeader: true,
+    showSignatures: true,
     teacherDisplay: 'code', // 'code' | 'name' | 'none'
     showRoom: true,
     showClassMeta: true,
@@ -270,29 +272,31 @@ export const ClassTimetablePrintModal = ({
         }}
       >
         {/* National / School Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          borderBottom: '1.5px solid #000',
-          paddingBottom: '6px',
-          marginBottom: '10px'
-        }}>
-          <div style={{ textAlign: 'center', width: '45%' }}>
-            <div style={{ fontSize: '9.5pt', textTransform: 'uppercase', fontWeight: 700 }}>
-              {printMeta.district || 'UBND PHƯỜNG TÂN MAI'}
+        {displayOptions.showHeader && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            borderBottom: '1.5px solid #000',
+            paddingBottom: '6px',
+            marginBottom: '10px'
+          }}>
+            <div style={{ textAlign: 'center', width: '45%' }}>
+              <div style={{ fontSize: '9.5pt', textTransform: 'uppercase', fontWeight: 700 }}>
+                {printMeta.district || 'UBND PHƯỜNG TÂN MAI'}
+              </div>
+              <div style={{ fontSize: '10.5pt', textTransform: 'uppercase', fontWeight: 800 }}>
+                {printMeta.schoolName || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B'}
+              </div>
             </div>
-            <div style={{ fontSize: '10.5pt', textTransform: 'uppercase', fontWeight: 800 }}>
-              {printMeta.schoolName || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B'}
+            <div style={{ textAlign: 'center', width: '50%' }}>
+              <div style={{ fontSize: '9.5pt', fontWeight: 800 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+              <div style={{ fontSize: '9pt', fontStyle: 'italic', textDecoration: 'underline', marginTop: '2px' }}>
+                Độc lập - Tự do - Hạnh phúc
+              </div>
             </div>
           </div>
-          <div style={{ textAlign: 'center', width: '50%' }}>
-            <div style={{ fontSize: '9.5pt', fontWeight: 800 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-            <div style={{ fontSize: '9pt', fontStyle: 'italic', textDecoration: 'underline', marginTop: '2px' }}>
-              Độc lập - Tự do - Hạnh phúc
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Timetable Title */}
         <div style={{ textAlign: 'center', margin: '8px 0 10px 0' }}>
@@ -510,28 +514,30 @@ export const ClassTimetablePrintModal = ({
         </table>
 
         {/* Footer Signatures */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          marginTop: '14px',
-          fontSize: '8.5pt'
-        }}>
-          <div style={{ textAlign: 'center', width: '200px' }}>
-            <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>NGƯỜI LẬP BIỂU</div>
-            <div style={{ fontStyle: 'italic', fontSize: '7.5pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-            <div style={{ height: '36px' }} />
-            <div style={{ fontWeight: 800 }}>{printMeta.scheduler || ''}</div>
-          </div>
-          <div style={{ textAlign: 'center', width: '220px' }}>
-            <div style={{ fontStyle: 'italic', fontSize: '8pt' }}>
-              {printMeta.signLocationDate}
+        {displayOptions.showSignatures && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginTop: '14px',
+            fontSize: '8.5pt'
+          }}>
+            <div style={{ textAlign: 'center', width: '200px' }}>
+              <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>NGƯỜI LẬP BIỂU</div>
+              <div style={{ fontStyle: 'italic', fontSize: '7.5pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
+              <div style={{ height: '36px' }} />
+              <div style={{ fontWeight: 800 }}>{printMeta.scheduler || ''}</div>
             </div>
-            <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
-            <div style={{ fontStyle: 'italic', fontSize: '7.5pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
-            <div style={{ height: '36px' }} />
-            <div style={{ fontWeight: 800 }}>{printMeta.principal || ''}</div>
+            <div style={{ textAlign: 'center', width: '220px' }}>
+              <div style={{ fontStyle: 'italic', fontSize: '8pt' }}>
+                {printMeta.signLocationDate}
+              </div>
+              <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
+              <div style={{ fontStyle: 'italic', fontSize: '7.5pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
+              <div style={{ height: '36px' }} />
+              <div style={{ fontWeight: 800 }}>{printMeta.principal || ''}</div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -1227,6 +1233,24 @@ export const ClassTimetablePrintModal = ({
 
                   {/* Other toggles */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>
+                      <input
+                        type="checkbox"
+                        checked={displayOptions.showHeader}
+                        onChange={e => setDisplayOptions({ ...displayOptions, showHeader: e.target.checked })}
+                      />
+                      <span>Hiển thị tiêu đề Quốc hiệu & UBND / Tên trường</span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>
+                      <input
+                        type="checkbox"
+                        checked={displayOptions.showSignatures}
+                        onChange={e => setDisplayOptions({ ...displayOptions, showSignatures: e.target.checked })}
+                      />
+                      <span>Hiển thị phần Chữ ký duyệt (Người lập biểu & Hiệu trưởng)</span>
+                    </label>
+
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
                       <input
                         type="checkbox"

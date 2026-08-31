@@ -122,6 +122,8 @@ export const TeacherDirectory = ({
   const [previewTeacher, setPreviewTeacher] = useState(null);
   const [teacherPreviewTab, setTeacherPreviewTab] = useState('a4'); // 'a4' | 'grid'
   const [teacherPreviewZoom, setTeacherPreviewZoom] = useState(90);
+  const [showTeacherHeader, setShowTeacherHeader] = useState(true);
+  const [showTeacherSignatures, setShowTeacherSignatures] = useState(true);
   const [isExportingTeacherImg, setIsExportingTeacherImg] = useState(false);
   const [isCopyingTeacherImg, setIsCopyingTeacherImg] = useState(false);
   const [teacherToast, setTeacherToast] = useState('');
@@ -477,29 +479,31 @@ export const TeacherDirectory = ({
         }}
       >
         {/* National / School Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          borderBottom: '1.5px solid #000',
-          paddingBottom: '8px',
-          marginBottom: '12px'
-        }}>
-          <div style={{ textAlign: 'center', width: '45%' }}>
-            <div style={{ fontSize: '9.5pt', textTransform: 'uppercase', fontWeight: 700 }}>
-              {schoolInfo.district || 'UBND PHƯỜNG TÂN MAI'}
+        {showTeacherHeader && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            borderBottom: '1.5px solid #000',
+            paddingBottom: '8px',
+            marginBottom: '12px'
+          }}>
+            <div style={{ textAlign: 'center', width: '45%' }}>
+              <div style={{ fontSize: '9.5pt', textTransform: 'uppercase', fontWeight: 700 }}>
+                {schoolInfo.district || 'UBND PHƯỜNG TÂN MAI'}
+              </div>
+              <div style={{ fontSize: '10.5pt', textTransform: 'uppercase', fontWeight: 800 }}>
+                {(schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B').toUpperCase()}
+              </div>
             </div>
-            <div style={{ fontSize: '10.5pt', textTransform: 'uppercase', fontWeight: 800 }}>
-              {(schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B').toUpperCase()}
+            <div style={{ textAlign: 'center', width: '50%' }}>
+              <div style={{ fontSize: '9.5pt', fontWeight: 800 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+              <div style={{ fontSize: '9pt', fontStyle: 'italic', textDecoration: 'underline', marginTop: '2px' }}>
+                Độc lập - Tự do - Hạnh phúc
+              </div>
             </div>
           </div>
-          <div style={{ textAlign: 'center', width: '50%' }}>
-            <div style={{ fontSize: '9.5pt', fontWeight: 800 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-            <div style={{ fontSize: '9pt', fontStyle: 'italic', textDecoration: 'underline', marginTop: '2px' }}>
-              Độc lập - Tự do - Hạnh phúc
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Timetable Title */}
         {(() => {
@@ -686,21 +690,23 @@ export const TeacherDirectory = ({
         </table>
 
         {/* Footer Signatures */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '9pt' }}>
-          <div style={{ textAlign: 'center', width: '200px' }}>
-            <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>GIÁO VIÊN</div>
-            <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-            <div style={{ height: '40px' }} />
-            <div style={{ fontWeight: 800 }}>{t.name}</div>
+        {showTeacherSignatures && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '9pt' }}>
+            <div style={{ textAlign: 'center', width: '200px' }}>
+              <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>GIÁO VIÊN</div>
+              <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
+              <div style={{ height: '40px' }} />
+              <div style={{ fontWeight: 800 }}>{t.name}</div>
+            </div>
+            <div style={{ textAlign: 'center', width: '220px' }}>
+              <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
+              <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
+              <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
+              <div style={{ height: '40px' }} />
+              <div style={{ fontWeight: 800 }}>{schoolInfo.principal || 'Bùi Văn Việt'}</div>
+            </div>
           </div>
-          <div style={{ textAlign: 'center', width: '220px' }}>
-            <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
-            <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
-            <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
-            <div style={{ height: '40px' }} />
-            <div style={{ fontWeight: 800 }}>{schoolInfo.principal || 'Bùi Văn Việt'}</div>
-          </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -2051,6 +2057,38 @@ export const TeacherDirectory = ({
                     >
                       <Maximize2 size={13} />
                     </button>
+                  </div>
+                )}
+
+                {/* Print Options Toggle (when on A4 preview tab) */}
+                {teacherPreviewTab === 'a4' && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: '#f8fafc',
+                    padding: '5px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.78rem'
+                  }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
+                      <input
+                        type="checkbox"
+                        checked={showTeacherHeader}
+                        onChange={e => setShowTeacherHeader(e.target.checked)}
+                      />
+                      <span>Tiêu đề UBND</span>
+                    </label>
+                    <div style={{ width: '1px', height: '12px', background: '#cbd5e1' }} />
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
+                      <input
+                        type="checkbox"
+                        checked={showTeacherSignatures}
+                        onChange={e => setShowTeacherSignatures(e.target.checked)}
+                      />
+                      <span>Chữ ký duyệt</span>
+                    </label>
                   </div>
                 )}
 
