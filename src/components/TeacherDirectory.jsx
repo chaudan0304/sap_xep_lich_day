@@ -1,6 +1,7 @@
 // src/components/TeacherDirectory.jsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { toPng, toBlob } from 'html-to-image';
 import { 
   Users, 
   Search, 
@@ -19,7 +20,10 @@ import {
   LayoutGrid,
   ZoomIn,
   ZoomOut,
-  Maximize2
+  Maximize2,
+  Image as ImageIcon,
+  Copy,
+  CheckCircle2
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
@@ -118,6 +122,68 @@ export const TeacherDirectory = ({
   const [previewTeacher, setPreviewTeacher] = useState(null);
   const [teacherPreviewTab, setTeacherPreviewTab] = useState('a4'); // 'a4' | 'grid'
   const [teacherPreviewZoom, setTeacherPreviewZoom] = useState(90);
+  const [isExportingTeacherImg, setIsExportingTeacherImg] = useState(false);
+  const [isCopyingTeacherImg, setIsCopyingTeacherImg] = useState(false);
+  const [teacherToast, setTeacherToast] = useState('');
+
+  const teacherSheetRef = useRef(null);
+
+  const showTeacherToast = (msg) => {
+    setTeacherToast(msg);
+    setTimeout(() => setTeacherToast(''), 3500);
+  };
+
+  // Xuất ảnh TKB Giáo viên nét cao gửi Zalo
+  const handleExportTeacherZaloImage = async () => {
+    if (!teacherSheetRef.current || !previewTeacher) return;
+    try {
+      setIsExportingTeacherImg(true);
+      const dataUrl = await toPng(teacherSheetRef.current, {
+        quality: 1,
+        pixelRatio: 2.5,
+        backgroundColor: '#ffffff'
+      });
+      const link = document.createElement('a');
+      const safeName = (previewTeacher.name || 'GiaoVien').replace(/\s+/g, '_');
+      link.download = `TKB_GV_${safeName}_Zalo.png`;
+      link.href = dataUrl;
+      link.click();
+      showTeacherToast(`Đã tải ảnh TKB Thầy/Cô ${previewTeacher.name} nét cao cho Zalo!`);
+    } catch (err) {
+      console.error('Lỗi xuất ảnh GV:', err);
+      alert('Không thể tạo file ảnh. Vui lòng thử lại!');
+    } finally {
+      setIsExportingTeacherImg(false);
+    }
+  };
+
+  // Sao chép ảnh TKB Giáo viên vào Clipboard để dán ngay Ctrl+V vào Zalo
+  const handleCopyTeacherZaloImage = async () => {
+    if (!teacherSheetRef.current || !previewTeacher) return;
+    try {
+      setIsCopyingTeacherImg(true);
+      const blob = await toBlob(teacherSheetRef.current, {
+        quality: 1,
+        pixelRatio: 2.5,
+        backgroundColor: '#ffffff'
+      });
+      if (!blob) throw new Error('Không thể tạo blob ảnh');
+
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        showTeacherToast(`Đã sao chép ảnh TKB ${previewTeacher.name}! Nhấn Ctrl+V để dán vào Zalo.`);
+      } else {
+        handleExportTeacherZaloImage();
+      }
+    } catch (err) {
+      console.error('Lỗi copy ảnh clipboard:', err);
+      handleExportTeacherZaloImage();
+    } finally {
+      setIsCopyingTeacherImg(false);
+    }
+  };
 
   // Lock body scroll when modal is open so popup stays dead-center
   useEffect(() => {
@@ -1962,6 +2028,54 @@ export const TeacherDirectory = ({
                   </div>
                 )}
 
+                {/* Copy Image Button */}
+                <button
+                  onClick={handleCopyTeacherZaloImage}
+                  disabled={isCopyingTeacherImg}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '8px 13px',
+                    borderRadius: '10px',
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    color: '#1d4ed8',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: isCopyingTeacherImg ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Sao chép ảnh TKB vào Clipboard. Mở Zalo và nhấn Ctrl+V để gửi ngay cho giáo viên!"
+                >
+                  <Copy size={15} />
+                  <span>{isCopyingTeacherImg ? 'Đang copy...' : 'Copy Ảnh (Dán Zalo)'}</span>
+                </button>
+
+                {/* Download Zalo Image Button */}
+                <button
+                  onClick={handleExportTeacherZaloImage}
+                  disabled={isExportingTeacherImg}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '8px 13px',
+                    borderRadius: '10px',
+                    background: '#fdf4ff',
+                    border: '1px solid #f5d0fe',
+                    color: '#a21caf',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: isExportingTeacherImg ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Tải file ảnh PNG sắc nét (High-DPI) để gửi qua Zalo hoặc in ảnh"
+                >
+                  <ImageIcon size={15} />
+                  <span>{isExportingTeacherImg ? 'Đang tạo...' : 'Tải Ảnh Zalo'}</span>
+                </button>
+
                 {/* Primary Print Button */}
                 <button
                   onClick={() => triggerAppPrint()}
@@ -2009,22 +2123,50 @@ export const TeacherDirectory = ({
               flex: 1,
               overflow: 'auto',
               background: teacherPreviewTab === 'a4' ? '#334155' : '#ffffff',
-              padding: teacherPreviewTab === 'a4' ? '20px' : '24px'
+              padding: teacherPreviewTab === 'a4' ? '20px' : '24px',
+              position: 'relative'
             }}>
+              {/* Teacher Toast Alert */}
+              {teacherToast && (
+                <div style={{
+                  position: 'fixed',
+                  bottom: '24px',
+                  right: '24px',
+                  zIndex: 999999,
+                  background: '#059669',
+                  color: '#ffffff',
+                  padding: '12px 20px',
+                  borderRadius: '12px',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.25)',
+                  animation: 'slideInRight 0.2s ease-out'
+                }}>
+                  <CheckCircle2 size={18} />
+                  <span>{teacherToast}</span>
+                </div>
+              )}
+
               {teacherPreviewTab === 'a4' ? (
                 /* TAB 1: A4 PAPER PREVIEW VIEWPORT */
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', minHeight: '100%' }}>
-                  <div style={{
-                    background: '#ffffff',
-                    width: '210mm',
-                    minHeight: '297mm',
-                    boxShadow: '0 20px 45px rgba(0, 0, 0, 0.5)',
-                    borderRadius: '2px',
-                    transform: `scale(${teacherPreviewZoom / 100})`,
-                    transformOrigin: 'top center',
-                    transition: 'transform 0.15s ease',
-                    boxSizing: 'border-box'
-                  }}>
+                  <div
+                    ref={teacherSheetRef}
+                    style={{
+                      background: '#ffffff',
+                      width: '210mm',
+                      minHeight: '297mm',
+                      boxShadow: '0 20px 45px rgba(0, 0, 0, 0.5)',
+                      borderRadius: '2px',
+                      transform: `scale(${teacherPreviewZoom / 100})`,
+                      transformOrigin: 'top center',
+                      transition: 'transform 0.15s ease',
+                      boxSizing: 'border-box'
+                    }}
+                  >
                     {renderTeacherSheet(previewTeacher, true)}
                   </div>
                 </div>

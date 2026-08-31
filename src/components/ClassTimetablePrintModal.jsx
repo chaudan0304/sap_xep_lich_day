@@ -1,6 +1,7 @@
 // src/components/ClassTimetablePrintModal.jsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { toPng, toBlob } from 'html-to-image';
 import {
   Printer,
   Download,
@@ -23,7 +24,10 @@ import {
   Square,
   ZoomIn,
   ZoomOut,
-  Maximize2
+  Maximize2,
+  Image as ImageIcon,
+  Copy,
+  CheckCircle2
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
@@ -79,6 +83,68 @@ export const ClassTimetablePrintModal = ({
 
   const [activeTab, setActiveTab] = useState('scope'); // 'scope' | 'meta' | 'options'
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isExportingImage, setIsExportingImage] = useState(false);
+  const [isCopyingImage, setIsCopyingImage] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  const previewSheetRef = useRef(null);
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3500);
+  };
+
+  // Xuất file ảnh PNG độ nét cao (2.5x) để gửi qua Zalo
+  const handleExportZaloImage = async () => {
+    if (!previewSheetRef.current || !currentPreviewClass) return;
+    try {
+      setIsExportingImage(true);
+      const dataUrl = await toPng(previewSheetRef.current, {
+        quality: 1,
+        pixelRatio: 2.5,
+        backgroundColor: '#ffffff'
+      });
+      const link = document.createElement('a');
+      const safeName = (currentPreviewClass.name || 'Lop').replace(/\s+/g, '_');
+      link.download = `TKB_${safeName}_Zalo.png`;
+      link.href = dataUrl;
+      link.click();
+      showToast(`Đã tải ảnh TKB ${currentPreviewClass.name} nét cao cho Zalo!`);
+    } catch (err) {
+      console.error('Lỗi xuất ảnh:', err);
+      alert('Không thể tạo file ảnh. Vui lòng thử lại!');
+    } finally {
+      setIsExportingImage(false);
+    }
+  };
+
+  // Sao chép ảnh trực tiếp vào Clipboard (nhấn Ctrl+V dán ngay vào Zalo chat)
+  const handleCopyZaloImage = async () => {
+    if (!previewSheetRef.current || !currentPreviewClass) return;
+    try {
+      setIsCopyingImage(true);
+      const blob = await toBlob(previewSheetRef.current, {
+        quality: 1,
+        pixelRatio: 2.5,
+        backgroundColor: '#ffffff'
+      });
+      if (!blob) throw new Error('Không thể tạo dữ liệu ảnh blob');
+
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        showToast(`Đã sao chép ảnh TKB ${currentPreviewClass.name}! Nhấn Ctrl+V để dán vào Zalo.`);
+      } else {
+        handleExportZaloImage();
+      }
+    } catch (err) {
+      console.error('Lỗi copy ảnh clipboard:', err);
+      handleExportZaloImage();
+    } finally {
+      setIsCopyingImage(false);
+    }
+  };
 
   const teacherMap = useMemo(() => new Map((teachers || []).map(t => [t.id, t])), [teachers]);
   const classMap = useMemo(() => new Map((classes || []).map(c => [c.id, c])), [classes]);
@@ -539,54 +605,102 @@ export const ClassTimetablePrintModal = ({
             </div>
           </div>
 
-          {/* Top Quick Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              onClick={handleExportExcel}
-              disabled={isExportingExcel || targetClasses.length === 0}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                borderRadius: '10px',
-                background: '#f0fdf4',
-                border: '1px solid #bbf7d0',
-                color: '#15803d',
-                fontSize: '0.85rem',
-                fontWeight: 700,
-                cursor: isExportingExcel ? 'not-allowed' : 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-              title="Xuất các lớp đã chọn ra file Excel"
-            >
-              <FileSpreadsheet size={16} />
-              <span>{isExportingExcel ? 'Đang xuất...' : `Xuất Excel (${targetClasses.length} lớp)`}</span>
-            </button>
+            {/* Top Quick Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {/* Copy Image Button */}
+              <button
+                onClick={handleCopyZaloImage}
+                disabled={isCopyingImage || !currentPreviewClass}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  color: '#1d4ed8',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: isCopyingImage ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Sao chép ảnh TKB đang xem vào Clipboard. Mở Zalo và nhấn Ctrl+V để gửi ngay cho phụ huynh!"
+              >
+                <Copy size={16} />
+                <span>{isCopyingImage ? 'Đang copy...' : 'Copy Ảnh (Dán Zalo)'}</span>
+              </button>
 
-            <button
-              onClick={handlePrint}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 20px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
-                border: 'none',
-                color: '#ffffff',
-                fontSize: '0.85rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
-                transition: 'transform 0.15s ease'
-              }}
-              onMouseOver={e => e.currentTarget.style.transform = 'scale(1.03)'}
-              onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              <Printer size={16} />
-              <span>In Ngay / PDF ({targetClasses.length} trang)</span>
-            </button>
+              {/* Download Zalo Image Button */}
+              <button
+                onClick={handleExportZaloImage}
+                disabled={isExportingImage || !currentPreviewClass}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  background: '#fdf4ff',
+                  border: '1px solid #f5d0fe',
+                  color: '#a21caf',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: isExportingImage ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Tải file ảnh PNG sắc nét (High-DPI) để gửi nhóm Zalo hoặc in ảnh"
+              >
+                <ImageIcon size={16} />
+                <span>{isExportingImage ? 'Đang tạo...' : 'Tải Ảnh Zalo (PNG)'}</span>
+              </button>
+
+              <button
+                onClick={handleExportExcel}
+                disabled={isExportingExcel || targetClasses.length === 0}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  color: '#15803d',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: isExportingExcel ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Xuất các lớp đã chọn ra file Excel"
+              >
+                <FileSpreadsheet size={16} />
+                <span>{isExportingExcel ? 'Đang xuất...' : `Xuất Excel (${targetClasses.length})`}</span>
+              </button>
+
+              <button
+                onClick={handlePrint}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 18px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontSize: '0.85rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+                  transition: 'transform 0.15s ease'
+                }}
+                onMouseOver={e => e.currentTarget.style.transform = 'scale(1.03)'}
+                onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                <Printer size={16} />
+                <span>In Ngay / PDF ({targetClasses.length} trang)</span>
+              </button>
 
             <button
               onClick={onClose}
@@ -1314,6 +1428,7 @@ export const ClassTimetablePrintModal = ({
               alignItems: 'flex-start'
             }}>
               <div
+                ref={previewSheetRef}
                 style={{
                   width: '210mm',
                   minHeight: '297mm',
@@ -1331,6 +1446,30 @@ export const ClassTimetablePrintModal = ({
             </div>
           </div>
         </div>
+
+        {/* Toast Alert */}
+        {toastMessage && (
+          <div style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 999999,
+            background: '#059669',
+            color: '#ffffff',
+            padding: '12px 20px',
+            borderRadius: '12px',
+            fontWeight: 700,
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.25)',
+            animation: 'slideInRight 0.2s ease-out'
+          }}>
+            <CheckCircle2 size={18} />
+            <span>{toastMessage}</span>
+          </div>
+        )}
       </div>
 
       {/* ───────────────────────────────────────────────────────────── */}

@@ -25,7 +25,9 @@ import {
   Edit3,
   Check,
   X as CloseIcon,
-  Save
+  Save,
+  Undo2,
+  Redo2
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
@@ -61,6 +63,58 @@ export const TimetableStudio = ({
   const [draggedSlot, setDraggedSlot] = useState(null); // { fromDay, fromPeriod }
   const [swapSource, setSwapSource] = useState(null); // { day, period, slot } for click-to-swap mode
   const [drawerSearch, setDrawerSearch] = useState('');
+
+  // Undo & Redo History State
+  const [history, setHistory] = useState([]);
+  const [future, setFuture] = useState([]);
+
+  const setTimetableWithHistory = (updater) => {
+    setTimetable(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      // Record previous state in history
+      setHistory(h => [...h.slice(-30), JSON.parse(JSON.stringify(prev))]);
+      setFuture([]);
+      return next;
+    });
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const previousSnapshot = history[history.length - 1];
+    setHistory(h => h.slice(0, -1));
+    setFuture(f => [JSON.parse(JSON.stringify(timetable)), ...f]);
+    setTimetable(previousSnapshot);
+    setSwapSource(null);
+  };
+
+  const handleRedo = () => {
+    if (future.length === 0) return;
+    const nextSnapshot = future[0];
+    setFuture(f => f.slice(1));
+    setHistory(h => [...h, JSON.parse(JSON.stringify(timetable))]);
+    setTimetable(nextSnapshot);
+    setSwapSource(null);
+  };
+
+  // Keyboard shortcut listener for Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
+      ) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [history, future, timetable]);
 
   // 1. Grade detection & grouping
   const getGradeOfClass = (cls) => {
@@ -171,7 +225,7 @@ export const TimetableStudio = ({
       return;
     }
     if (window.confirm(`Bạn có chắc chắn muốn xóa toàn bộ lịch đã xếp của ${currentClass?.name || 'lớp này'} để xếp lại từ đầu?\n(Lịch các lớp khác vẫn được giữ nguyên)`)) {
-      setTimetable(prev => ({
+      setTimetableWithHistory(prev => ({
         ...prev,
         [selectedClassId]: {}
       }));
@@ -251,7 +305,7 @@ export const TimetableStudio = ({
 
       // Nếu kéo từ Drawer vào Ô
       if (data.sourceType === 'drawer') {
-        setTimetable(prev => {
+        setTimetableWithHistory(prev => {
           const updatedClass = { ...prev[selectedClassId] };
           updatedClass[targetDay] = { ...updatedClass[targetDay] };
           updatedClass[targetDay][targetPeriod] = {
@@ -269,7 +323,7 @@ export const TimetableStudio = ({
         const { fromDay, fromPeriod, slot } = data;
         if (fromDay === targetDay && fromPeriod === targetPeriod) return;
 
-        setTimetable(prev => {
+        setTimetableWithHistory(prev => {
           const updatedClass = { ...prev[selectedClassId] };
           updatedClass[fromDay] = { ...updatedClass[fromDay] };
           updatedClass[targetDay] = { ...updatedClass[targetDay] };
@@ -301,7 +355,7 @@ export const TimetableStudio = ({
       const fromPeriod = swapSource.period;
       const targetSlot = timetable[selectedClassId]?.[day]?.[period];
 
-      setTimetable(prev => {
+      setTimetableWithHistory(prev => {
         const updatedClass = { ...prev[selectedClassId] };
         updatedClass[fromDay] = { ...updatedClass[fromDay] };
         updatedClass[day] = { ...updatedClass[day] };
@@ -322,7 +376,7 @@ export const TimetableStudio = ({
     const slot = timetable[selectedClassId]?.[day]?.[period];
     if (!slot) return;
 
-    setTimetable(prev => {
+    setTimetableWithHistory(prev => {
       const updatedClass = { ...prev[selectedClassId] };
       updatedClass[day] = { ...updatedClass[day] };
       updatedClass[day][period] = { ...slot, isLocked: !slot.isLocked };
@@ -334,7 +388,7 @@ export const TimetableStudio = ({
   const handleClearSlot = (e, day, period) => {
     e.stopPropagation();
 
-    setTimetable(prev => {
+    setTimetableWithHistory(prev => {
       const updatedClass = { ...prev[selectedClassId] };
       updatedClass[day] = { ...updatedClass[day] };
       updatedClass[day][period] = null;
@@ -654,6 +708,61 @@ export const TimetableStudio = ({
                   <span>0 Trùng Giờ</span>
                 </div>
               )}
+
+              {/* Undo / Redo Group */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2px',
+                background: '#f8fafc',
+                padding: '2px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1'
+              }}>
+                <button
+                  onClick={handleUndo}
+                  disabled={history.length === 0}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '5px 9px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: history.length === 0 ? '#cbd5e1' : '#1e293b',
+                    cursor: history.length === 0 ? 'not-allowed' : 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.78rem'
+                  }}
+                  title="Hoàn tác bước xếp trước (Phím tắt: Ctrl + Z)"
+                >
+                  <Undo2 size={14} />
+                  <span>Hoàn tác</span>
+                </button>
+                <div style={{ width: '1px', height: '12px', background: '#cbd5e1' }} />
+                <button
+                  onClick={handleRedo}
+                  disabled={future.length === 0}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '5px 9px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: future.length === 0 ? '#cbd5e1' : '#1e293b',
+                    cursor: future.length === 0 ? 'not-allowed' : 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.78rem'
+                  }}
+                  title="Làm lại bước vừa hoàn tác (Phím tắt: Ctrl + Y)"
+                >
+                  <Redo2 size={14} />
+                  <span>Làm lại</span>
+                </button>
+              </div>
 
               {/* Print Button */}
               <button
