@@ -6,7 +6,10 @@ import {
   Download,
   AlertTriangle,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Layers,
+  TableProperties,
+  Calendar
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
@@ -26,6 +29,7 @@ export const MasterMatrixView = ({
 }) => {
   const [selectedGrade, setSelectedGrade] = useState('ALL');
   const [selectedDay, setSelectedDay] = useState('ALL'); // ALL or 2..6
+  const [viewLayout, setViewLayout] = useState('excel'); // 'excel' | 'matrix'
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
@@ -50,32 +54,54 @@ export const MasterMatrixView = ({
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '24px', maxWidth: '1600px', margin: '0 auto' }}>
+    <div className="animate-fade-in" style={{ padding: '24px', maxWidth: '1650px', margin: '0 auto' }}>
       <div className="no-print">
         {/* 1. Header & Controls */}
         <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '16px',
-        marginBottom: '20px'
-      }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Grid3X3 size={28} color="#4f46e5" />
-            <span>Ma Trận Thời Khóa Biểu Toàn Trường</span>
-          </h2>
-          <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
-            Tổng hợp và theo dõi chi tiết toàn bộ các tiết học trong tuần của các khối lớp
-          </p>
-        </div>
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '20px'
+        }}>
+          <div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Grid3X3 size={28} color="#4f46e5" />
+              <span>Ma Trận Thời Khóa Biểu Toàn Trường</span>
+            </h2>
+            <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
+              Tổng hợp và theo dõi chi tiết toàn bộ các tiết học trong tuần của các khối lớp
+            </p>
+          </div>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Conflict Quick Button */}
-          {conflicts.length > 0 && onOpenConflictModal && (
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Conflict Quick Button */}
+            {conflicts.length > 0 && onOpenConflictModal && (
+              <button
+                onClick={onOpenConflictModal}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  fontSize: '0.875rem',
+                  fontWeight: 700,
+                  background: errorCount > 0 ? '#fee2e2' : '#fef3c7',
+                  border: `1.5px solid ${errorCount > 0 ? '#f87171' : '#fcd34d'}`,
+                  color: errorCount > 0 ? '#991b1b' : '#92400e',
+                  cursor: 'pointer',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+              >
+                <AlertTriangle size={16} color={errorCount > 0 ? '#dc2626' : '#d97706'} />
+                <span>Xem {conflicts.length} Xung Đột (Tiết/Lớp/Ai trùng)</span>
+              </button>
+            )}
+
             <button
-              onClick={onOpenConflictModal}
+              onClick={() => exportMasterTimetable(timetable, filteredClasses, teachers, subjects, schoolInfo)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -83,370 +109,787 @@ export const MasterMatrixView = ({
                 padding: '10px 16px',
                 borderRadius: '10px',
                 fontSize: '0.875rem',
-                fontWeight: 700,
-                background: errorCount > 0 ? '#fee2e2' : '#fef3c7',
-                border: `1.5px solid ${errorCount > 0 ? '#f87171' : '#fcd34d'}`,
-                color: errorCount > 0 ? '#991b1b' : '#92400e',
+                fontWeight: 600,
+                background: '#059669',
+                border: 'none',
+                color: '#ffffff',
                 cursor: 'pointer',
-                boxShadow: 'var(--shadow-sm)'
+                boxShadow: '0 2px 8px rgba(5, 150, 105, 0.3)'
               }}
             >
-              <AlertTriangle size={16} color={errorCount > 0 ? '#dc2626' : '#d97706'} />
-              <span>Xem {conflicts.length} Xung Đột (Tiết/Lớp/Ai trùng)</span>
+              <Download size={16} />
+              <span>Xuất Excel Ma Trận</span>
             </button>
-          )}
 
-          <button
-            onClick={() => exportMasterTimetable(timetable, classes, teachers, subjects)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '10px 16px',
-              borderRadius: '10px',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              background: '#059669',
-              border: 'none',
-              color: '#ffffff',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(5, 150, 105, 0.3)'
-            }}
-          >
-            <Download size={16} />
-            <span>Xuất Excel Ma Trận</span>
-          </button>
-
-          <button
-            onClick={() => setIsPrintModalOpen(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '10px 18px',
-              borderRadius: '10px',
-              fontSize: '0.875rem',
-              fontWeight: 700,
-              background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
-              border: 'none',
-              color: '#ffffff',
-              cursor: 'pointer',
-              boxShadow: '0 3px 10px rgba(79, 70, 229, 0.3)',
-              transition: 'transform 0.15s ease'
-            }}
-            onMouseOver={e => e.currentTarget.style.transform = 'scale(1.03)'}
-            onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            <Printer size={16} />
-            <span>In Bản Tổng Thể (A4/A3)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Filter Bar */}
-      <div style={{
-        background: '#ffffff',
-        padding: '14px 20px',
-        borderRadius: '14px',
-        border: '1px solid #e2e8f0',
-        marginBottom: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '20px',
-        flexWrap: 'wrap'
-      }}>
-        {/* Lọc Khối */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Khối lớp:</span>
-          <select
-            value={selectedGrade}
-            onChange={(e) => setSelectedGrade(e.target.value)}
-            style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#ffffff' }}
-          >
-            <option value="ALL">Tất cả các khối (Khối 1 - 5)</option>
-            <option value="1">Khối 1 (1A1 - 1A4)</option>
-            <option value="2">Khối 2 (2A1 - 2A5)</option>
-            <option value="3">Khối 3 (3A1 - 3A4)</option>
-            <option value="4">Khối 4 (4A1 - 4A5)</option>
-            <option value="5">Khối 5 (5A1 - 5A5)</option>
-          </select>
-        </div>
-
-        {/* Lọc Thứ trong tuần */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Ngày trong tuần:</span>
-          <select
-            value={selectedDay}
-            onChange={(e) => setSelectedDay(e.target.value)}
-            style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#ffffff' }}
-          >
-            <option value="ALL">Cả tuần (Thứ 2 đến Thứ 6)</option>
-            {DAYS_OF_WEEK.map(d => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ marginLeft: 'auto', fontSize: '0.85rem', color: '#64748b' }}>
-          Hiển thị: <strong>{filteredClasses.length} lớp học</strong>
-        </div>
-      </div>
-
-      {/* Dedicated Khung Giờ Học (Bell Schedule) Box */}
-      <div style={{
-        background: '#f8fafc',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        padding: '10px 16px',
-        marginBottom: '16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b' }}>
-            ⏰ Khung Giờ Học Các Tiết:
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', fontSize: '0.78rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontWeight: 800, color: '#1d4ed8', background: '#eff6ff', padding: '2px 6px', borderRadius: '4px' }}>SÁNG:</span>
-            <span style={{ color: '#334155' }}>
-              <strong>T1</strong>: 07:30 - 08:05 • <strong>T2</strong>: 08:15 - 08:50 • <strong>T3</strong>: 09:10 - 09:45 • <strong>T4</strong>: 09:55 - 10:30
-            </span>
-          </div>
-          <div style={{ width: '1px', height: '14px', background: '#cbd5e1' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '2px 6px', borderRadius: '4px' }}>CHIỀU:</span>
-            <span style={{ color: '#334155' }}>
-              <strong>T1</strong>: 14:00 - 14:35 • <strong>T2</strong>: 14:45 - 15:20 • <strong>T3</strong>: 15:30 - 16:05
-            </span>
+            <button
+              onClick={() => setIsPrintModalOpen(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '10px 18px',
+                borderRadius: '10px',
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                border: 'none',
+                color: '#ffffff',
+                cursor: 'pointer',
+                boxShadow: '0 3px 10px rgba(79, 70, 229, 0.3)',
+                transition: 'transform 0.15s ease'
+              }}
+              onMouseOver={e => e.currentTarget.style.transform = 'scale(1.03)'}
+              onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <Printer size={16} />
+              <span>In Bản Tổng Thể (A4/A3)</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* 3. Master Matrix Table */}
-      <div style={{
-        background: '#ffffff',
-        borderRadius: '16px',
-        border: '1px solid #e2e8f0',
-        boxShadow: 'var(--shadow-sm)',
-        overflow: 'hidden'
-      }}>
-        <div style={{ overflowX: 'auto', maxHeight: '75vh' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.8rem' }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
-              {/* Row 1: Day Headers */}
-              <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <th rowSpan={3} style={{
-                  padding: '12px',
-                  width: '90px',
-                  background: '#f1f5f9',
-                  borderRight: '1px solid #cbd5e1',
-                  color: '#1e293b',
-                  fontWeight: 800,
-                  position: 'sticky',
-                  left: 0,
-                  zIndex: 15
-                }}>
-                  Lớp
-                </th>
-                {activeDays.map(day => (
-                  <th
-                    key={day.id}
-                    colSpan={7}
-                    style={{
-                      padding: '8px',
-                      background: day.id % 2 === 0 ? '#eff6ff' : '#f8fafc',
-                      borderRight: '2px solid #cbd5e1',
-                      color: '#1e1b4b',
+        {/* 2. Filter Bar & View Layout Switcher */}
+        <div style={{
+          background: '#ffffff',
+          padding: '14px 20px',
+          borderRadius: '14px',
+          border: '1px solid #e2e8f0',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            {/* Lọc Khối */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Khối lớp:</span>
+              <select
+                value={selectedGrade}
+                onChange={(e) => setSelectedGrade(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#ffffff' }}
+              >
+                <option value="ALL">Tất cả các khối (Khối 1 - 5)</option>
+                <option value="1">Khối 1 (1A1 - 1A4)</option>
+                <option value="2">Khối 2 (2A1 - 2A5)</option>
+                <option value="3">Khối 3 (3A1 - 3A4)</option>
+                <option value="4">Khối 4 (4A1 - 4A5)</option>
+                <option value="5">Khối 5 (5A1 - 5A5)</option>
+              </select>
+            </div>
+
+            {/* Lọc Thứ trong tuần */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Ngày trong tuần:</span>
+              <select
+                value={selectedDay}
+                onChange={(e) => setSelectedDay(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#ffffff' }}
+              >
+                <option value="ALL">Cả tuần (Thứ 2 đến Thứ 6)</option>
+                {DAYS_OF_WEEK.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* View Layout Switcher */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#64748b' }}>Định dạng:</span>
+            <div style={{
+              display: 'flex',
+              background: '#f1f5f9',
+              padding: '3px',
+              borderRadius: '10px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <button
+                onClick={() => setViewLayout('excel')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: viewLayout === 'excel' ? '#ffffff' : 'transparent',
+                  color: viewLayout === 'excel' ? '#4f46e5' : '#64748b',
+                  fontWeight: viewLayout === 'excel' ? 800 : 600,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  boxShadow: viewLayout === 'excel' ? '0 2px 5px rgba(0,0,0,0.08)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <TableProperties size={14} />
+                <span>🥇 Chuẩn Excel (Hàng: Thứ & Tiết)</span>
+              </button>
+
+              <button
+                onClick={() => setViewLayout('matrix')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: viewLayout === 'matrix' ? '#ffffff' : 'transparent',
+                  color: viewLayout === 'matrix' ? '#4f46e5' : '#64748b',
+                  fontWeight: viewLayout === 'matrix' ? 800 : 600,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  boxShadow: viewLayout === 'matrix' ? '0 2px 5px rgba(0,0,0,0.08)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <Grid3X3 size={14} />
+                <span>🥈 Ma Trận Ngang (Hàng: Lớp)</span>
+              </button>
+            </div>
+
+            <div style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '6px' }}>
+              <strong>{filteredClasses.length} lớp</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Dedicated Khung Giờ Học (Bell Schedule) Box */}
+        <div style={{
+          background: '#f8fafc',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          padding: '10px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b' }}>
+              ⏰ Khung Giờ Học Các Tiết:
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', fontSize: '0.78rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontWeight: 800, color: '#1d4ed8', background: '#eff6ff', padding: '2px 6px', borderRadius: '4px' }}>SÁNG:</span>
+              <span style={{ color: '#334155' }}>
+                <strong>T1</strong>: 07:30 - 08:05 • <strong>T2</strong>: 08:15 - 08:50 • <strong>T3</strong>: 09:10 - 09:45 • <strong>T4</strong>: 09:55 - 10:30
+              </span>
+            </div>
+            <div style={{ width: '1px', height: '14px', background: '#cbd5e1' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '2px 6px', borderRadius: '4px' }}>CHIỀU:</span>
+              <span style={{ color: '#334155' }}>
+                <strong>T1</strong>: 14:00 - 14:35 • <strong>T2</strong>: 14:45 - 15:20 • <strong>T3</strong>: 15:30 - 16:05
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ───────────────────────────────────────────────────────────── */}
+        {/* 3. TABLE CONTAINER (EXCEL-STYLE AS DEFAULT OR HORIZONTAL MATRIX) */}
+        {/* ───────────────────────────────────────────────────────────── */}
+        <div style={{
+          background: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          boxShadow: 'var(--shadow-sm)',
+          overflow: 'hidden'
+        }}>
+          <div style={{ overflowX: 'auto', maxHeight: '78vh' }}>
+            {viewLayout === 'excel' ? (
+              /* ── FORMAT 1: CHUẨN XUẤT EXCEL (HÀNG: THỨ/TIẾT • CỘT: LỚP) ── */
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.8rem' }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 30, background: '#f8fafc' }}>
+                  <tr style={{ borderBottom: '2px solid #cbd5e1' }}>
+                    <th style={{
+                      padding: '12px 8px',
+                      width: '90px',
+                      background: '#f1f5f9',
+                      borderRight: '1px solid #cbd5e1',
+                      color: '#1e293b',
                       fontWeight: 800,
-                      fontSize: '0.875rem'
-                    }}
-                  >
-                    {day.name.toUpperCase()}
-                  </th>
-                ))}
-              </tr>
-
-              {/* Row 2: Sáng / Chiều Session Headers */}
-              <tr style={{ borderBottom: '1px solid #cbd5e1', background: '#f8fafc' }}>
-                {activeDays.map(day => (
-                  <React.Fragment key={day.id}>
-                    <th
-                      colSpan={4}
-                      style={{
-                        padding: '4px 2px',
-                        background: '#eff6ff',
-                        color: '#1d4ed8',
-                        fontWeight: 700,
-                        fontSize: '0.72rem',
-                        borderRight: '1px solid #bfdbfe'
-                      }}
-                    >
-                      SÁNG
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 35
+                    }}>
+                      Thứ
                     </th>
-                    <th
-                      colSpan={3}
-                      style={{
-                        padding: '4px 2px',
-                        background: '#fffbeb',
-                        color: '#b45309',
-                        fontWeight: 700,
-                        fontSize: '0.72rem',
-                        borderRight: '2px solid #cbd5e1'
-                      }}
-                    >
-                      CHIỀU
+                    <th style={{
+                      padding: '12px 8px',
+                      width: '75px',
+                      background: '#f1f5f9',
+                      borderRight: '1px solid #cbd5e1',
+                      color: '#1e293b',
+                      fontWeight: 800,
+                      position: 'sticky',
+                      left: '90px',
+                      zIndex: 35
+                    }}>
+                      Buổi
                     </th>
-                  </React.Fragment>
-                ))}
-              </tr>
-
-              {/* Row 3: Period Headers (Only Numbers) */}
-              <tr style={{ borderBottom: '2px solid #cbd5e1', background: '#f8fafc' }}>
-                {activeDays.map(day => (
-                  <React.Fragment key={day.id}>
-                    {PERIODS.map(p => (
+                    <th style={{
+                      padding: '12px 6px',
+                      width: '60px',
+                      background: '#f1f5f9',
+                      borderRight: '2px solid #cbd5e1',
+                      color: '#1e293b',
+                      fontWeight: 800,
+                      position: 'sticky',
+                      left: '165px',
+                      zIndex: 35
+                    }}>
+                      Tiết
+                    </th>
+                    {filteredClasses.map(cls => (
                       <th
-                        key={p.id}
-                        title={`${p.name} (${p.time})`}
+                        key={cls.id}
                         style={{
-                          padding: '6px 2px',
-                          width: '42px',
-                          color: p.session === 'morning' ? '#2563eb' : '#d97706',
+                          padding: '10px 8px',
+                          minWidth: '100px',
+                          background: '#f8fafc',
+                          borderRight: '1px solid #e2e8f0',
+                          color: '#1e1b4b',
                           fontWeight: 800,
-                          fontSize: '0.82rem',
-                          borderRight: p.id === 7 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
-                          background: p.session === 'morning' ? '#ffffff' : '#fffdf5'
+                          fontSize: '0.85rem'
                         }}
                       >
-                        {p.id <= 4 ? p.id : (p.id - 4)}
+                        <div>{cls.name}</div>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b' }}>Khối {cls.grade}</div>
                       </th>
                     ))}
-                  </React.Fragment>
-                ))}
-              </tr>
-            </thead>
+                  </tr>
+                </thead>
 
-            <tbody>
-              {filteredClasses.map((cls, idx) => (
-                <tr
-                  key={cls.id}
-                  style={{
-                    borderBottom: '1px solid #e2e8f0',
-                    background: idx % 2 === 0 ? '#ffffff' : '#fafafa'
-                  }}
-                >
-                  {/* Sticky Class Name Column */}
-                  <td style={{
-                    padding: '10px',
-                    fontWeight: 800,
-                    fontSize: '0.85rem',
-                    color: '#1e293b',
-                    background: '#f8fafc',
-                    borderRight: '1px solid #cbd5e1',
-                    position: 'sticky',
-                    left: 0,
-                    zIndex: 5
-                  }}>
-                    <div>{cls.name}</div>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 500, color: '#64748b' }}>K.{cls.grade}</div>
-                  </td>
+                <tbody>
+                  {activeDays.map(day => {
+                    const morningPeriods = periods.filter(p => p.session === 'morning');
+                    const afternoonPeriods = periods.filter(p => p.session === 'afternoon');
+                    const totalDayRows = morningPeriods.length + afternoonPeriods.length + 1; // +1 for lunch break row
 
-                  {/* Day / Period Slots */}
-                  {activeDays.map(day => (
-                    <React.Fragment key={day.id}>
-                      {PERIODS.map(p => {
-                        const slot = timetable[cls.id]?.[day.id]?.[p.id];
-                        const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, bg: '#f8fafc', border: '#cbd5e1', text: '#334155' }) : null;
-                        const teacher = slot ? teacherMap.get(slot.teacherId) : null;
-                        const conflict = getSlotConflict(cls.id, day.id, p.id);
+                    let hasRenderedDay = false;
 
-                        const isOffWednesdayAfternoon = day.id === 4 && p.id > 4;
+                    return (
+                      <React.Fragment key={day.id}>
+                        {/* 1. SÁNG (Tiết 1..4) */}
+                        {morningPeriods.map((p, pIdx) => {
+                          const isFirstMorning = pIdx === 0;
 
-                        if (isOffWednesdayAfternoon) {
                           return (
-                            <td
-                              key={p.id}
-                              style={{
-                                padding: '4px',
-                                verticalAlign: 'middle',
-                                borderLeft: p.id === 1 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
-                                background: '#f8fafc',
-                                height: '48px',
-                                color: '#cbd5e1'
-                              }}
-                            >
-                              -
-                            </td>
-                          );
-                        }
+                            <tr key={`${day.id}_${p.id}`} style={{ borderBottom: '1px solid #e2e8f0', background: pIdx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                              {/* Sticky Day Column */}
+                              {!hasRenderedDay && (
+                                (() => {
+                                  hasRenderedDay = true;
+                                  return (
+                                    <td
+                                      rowSpan={totalDayRows}
+                                      style={{
+                                        padding: '10px 6px',
+                                        fontWeight: 900,
+                                        fontSize: '0.875rem',
+                                        color: '#1e293b',
+                                        background: '#f8fafc',
+                                        borderRight: '1px solid #cbd5e1',
+                                        position: 'sticky',
+                                        left: 0,
+                                        zIndex: 15,
+                                        verticalAlign: 'middle',
+                                        boxShadow: '2px 0 5px rgba(0,0,0,0.02)'
+                                      }}
+                                    >
+                                      {day.name}
+                                    </td>
+                                  );
+                                })()
+                              )}
 
-                        return (
+                              {/* Sticky Session Column */}
+                              {isFirstMorning && (
+                                <td
+                                  rowSpan={morningPeriods.length}
+                                  style={{
+                                    padding: '6px',
+                                    fontWeight: 800,
+                                    fontSize: '0.78rem',
+                                    color: '#1d4ed8',
+                                    background: '#eff6ff',
+                                    borderRight: '1px solid #cbd5e1',
+                                    position: 'sticky',
+                                    left: '90px',
+                                    zIndex: 15,
+                                    verticalAlign: 'middle',
+                                    letterSpacing: '0.5px'
+                                  }}
+                                >
+                                  SÁNG
+                                </td>
+                              )}
+
+                              {/* Sticky Period Number */}
+                              <td style={{
+                                padding: '6px 4px',
+                                fontWeight: 800,
+                                fontSize: '0.82rem',
+                                color: '#1e293b',
+                                background: '#ffffff',
+                                borderRight: '2px solid #cbd5e1',
+                                position: 'sticky',
+                                left: '165px',
+                                zIndex: 15,
+                                verticalAlign: 'middle'
+                              }}>
+                                {p.id}
+                              </td>
+
+                              {/* Class Slots */}
+                              {filteredClasses.map(cls => {
+                                const slot = timetable[cls.id]?.[day.id]?.[p.id];
+                                const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, bg: '#f8fafc', border: '#cbd5e1', text: '#334155' }) : null;
+                                const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+                                const conflict = getSlotConflict(cls.id, day.id, p.id);
+
+                                return (
+                                  <td
+                                    key={cls.id}
+                                    style={{
+                                      padding: '4px',
+                                      verticalAlign: 'middle',
+                                      borderRight: '1px solid #e2e8f0',
+                                      background: conflict ? '#fff5f5' : (sub ? sub.bg : 'transparent'),
+                                      height: '46px'
+                                    }}
+                                  >
+                                    {slot ? (
+                                      <div
+                                        onClick={() => {
+                                          if (conflict && onOpenConflictModal) onOpenConflictModal();
+                                        }}
+                                        className={conflict ? 'conflict-pulse' : ''}
+                                        style={{
+                                          borderRadius: '6px',
+                                          padding: '3px 4px',
+                                          border: `1.5px solid ${conflict ? '#ef4444' : (sub?.border || '#cbd5e1')}`,
+                                          background: conflict ? '#fee2e2' : 'transparent',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'center',
+                                          gap: '1px',
+                                          cursor: conflict ? 'pointer' : 'default',
+                                          boxShadow: conflict ? '0 0 6px rgba(239, 68, 68, 0.4)' : 'none'
+                                        }}
+                                        title={conflict ? conflict.message : `${sub?.name || slot.subjectId} - ${teacher?.name || slot.teacherId}`}
+                                      >
+                                        <span style={{
+                                          fontWeight: 800,
+                                          fontSize: '0.74rem',
+                                          color: conflict ? '#991b1b' : (sub?.text || '#1e293b'),
+                                          whiteSpace: 'nowrap'
+                                        }}>
+                                          {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
+                                        </span>
+                                        <span style={{
+                                          fontSize: '0.66rem',
+                                          color: conflict ? '#dc2626' : '#475569',
+                                          fontWeight: 700,
+                                          whiteSpace: 'nowrap'
+                                        }}>
+                                          {slot.teacherRaw ? slot.teacherRaw.replace('Đ/c ', '') : (teacher?.code || teacher?.name.split(' ').pop() || '')}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span style={{ color: '#cbd5e1' }}>-</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+
+                        {/* Lunch Break Banner Row */}
+                        <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
                           <td
-                            key={p.id}
+                            colSpan={2}
                             style={{
-                              padding: '3px',
-                              verticalAlign: 'middle',
-                              borderLeft: p.id === 1 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
-                              background: conflict ? '#fff5f5' : (sub ? sub.bg : 'transparent'),
-                              height: '48px'
+                              padding: '4px 6px',
+                              fontWeight: 700,
+                              fontSize: '0.72rem',
+                              color: '#64748b',
+                              background: '#f1f5f9',
+                              borderRight: '2px solid #cbd5e1',
+                              position: 'sticky',
+                              left: '90px',
+                              zIndex: 15,
+                              textAlign: 'center'
                             }}
                           >
-                            {slot ? (
-                              <div
-                                onClick={() => {
-                                  if (conflict && onOpenConflictModal) onOpenConflictModal();
-                                }}
-                                className={conflict ? 'conflict-pulse' : ''}
-                                style={{
-                                  borderRadius: '6px',
-                                  padding: '3px 4px',
-                                  border: `1.5px solid ${conflict ? '#ef4444' : (sub?.border || '#cbd5e1')}`,
-                                  background: conflict ? '#fee2e2' : 'transparent',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: 'center',
-                                  gap: '1px',
-                                  cursor: conflict ? 'pointer' : 'default',
-                                  boxShadow: conflict ? '0 0 6px rgba(239, 68, 68, 0.4)' : 'none'
-                                }}
-                                title={conflict ? conflict.message : `${sub?.name || slot.subjectId} - ${teacher?.name || slot.teacherId}`}
-                              >
-                                <span style={{
-                                  fontWeight: 800,
-                                  fontSize: '0.73rem',
-                                  color: conflict ? '#991b1b' : (sub?.text || '#1e293b'),
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
-                                </span>
-                                <span style={{
-                                  fontSize: '0.65rem',
-                                  color: conflict ? '#dc2626' : '#475569',
-                                  fontWeight: 700,
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  {slot.teacherRaw ? slot.teacherRaw.replace('Đ/c ', '') : (teacher?.code || teacher?.name.split(' ').pop() || '')}
-                                </span>
-                              </div>
-                            ) : (
-                              <span style={{ color: '#cbd5e1' }}>-</span>
-                            )}
+                            Nghỉ trưa
                           </td>
-                        );
-                      })}
-                    </React.Fragment>
+                          <td
+                            colSpan={filteredClasses.length}
+                            style={{
+                              padding: '4px 10px',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              fontStyle: 'italic',
+                              color: '#475569',
+                              textAlign: 'center',
+                              background: '#f8fafc'
+                            }}
+                          >
+                            🍱 Nghỉ trưa & Ăn bán trú ({schoolInfo.lunchBreak || '10:30 - 14:00'})
+                          </td>
+                        </tr>
+
+                        {/* 2. CHIỀU (Tiết 5..7) */}
+                        {afternoonPeriods.map((p, pIdx) => {
+                          const isFirstAfternoon = pIdx === 0;
+                          const isWedOff = day.id === 4 && p.id > 4;
+
+                          return (
+                            <tr key={`${day.id}_${p.id}`} style={{ borderBottom: '1px solid #e2e8f0', background: pIdx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                              {/* Sticky Session Column */}
+                              {isFirstAfternoon && (
+                                <td
+                                  rowSpan={afternoonPeriods.length}
+                                  style={{
+                                    padding: '6px',
+                                    fontWeight: 800,
+                                    fontSize: '0.78rem',
+                                    color: '#b45309',
+                                    background: '#fffbeb',
+                                    borderRight: '1px solid #cbd5e1',
+                                    position: 'sticky',
+                                    left: '90px',
+                                    zIndex: 15,
+                                    verticalAlign: 'middle',
+                                    letterSpacing: '0.5px'
+                                  }}
+                                >
+                                  CHIỀU
+                                </td>
+                              )}
+
+                              {/* Sticky Period Number */}
+                              <td style={{
+                                padding: '6px 4px',
+                                fontWeight: 800,
+                                fontSize: '0.82rem',
+                                color: '#1e293b',
+                                background: '#ffffff',
+                                borderRight: '2px solid #cbd5e1',
+                                position: 'sticky',
+                                left: '165px',
+                                zIndex: 15,
+                                verticalAlign: 'middle'
+                              }}>
+                                {p.id - 4}
+                              </td>
+
+                              {/* Class Slots */}
+                              {filteredClasses.map(cls => {
+                                if (isWedOff) {
+                                  return (
+                                    <td
+                                      key={cls.id}
+                                      style={{
+                                        padding: '4px',
+                                        verticalAlign: 'middle',
+                                        borderRight: '1px solid #e2e8f0',
+                                        background: '#f8fafc',
+                                        height: '46px',
+                                        color: '#cbd5e1'
+                                      }}
+                                    >
+                                      -
+                                    </td>
+                                  );
+                                }
+
+                                const slot = timetable[cls.id]?.[day.id]?.[p.id];
+                                const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, bg: '#f8fafc', border: '#cbd5e1', text: '#334155' }) : null;
+                                const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+                                const conflict = getSlotConflict(cls.id, day.id, p.id);
+
+                                return (
+                                  <td
+                                    key={cls.id}
+                                    style={{
+                                      padding: '4px',
+                                      verticalAlign: 'middle',
+                                      borderRight: '1px solid #e2e8f0',
+                                      background: conflict ? '#fff5f5' : (sub ? sub.bg : 'transparent'),
+                                      height: '46px'
+                                    }}
+                                  >
+                                    {slot ? (
+                                      <div
+                                        onClick={() => {
+                                          if (conflict && onOpenConflictModal) onOpenConflictModal();
+                                        }}
+                                        className={conflict ? 'conflict-pulse' : ''}
+                                        style={{
+                                          borderRadius: '6px',
+                                          padding: '3px 4px',
+                                          border: `1.5px solid ${conflict ? '#ef4444' : (sub?.border || '#cbd5e1')}`,
+                                          background: conflict ? '#fee2e2' : 'transparent',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'center',
+                                          gap: '1px',
+                                          cursor: conflict ? 'pointer' : 'default',
+                                          boxShadow: conflict ? '0 0 6px rgba(239, 68, 68, 0.4)' : 'none'
+                                        }}
+                                        title={conflict ? conflict.message : `${sub?.name || slot.subjectId} - ${teacher?.name || slot.teacherId}`}
+                                      >
+                                        <span style={{
+                                          fontWeight: 800,
+                                          fontSize: '0.74rem',
+                                          color: conflict ? '#991b1b' : (sub?.text || '#1e293b'),
+                                          whiteSpace: 'nowrap'
+                                        }}>
+                                          {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
+                                        </span>
+                                        <span style={{
+                                          fontSize: '0.66rem',
+                                          color: conflict ? '#dc2626' : '#475569',
+                                          fontWeight: 700,
+                                          whiteSpace: 'nowrap'
+                                        }}>
+                                          {slot.teacherRaw ? slot.teacherRaw.replace('Đ/c ', '') : (teacher?.code || teacher?.name.split(' ').pop() || '')}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span style={{ color: '#cbd5e1' }}>-</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              /* ── FORMAT 2: MA TRẬN NGANG (HÀNG: LỚP • CỘT: THỨ/TIẾT) ── */
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.8rem' }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
+                  {/* Row 1: Day Headers */}
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <th rowSpan={3} style={{
+                      padding: '12px',
+                      width: '90px',
+                      background: '#f1f5f9',
+                      borderRight: '1px solid #cbd5e1',
+                      color: '#1e293b',
+                      fontWeight: 800,
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 15
+                    }}>
+                      Lớp
+                    </th>
+                    {activeDays.map(day => (
+                      <th
+                        key={day.id}
+                        colSpan={7}
+                        style={{
+                          padding: '8px',
+                          background: day.id % 2 === 0 ? '#eff6ff' : '#f8fafc',
+                          borderRight: '2px solid #cbd5e1',
+                          color: '#1e1b4b',
+                          fontWeight: 800,
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        {day.name.toUpperCase()}
+                      </th>
+                    ))}
+                  </tr>
+
+                  {/* Row 2: Sáng / Chiều Session Headers */}
+                  <tr style={{ borderBottom: '1px solid #cbd5e1', background: '#f8fafc' }}>
+                    {activeDays.map(day => (
+                      <React.Fragment key={day.id}>
+                        <th
+                          colSpan={4}
+                          style={{
+                            padding: '4px 2px',
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            fontWeight: 700,
+                            fontSize: '0.72rem',
+                            borderRight: '1px solid #bfdbfe'
+                          }}
+                        >
+                          SÁNG
+                        </th>
+                        <th
+                          colSpan={3}
+                          style={{
+                            padding: '4px 2px',
+                            background: '#fffbeb',
+                            color: '#b45309',
+                            fontWeight: 700,
+                            fontSize: '0.72rem',
+                            borderRight: '2px solid #cbd5e1'
+                          }}
+                        >
+                          CHIỀU
+                        </th>
+                      </React.Fragment>
+                    ))}
+                  </tr>
+
+                  {/* Row 3: Period Headers (Only Numbers) */}
+                  <tr style={{ borderBottom: '2px solid #cbd5e1', background: '#f8fafc' }}>
+                    {activeDays.map(day => (
+                      <React.Fragment key={day.id}>
+                        {PERIODS.map(p => (
+                          <th
+                            key={p.id}
+                            title={`${p.name} (${p.time})`}
+                            style={{
+                              padding: '6px 2px',
+                              width: '42px',
+                              color: p.session === 'morning' ? '#2563eb' : '#d97706',
+                              fontWeight: 800,
+                              fontSize: '0.82rem',
+                              borderRight: p.id === 7 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                              background: p.session === 'morning' ? '#ffffff' : '#fffdf5'
+                            }}
+                          >
+                            {p.id <= 4 ? p.id : (p.id - 4)}
+                          </th>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredClasses.map((cls, idx) => (
+                    <tr
+                      key={cls.id}
+                      style={{
+                        borderBottom: '1px solid #e2e8f0',
+                        background: idx % 2 === 0 ? '#ffffff' : '#fafafa'
+                      }}
+                    >
+                      {/* Sticky Class Name Column */}
+                      <td style={{
+                        padding: '10px',
+                        fontWeight: 800,
+                        fontSize: '0.85rem',
+                        color: '#1e293b',
+                        background: '#f8fafc',
+                        borderRight: '1px solid #cbd5e1',
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 5
+                      }}>
+                        <div>{cls.name}</div>
+                        <div style={{ fontSize: '0.65rem', fontWeight: 500, color: '#64748b' }}>K.{cls.grade}</div>
+                      </td>
+
+                      {/* Day / Period Slots */}
+                      {activeDays.map(day => (
+                        <React.Fragment key={day.id}>
+                          {PERIODS.map(p => {
+                            const slot = timetable[cls.id]?.[day.id]?.[p.id];
+                            const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, bg: '#f8fafc', border: '#cbd5e1', text: '#334155' }) : null;
+                            const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+                            const conflict = getSlotConflict(cls.id, day.id, p.id);
+
+                            const isOffWednesdayAfternoon = day.id === 4 && p.id > 4;
+
+                            if (isOffWednesdayAfternoon) {
+                              return (
+                                <td
+                                  key={p.id}
+                                  style={{
+                                    padding: '4px',
+                                    verticalAlign: 'middle',
+                                    borderLeft: p.id === 1 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                                    background: '#f8fafc',
+                                    height: '48px',
+                                    color: '#cbd5e1'
+                                  }}
+                                >
+                                  -
+                                </td>
+                              );
+                            }
+
+                            return (
+                              <td
+                                key={p.id}
+                                style={{
+                                  padding: '3px',
+                                  verticalAlign: 'middle',
+                                  borderLeft: p.id === 1 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                                  background: conflict ? '#fff5f5' : (sub ? sub.bg : 'transparent'),
+                                  height: '48px'
+                                }}
+                              >
+                                {slot ? (
+                                  <div
+                                    onClick={() => {
+                                      if (conflict && onOpenConflictModal) onOpenConflictModal();
+                                    }}
+                                    className={conflict ? 'conflict-pulse' : ''}
+                                    style={{
+                                      borderRadius: '6px',
+                                      padding: '3px 4px',
+                                      border: `1.5px solid ${conflict ? '#ef4444' : (sub?.border || '#cbd5e1')}`,
+                                      background: conflict ? '#fee2e2' : 'transparent',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      alignItems: 'center',
+                                      gap: '1px',
+                                      cursor: conflict ? 'pointer' : 'default',
+                                      boxShadow: conflict ? '0 0 6px rgba(239, 68, 68, 0.4)' : 'none'
+                                    }}
+                                    title={conflict ? conflict.message : `${sub?.name || slot.subjectId} - ${teacher?.name || slot.teacherId}`}
+                                  >
+                                    <span style={{
+                                      fontWeight: 800,
+                                      fontSize: '0.73rem',
+                                      color: conflict ? '#991b1b' : (sub?.text || '#1e293b'),
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
+                                    </span>
+                                    <span style={{
+                                      fontSize: '0.65rem',
+                                      color: conflict ? '#dc2626' : '#475569',
+                                      fontWeight: 700,
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {slot.teacherRaw ? slot.teacherRaw.replace('Đ/c ', '') : (teacher?.code || teacher?.name.split(' ').pop() || '')}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: '#cbd5e1' }}>-</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-      </div>
       </div>
 
       {/* Professional Master Timetable Print & Zalo Export Modal */}
