@@ -228,7 +228,39 @@ exit
       fs.writeFileSync(batPath, batScript, 'utf8');
       pendingUpdateScript = batPath;
     } else if (safeFileName.toLowerCase().endsWith('.exe')) {
-      pendingUpdateScript = destPath;
+      const appExePath = process.execPath;
+      const batPath = path.join(tempBase, 'apply_update.bat');
+      const batScript = `@echo off
+chcp 65001 > nul
+title Cap Nhat Tu Dong EduTimetable Tieu Hoc
+echo ========================================================
+echo   DANG TU DONG CAP NHAT EDUTIMETABLE TIEU HOC (CHAY NGAM)
+echo   Vui long cho trong giay lat...
+echo ========================================================
+
+:: Đảm bảo giải phóng hoàn toàn tiến trình cũ
+taskkill /F /IM "EduTimetable_TieuHoc.exe" /T > nul 2>&1
+taskkill /F /IM "EduTimetable Tiểu Học.exe" /T > nul 2>&1
+taskkill /F /IM "electron.exe" /T > nul 2>&1
+timeout /t 2 /nobreak > nul
+
+:: Chạy trình cài đặt ở chế độ im lặng /S (không hiển thị cửa sổ Setup, tự động ghi đè file mới)
+start /wait "" "${destPath}" /S
+
+timeout /t 2 /nobreak > nul
+
+:: Tự động khởi động lại ứng dụng phiên bản mới ngay lập tức
+if exist "${appExePath}" (
+  start "" "${appExePath}"
+) else if exist "%PROGRAMFILES%\\EduTimetable Tiểu Học\\EduTimetable_TieuHoc.exe" (
+  start "" "%PROGRAMFILES%\\EduTimetable Tiểu Học\\EduTimetable_TieuHoc.exe"
+) else if exist "%PROGRAMFILES(X86)%\\EduTimetable Tiểu Học\\EduTimetable_TieuHoc.exe" (
+  start "" "%PROGRAMFILES(X86)%\\EduTimetable Tiểu Học\\EduTimetable_TieuHoc.exe"
+)
+exit
+`;
+      fs.writeFileSync(batPath, batScript, 'utf8');
+      pendingUpdateScript = batPath;
     }
 
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -255,31 +287,15 @@ ipcMain.handle('check-for-updates', async () => {
 ipcMain.handle('restart-app-for-update', async () => {
   try {
     if (pendingUpdateScript) {
-      if (pendingUpdateScript.toLowerCase().endsWith('.bat')) {
-        const child = spawn('cmd.exe', ['/c', pendingUpdateScript], {
-          detached: true,
-          stdio: 'ignore'
-        });
-        child.on('error', (err) => {
-          console.error('Lỗi khi chạy script cập nhật .bat:', err);
-        });
-        child.unref();
-      } else if (pendingUpdateScript.toLowerCase().endsWith('.exe')) {
-        // Đối với file installer .exe: Dùng electron shell.openPath để Windows ShellExecute thực thi và tự động xử lý UAC Admin elevation không bao giờ bị lỗi EACCES
-        try {
-          await shell.openPath(pendingUpdateScript);
-        } catch (openErr) {
-          console.error('Lỗi shell.openPath:', openErr);
-          const child = spawn('cmd.exe', ['/c', 'start', '""', pendingUpdateScript], {
-            detached: true,
-            stdio: 'ignore'
-          });
-          child.on('error', (err) => {
-            console.error('Lỗi khi chạy installer .exe:', err);
-          });
-          child.unref();
-        }
-      }
+      const child = spawn('cmd.exe', ['/c', pendingUpdateScript], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.on('error', (err) => {
+        console.error('Lỗi khi chạy script cập nhật .bat:', err);
+      });
+      child.unref();
+      
       app.isQuitting = true;
       app.quit();
       return { success: true };
