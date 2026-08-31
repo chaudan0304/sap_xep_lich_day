@@ -33,7 +33,31 @@ import { triggerAppPrint } from '../services/printService';
 export const getTeacherRoleBadge = (teacher) => {
   if (!teacher) return { label: 'Giáo Viên', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
 
-  // 1. Ưu tiên vai trò Giáo viên Chủ Nhiệm
+  const position = (teacher.position || '').trim().toLowerCase();
+  const task = (teacher.task || '').trim().toLowerCase();
+
+  // 1. ƯU TIÊN 1: Chức vụ Quản lý & Ban Giám Hiệu được khai báo trực tiếp
+  if (position.includes('phó hiệu trưởng') || position.includes('phó ht') || position.includes('pht') || position === 'p.hiệu trưởng') {
+    return { label: 'Phó Hiệu Trưởng', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' };
+  }
+
+  if (position.includes('hiệu trưởng') || position === 'ht') {
+    return { label: 'Hiệu Trưởng', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' };
+  }
+
+  if (position.includes('tổng phụ trách') || position.includes('tpt')) {
+    return { label: 'Tổng Phụ Trách Đội', bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' };
+  }
+
+  if (position.includes('tổ trưởng')) {
+    return { label: 'Tổ Trưởng Chuyên Môn', bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' };
+  }
+
+  if (position.includes('tổ phó')) {
+    return { label: 'Tổ Phó Chuyên Môn', bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' };
+  }
+
+  // 2. ƯU TIÊN 2: Giáo viên Chủ Nhiệm
   if (teacher.isHomeroom && teacher.homeroomClassId) {
     return {
       label: `GVCN: ${teacher.homeroomClassId}`,
@@ -43,46 +67,41 @@ export const getTeacherRoleBadge = (teacher) => {
     };
   }
 
-  const position = (teacher.position || '').trim().toLowerCase();
-  const task = (teacher.task || '').trim().toLowerCase();
-  const combined = `${position} ${task}`;
-
-  if (combined.includes('hiệu trưởng') || combined.includes('phụ trách chung')) {
-    if (combined.includes('phó') || combined.includes('chuyên môn')) {
-      return { label: 'Phó Hiệu Trưởng', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' };
-    }
-    return { label: 'Hiệu Trưởng', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' };
-  }
-
-  if (combined.includes('phó hiệu trưởng')) {
+  // 3. ƯU TIÊN 3: Nhận diện qua Nhiệm vụ phân công (task) nếu position không có
+  if (task.includes('phó hiệu trưởng')) {
     return { label: 'Phó Hiệu Trưởng', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' };
   }
 
-  if (combined.includes('tổng phụ trách') || combined.includes('tpt')) {
+  if (task.includes('phụ trách chung') || task.includes('hiệu trưởng')) {
+    return { label: 'Hiệu Trưởng', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' };
+  }
+
+  if (task.includes('tổng phụ trách') || task.includes('tpt')) {
     return { label: 'Tổng Phụ Trách Đội', bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' };
   }
 
-  if (combined.includes('kế toán')) {
+  if (task.includes('kế toán')) {
     return { label: 'Kế toán', bg: '#f0fdfa', color: '#0f766e', border: '#99f6e4' };
   }
 
-  if (combined.includes('văn thư') || combined.includes('thủ quỹ')) {
+  if (task.includes('văn thư') || task.includes('thủ quỹ')) {
     return { label: 'Văn thư - Thủ quỹ', bg: '#f8fafc', color: '#475569', border: '#cbd5e1' };
   }
 
-  if (combined.includes('y tế') || combined.includes('thư viện')) {
+  if (task.includes('y tế') || task.includes('thư viện')) {
     return { label: 'Y tế - Thư viện', bg: '#f0f9ff', color: '#0369a1', border: '#bae6fd' };
   }
 
-  if (combined.includes('bảo vệ')) {
+  if (task.includes('bảo vệ')) {
     return { label: 'Bảo vệ', bg: '#f8fafc', color: '#334155', border: '#cbd5e1' };
   }
 
-  if (combined.includes('nghỉ sinh') || combined.includes('thai sản')) {
+  if (task.includes('nghỉ sinh') || task.includes('thai sản')) {
     return { label: 'Nghỉ sinh', bg: '#fdf2f8', color: '#be185d', border: '#fbcfe8' };
   }
 
-  if (teacher.position && teacher.position !== 'Giáo Viên' && teacher.position !== 'giáo viên' && teacher.position !== 'GV' && teacher.position !== 'GV Bộ Môn') {
+  // 4. Nếu có chức vụ riêng tùy biến khác
+  if (teacher.position && !['giáo viên', 'gv', 'gv bộ môn', 'bộ môn'].includes(position)) {
     return {
       label: teacher.position,
       bg: '#f3e8ff',
