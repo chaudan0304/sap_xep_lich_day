@@ -606,7 +606,7 @@ export const UserGuideModal = ({ isOpen, onClose, onNavigateTab }) => {
                         <p style={{ fontSize: '0.85rem', color: '#475569', margin: 0 }}>
                           - <strong>Chỉ in lớp đang chọn:</strong> In 1 trang A4 duy nhất cho lớp.<br/>
                           - <strong>In theo khối:</strong> Chỉ in các lớp thuộc Khối 1, Khối 2...<br/>
-                          - <strong>In toàn trường:</strong> Tự động ngắt trang (`page-break`) in toàn bộ 23 lớp thành 23 trang A4 chuẩn xác mà không bị lẹm viền.
+                          - <strong>In toàn trường:</strong> Tự động ngắt trang (`page-break`) in toàn bộ các lớp thành từng trang A4 riêng biệt chuẩn xác mà không bị lẹm viền.
                         </p>
                       </div>
 
@@ -824,7 +824,7 @@ const SearchGuideResults = ({ query }) => {
   const qNorm = normalizeVietnamese(query.trim());
   const allTips = [
     { title: 'Chỉnh sửa sĩ số học sinh', desc: 'Nhấp vào chữ "Sĩ số: 35 HS" trên thanh điều khiển của Studio hoặc bấm icon cây bút ✏️ để chỉnh sửa từng lớp hoặc gán hàng loạt cho Khối 1 đến Khối 5.', category: 'Studio' },
-    { title: 'In thời khóa biểu chuẩn A4', desc: 'Bấm [In Thời Khóa Biểu] tại Studio. Hỗ trợ xem trước A4 trực quan, in 1 lớp, in theo khối hoặc in toàn bộ 23 lớp có ngắt trang tự động.', category: 'In Ấn' },
+    { title: 'In thời khóa biểu chuẩn A4', desc: 'Bấm [In Thời Khóa Biểu] tại Studio. Hỗ trợ xem trước A4 trực quan, in 1 lớp, in theo khối hoặc in toàn bộ các lớp có ngắt trang tự động.', category: 'In Ấn' },
     { title: 'Hoán đổi tiết học (Swap)', desc: 'Bấm biểu tượng ⇄ tại ô tiết học nguồn, sau đó nhấp vào ô tiết học đích để đổi vị trí 2 tiết.', category: 'Studio' },
     { title: 'Khóa tiết học cố định (Lock)', desc: 'Bấm biểu tượng ổ khóa 🔒 để cố định tiết học. Thuật toán tự động xếp lịch sẽ không bao giờ thay đổi tiết này.', category: 'Studio' },
     { title: 'Xóa lịch 1 lớp', desc: 'Bấm nút [Xóa Lịch Lớp] trên thanh điều khiển của Studio để xóa riêng lịch của lớp hiện tại.', category: 'Studio' },

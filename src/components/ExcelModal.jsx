@@ -329,7 +329,9 @@ export const ExcelModal = ({
                 </div>
 
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px' }}>
-                  <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: '#1e293b' }}>Danh Sách 23 Lớp Học Tìm Thấy</h4>
+                  <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: '#1e293b' }}>
+                    Danh Sách {importResult.data?.classes?.length || 0} Lớp Học Tìm Thấy
+                  </h4>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {(importResult.data?.classes || []).map(c => {
                       const gvHome = (importResult.data?.teachers || []).find(t => t.id === c.homeroomTeacherId);

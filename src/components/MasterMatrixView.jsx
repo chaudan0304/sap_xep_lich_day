@@ -210,12 +210,19 @@ export const MasterMatrixView = ({
                 onChange={(e) => setSelectedGrade(e.target.value)}
                 style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#ffffff' }}
               >
-                <option value="ALL">Tất cả các khối (Khối 1 - 5)</option>
-                <option value="1">Khối 1 (1A1 - 1A4)</option>
-                <option value="2">Khối 2 (2A1 - 2A5)</option>
-                <option value="3">Khối 3 (3A1 - 3A4)</option>
-                <option value="4">Khối 4 (4A1 - 4A5)</option>
-                <option value="5">Khối 5 (5A1 - 5A5)</option>
+                <option value="ALL">Tất cả các khối ({classes.length} lớp)</option>
+                {[1, 2, 3, 4, 5].map(g => {
+                  const gClasses = classes.filter(c => c.grade === g);
+                  if (gClasses.length === 0) return null;
+                  const rangeText = gClasses.length > 0 
+                    ? ` (${gClasses[0].name}${gClasses.length > 1 ? ` - ${gClasses[gClasses.length - 1].name}` : ''})` 
+                    : '';
+                  return (
+                    <option key={g} value={String(g)}>
+                      Khối {g}{rangeText} ({gClasses.length} lớp)
+                    </option>
+                  );
+                })}
               </select>
             </div>
 

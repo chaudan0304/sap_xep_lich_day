@@ -443,7 +443,7 @@ export const exportMasterTimetable = async (timetable, classes = [], teachers = 
 
   // 1. Sheet Ma Trận Toàn Trường
   const wsMaster = wb.addWorksheet('TKB_Toan_Truong');
-  renderMatrixSheet(wsMaster, classes, 'Toàn Trường (23 Lớp)');
+  renderMatrixSheet(wsMaster, classes, `Toàn Trường (${classes.length} Lớp)`);
 
   // 2. Các Sheet theo từng Khối (Khối 1 -> Khối 5)
   for (let g = 1; g <= 5; g++) {
