@@ -29,7 +29,8 @@ import {
   Copy,
   CheckCircle2,
   Grid3X3,
-  Clock
+  Clock,
+  TableProperties
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
@@ -48,19 +49,22 @@ export const MasterTimetablePrintModal = ({
 }) => {
   if (!isOpen) return null;
 
-  // 1. Zoom & Orientation & Paper Size
+  // 1. Layout Mode: 'excel' (Hàng là Thứ/Tiết, Cột là Lớp) | 'matrix' (Hàng là Lớp, Cột là Thứ/Tiết)
+  const [matrixLayout, setMatrixLayout] = useState('excel');
+
+  // 2. Zoom & Orientation & Paper Size
   const [previewZoom, setPreviewZoom] = useState(85);
   const [paperOrientation, setPaperOrientation] = useState('landscape'); // 'landscape' | 'portrait'
   const [paperSize, setPaperSize] = useState('a4'); // 'a4' | 'a3'
 
-  // 2. Print Scope Filtering
+  // 3. Print Scope Filtering
   const [scopeGrade, setScopeGrade] = useState('ALL'); // 'ALL' | '1' | '2' | '3' | '4' | '5' | 'custom'
   const [scopeDay, setScopeDay] = useState('ALL'); // 'ALL' | '2' | '3' | '4' | '5' | '6'
   const [scopeSession, setScopeSession] = useState('ALL'); // 'ALL' | 'morning' | 'afternoon'
   const [selectedClassIds, setSelectedClassIds] = useState(classes.map(c => c.id));
   const [classSearch, setClassSearch] = useState('');
 
-  // 3. Print Meta
+  // 4. Print Meta
   const [printMeta, setPrintMeta] = useState({
     district: schoolInfo.district || 'UBND PHƯỜNG TÂN MAI',
     schoolName: schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B',
@@ -72,11 +76,12 @@ export const MasterTimetablePrintModal = ({
     lunchBreak: schoolInfo.lunchBreak || '10:30 - 14:00'
   });
 
-  // 4. Display options
+  // 5. Display options
   const [displayOptions, setDisplayOptions] = useState({
     showHeader: true,
     showSignatures: true,
     showBellSchedule: true,
+    showLunchRow: true,
     teacherDisplay: 'code', // 'code' | 'name' | 'none'
     fontScale: 'normal' // 'compact' | 'normal' | 'large'
   });
@@ -214,7 +219,7 @@ export const MasterTimetablePrintModal = ({
   const handleExportExcel = async () => {
     try {
       setIsExportingExcel(true);
-      await exportMasterTimetable(timetable, targetClasses, teachers, subjects);
+      await exportMasterTimetable(timetable, targetClasses, teachers, subjects, schoolInfo);
       showToast(`Đã xuất file Excel Ma trận TKB thành công!`);
     } catch (err) {
       console.error('Lỗi xuất Excel:', err);
@@ -235,12 +240,12 @@ export const MasterTimetablePrintModal = ({
   // Get font sizes according to scale
   const getFontSizes = () => {
     if (displayOptions.fontScale === 'compact') {
-      return { table: '6.5pt', subject: '7pt', teacher: '6pt', cellHeight: '26px' };
+      return { table: '6.5pt', subject: '7pt', teacher: '6pt', cellHeight: '25px' };
     }
     if (displayOptions.fontScale === 'large') {
       return { table: '8.5pt', subject: '9pt', teacher: '7.5pt', cellHeight: '34px' };
     }
-    return { table: '7.5pt', subject: '8pt', teacher: '6.8pt', cellHeight: '30px' };
+    return { table: '7.5pt', subject: '8pt', teacher: '6.8pt', cellHeight: '29px' };
   };
   const fSizes = getFontSizes();
 
@@ -258,7 +263,433 @@ export const MasterTimetablePrintModal = ({
   };
   const paperDims = getPaperDimensions();
 
-  // Render Printable Matrix Sheet
+  // ─────────────────────────────────────────────────────────────
+  // RENDER DẠNG 1: CHUẨN XUẤT FILE EXCEL (HÀNG: THỨ/TIẾT • CỘT: LỚP)
+  // ─────────────────────────────────────────────────────────────
+  const renderExcelStyleTable = () => {
+    return (
+      <table style={{
+        width: '100%',
+        tableLayout: 'fixed',
+        borderCollapse: 'collapse',
+        border: '1.5px solid #000',
+        textAlign: 'center',
+        fontSize: fSizes.table
+      }}>
+        <thead>
+          <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #000' }}>
+            <th style={{ border: '1px solid #000', width: '52px', fontWeight: 800, padding: '5px 2px' }}>
+              Thứ
+            </th>
+            <th style={{ border: '1px solid #000', width: '48px', fontWeight: 800, padding: '5px 2px' }}>
+              Buổi
+            </th>
+            <th style={{ border: '1px solid #000', width: '38px', fontWeight: 800, padding: '5px 2px' }}>
+              Tiết
+            </th>
+            {targetClasses.map(cls => (
+              <th
+                key={cls.id}
+                style={{
+                  border: '1px solid #000',
+                  fontWeight: 800,
+                  padding: '5px 2px',
+                  fontSize: '8.5pt',
+                  background: '#f1f5f9'
+                }}
+              >
+                {cls.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {targetDays.map(day => {
+            const morningPeriods = targetPeriods.filter(p => p.session === 'morning');
+            const afternoonPeriods = targetPeriods.filter(p => p.session === 'afternoon');
+            const dayPeriodCount = targetPeriods.length + (displayOptions.showLunchRow && morningPeriods.length > 0 && afternoonPeriods.length > 0 ? 1 : 0);
+
+            let hasRenderedDayCell = false;
+
+            return (
+              <React.Fragment key={day.id}>
+                {/* 1. SÁNG */}
+                {morningPeriods.map((p, pIdx) => {
+                  const isFirstOfMorning = pIdx === 0;
+                  return (
+                    <tr key={`${day.id}_${p.id}`} style={{ background: pIdx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                      {/* Day Column (Rowspan cả ngày) */}
+                      {!hasRenderedDayCell && (
+                        (() => {
+                          hasRenderedDayCell = true;
+                          return (
+                            <td
+                              rowSpan={dayPeriodCount}
+                              style={{
+                                border: '1px solid #000',
+                                fontWeight: 800,
+                                verticalAlign: 'middle',
+                                textAlign: 'center',
+                                background: '#f8fafc',
+                                fontSize: '9pt'
+                              }}
+                            >
+                              {day.name}
+                            </td>
+                          );
+                        })()
+                      )}
+
+                      {/* Session Column (Rowspan buổi sáng) */}
+                      {isFirstOfMorning && (
+                        <td
+                          rowSpan={morningPeriods.length}
+                          style={{
+                            border: '1px solid #000',
+                            fontWeight: 800,
+                            verticalAlign: 'middle',
+                            textAlign: 'center',
+                            fontSize: '8.5pt',
+                            background: '#fafafa',
+                            letterSpacing: '0.5px'
+                          }}
+                        >
+                          SÁNG
+                        </td>
+                      )}
+
+                      {/* Period Number Column */}
+                      <td style={{
+                        border: '1px solid #000',
+                        fontWeight: 800,
+                        verticalAlign: 'middle',
+                        textAlign: 'center',
+                        fontSize: '9pt'
+                      }}>
+                        {p.id}
+                      </td>
+
+                      {/* Class Slots */}
+                      {targetClasses.map(cls => {
+                        const slot = timetable[cls.id]?.[day.id]?.[p.id];
+                        const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, name: slot.subjectId }) : null;
+                        const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+
+                        return (
+                          <td
+                            key={cls.id}
+                            style={{
+                              border: '1px solid #000',
+                              padding: '2px 2px',
+                              height: fSizes.cellHeight,
+                              verticalAlign: 'middle',
+                              textAlign: 'center',
+                              lineHeight: 1.15
+                            }}
+                          >
+                            {slot ? (
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: fSizes.subject, color: '#000' }}>
+                                  {sub?.shortName || sub?.name || slot.subjectId}
+                                </div>
+                                {displayOptions.teacherDisplay !== 'none' && (
+                                  <div style={{ fontSize: fSizes.teacher, color: '#333', marginTop: '1px' }}>
+                                    {displayOptions.teacherDisplay === 'name' 
+                                      ? (teacher?.name || slot.teacherId)
+                                      : (teacher?.code || teacher?.name?.split(' ').pop() || slot.teacherId)}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#cbd5e1' }}>-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+
+                {/* Lunch Break Divider (If enabled) */}
+                {displayOptions.showLunchRow && morningPeriods.length > 0 && afternoonPeriods.length > 0 && (
+                  <tr style={{ background: '#f1f5f9' }}>
+                    <td colSpan={2 + targetClasses.length} style={{
+                      border: '1px solid #000',
+                      padding: '2px 4px',
+                      fontSize: '7.5pt',
+                      fontWeight: 800,
+                      fontStyle: 'italic',
+                      color: '#475569',
+                      textAlign: 'center'
+                    }}>
+                      🍱 Nghỉ trưa & Ăn bán trú ({printMeta.lunchBreak})
+                    </td>
+                  </tr>
+                )}
+
+                {/* 2. CHIỀU */}
+                {afternoonPeriods.map((p, pIdx) => {
+                  const isFirstOfAfternoon = pIdx === 0;
+                  const isWedOff = day.id === 4 && p.id > 4;
+
+                  return (
+                    <tr key={`${day.id}_${p.id}`} style={{ background: pIdx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                      {/* Session Column (Rowspan buổi chiều) */}
+                      {isFirstOfAfternoon && (
+                        <td
+                          rowSpan={afternoonPeriods.length}
+                          style={{
+                            border: '1px solid #000',
+                            fontWeight: 800,
+                            verticalAlign: 'middle',
+                            textAlign: 'center',
+                            fontSize: '8.5pt',
+                            background: '#fafafa',
+                            letterSpacing: '0.5px'
+                          }}
+                        >
+                          CHIỀU
+                        </td>
+                      )}
+
+                      {/* Period Number Column */}
+                      <td style={{
+                        border: '1px solid #000',
+                        fontWeight: 800,
+                        verticalAlign: 'middle',
+                        textAlign: 'center',
+                        fontSize: '9pt'
+                      }}>
+                        {p.id <= 4 ? p.id : (p.id - 4)}
+                      </td>
+
+                      {/* Class Slots */}
+                      {targetClasses.map(cls => {
+                        if (isWedOff) {
+                          return (
+                            <td
+                              key={cls.id}
+                              style={{
+                                border: '1px solid #000',
+                                background: '#f8fafc',
+                                color: '#94a3b8',
+                                fontSize: '6.5pt',
+                                height: fSizes.cellHeight,
+                                verticalAlign: 'middle'
+                              }}
+                            >
+                              -
+                            </td>
+                          );
+                        }
+
+                        const slot = timetable[cls.id]?.[day.id]?.[p.id];
+                        const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, name: slot.subjectId }) : null;
+                        const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+
+                        return (
+                          <td
+                            key={cls.id}
+                            style={{
+                              border: '1px solid #000',
+                              padding: '2px 2px',
+                              height: fSizes.cellHeight,
+                              verticalAlign: 'middle',
+                              textAlign: 'center',
+                              lineHeight: 1.15
+                            }}
+                          >
+                            {slot ? (
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: fSizes.subject, color: '#000' }}>
+                                  {sub?.shortName || sub?.name || slot.subjectId}
+                                </div>
+                                {displayOptions.teacherDisplay !== 'none' && (
+                                  <div style={{ fontSize: fSizes.teacher, color: '#333', marginTop: '1px' }}>
+                                    {displayOptions.teacherDisplay === 'name' 
+                                      ? (teacher?.name || slot.teacherId)
+                                      : (teacher?.code || teacher?.name?.split(' ').pop() || slot.teacherId)}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#cbd5e1' }}>-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // RENDER DẠNG 2: MA TRẬN THEO LỚP (HÀNG: LỚP • CỘT: THỨ/TIẾT)
+  // ─────────────────────────────────────────────────────────────
+  const renderMatrixStyleTable = () => {
+    return (
+      <table style={{
+        width: '100%',
+        tableLayout: 'fixed',
+        borderCollapse: 'collapse',
+        border: '1.5px solid #000',
+        textAlign: 'center',
+        fontSize: fSizes.table
+      }}>
+        <thead>
+          {/* Row 1: Days */}
+          <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #000' }}>
+            <th rowSpan={3} style={{ border: '1px solid #000', width: '52px', fontWeight: 800, padding: '3px 2px' }}>
+              Lớp
+            </th>
+            {targetDays.map(d => {
+              const pCount = targetPeriods.length;
+              return (
+                <th
+                  key={d.id}
+                  colSpan={pCount}
+                  style={{
+                    border: '1px solid #000',
+                    padding: '4px 2px',
+                    fontWeight: 800,
+                    fontSize: '8.5pt',
+                    background: d.id % 2 === 0 ? '#f8fafc' : '#f1f5f9'
+                  }}
+                >
+                  {d.name.toUpperCase()}
+                </th>
+              );
+            })}
+          </tr>
+
+          {/* Row 2: Sessions */}
+          <tr style={{ background: '#f8fafc', borderBottom: '1px solid #000' }}>
+            {targetDays.map(d => {
+              const morningCount = targetPeriods.filter(p => p.session === 'morning').length;
+              const afternoonCount = targetPeriods.filter(p => p.session === 'afternoon').length;
+              return (
+                <React.Fragment key={d.id}>
+                  {morningCount > 0 && (
+                    <th colSpan={morningCount} style={{ border: '1px solid #000', padding: '2px', fontWeight: 700, fontSize: '7.5pt' }}>
+                      SÁNG
+                    </th>
+                  )}
+                  {afternoonCount > 0 && (
+                    <th colSpan={afternoonCount} style={{ border: '1px solid #000', padding: '2px', fontWeight: 700, fontSize: '7.5pt' }}>
+                      CHIỀU
+                    </th>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tr>
+
+          {/* Row 3: Periods Numbers */}
+          <tr style={{ background: '#ffffff', borderBottom: '1.5px solid #000' }}>
+            {targetDays.map(d => (
+              <React.Fragment key={d.id}>
+                {targetPeriods.map(p => (
+                  <th
+                    key={p.id}
+                    style={{
+                      border: '1px solid #000',
+                      padding: '2px 1px',
+                      fontWeight: 800,
+                      fontSize: '7.5pt'
+                    }}
+                  >
+                    {p.id <= 4 ? p.id : (p.id - 4)}
+                  </th>
+                ))}
+              </React.Fragment>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {targetClasses.map((cls, idx) => (
+            <tr key={cls.id} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+              <td style={{
+                border: '1px solid #000',
+                fontWeight: 800,
+                padding: '2px 2px',
+                fontSize: '8pt',
+                whiteSpace: 'nowrap'
+              }}>
+                {cls.name}
+              </td>
+
+              {targetDays.map(day => (
+                <React.Fragment key={day.id}>
+                  {targetPeriods.map(p => {
+                    const slot = timetable[cls.id]?.[day.id]?.[p.id];
+                    const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, name: slot.subjectId }) : null;
+                    const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+                    const isWedOff = day.id === 4 && p.id > 4;
+
+                    if (isWedOff) {
+                      return (
+                        <td
+                          key={p.id}
+                          style={{
+                            border: '1px solid #000',
+                            background: '#f1f5f9',
+                            color: '#94a3b8',
+                            fontSize: '6.5pt',
+                            height: fSizes.cellHeight,
+                            verticalAlign: 'middle'
+                          }}
+                        >
+                          -
+                        </td>
+                      );
+                    }
+
+                    return (
+                      <td
+                        key={p.id}
+                        style={{
+                          border: '1px solid #000',
+                          padding: '1px',
+                          height: fSizes.cellHeight,
+                          verticalAlign: 'middle',
+                          lineHeight: 1.15
+                        }}
+                      >
+                        {slot ? (
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: fSizes.subject, color: '#000' }}>
+                              {sub?.shortName || sub?.name || slot.subjectId}
+                            </div>
+                            {displayOptions.teacherDisplay !== 'none' && (
+                              <div style={{ fontSize: fSizes.teacher, color: '#333' }}>
+                                {displayOptions.teacherDisplay === 'name' 
+                                  ? (teacher?.name || slot.teacherId)
+                                  : (teacher?.code || teacher?.name?.split(' ').pop() || slot.teacherId)}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#cbd5e1' }}>-</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
+  // Render Printable Matrix Sheet Container
   const renderMatrixSheet = (isPreview = false) => {
     return (
       <div
@@ -344,161 +775,8 @@ export const MasterTimetablePrintModal = ({
           </div>
         )}
 
-        {/* 4. Master Table */}
-        <table style={{
-          width: '100%',
-          tableLayout: 'fixed',
-          borderCollapse: 'collapse',
-          border: '1.5px solid #000',
-          textAlign: 'center',
-          fontSize: fSizes.table
-        }}>
-          <thead>
-            {/* Row 1: Days */}
-            <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #000' }}>
-              <th rowSpan={3} style={{ border: '1px solid #000', width: '52px', fontWeight: 800, padding: '3px 2px' }}>
-                Lớp
-              </th>
-              {targetDays.map(d => {
-                const pCount = targetPeriods.length;
-                return (
-                  <th
-                    key={d.id}
-                    colSpan={pCount}
-                    style={{
-                      border: '1px solid #000',
-                      padding: '4px 2px',
-                      fontWeight: 800,
-                      fontSize: '8.5pt',
-                      background: d.id % 2 === 0 ? '#f8fafc' : '#f1f5f9'
-                    }}
-                  >
-                    {d.name.toUpperCase()}
-                  </th>
-                );
-              })}
-            </tr>
-
-            {/* Row 2: Sessions */}
-            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #000' }}>
-              {targetDays.map(d => {
-                const morningCount = targetPeriods.filter(p => p.session === 'morning').length;
-                const afternoonCount = targetPeriods.filter(p => p.session === 'afternoon').length;
-                return (
-                  <React.Fragment key={d.id}>
-                    {morningCount > 0 && (
-                      <th colSpan={morningCount} style={{ border: '1px solid #000', padding: '2px', fontWeight: 700, fontSize: '7.5pt' }}>
-                        SÁNG
-                      </th>
-                    )}
-                    {afternoonCount > 0 && (
-                      <th colSpan={afternoonCount} style={{ border: '1px solid #000', padding: '2px', fontWeight: 700, fontSize: '7.5pt' }}>
-                        CHIỀU
-                      </th>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tr>
-
-            {/* Row 3: Periods Numbers */}
-            <tr style={{ background: '#ffffff', borderBottom: '1.5px solid #000' }}>
-              {targetDays.map(d => (
-                <React.Fragment key={d.id}>
-                  {targetPeriods.map(p => (
-                    <th
-                      key={p.id}
-                      style={{
-                        border: '1px solid #000',
-                        padding: '2px 1px',
-                        fontWeight: 800,
-                        fontSize: '7.5pt'
-                      }}
-                    >
-                      {p.id <= 4 ? p.id : (p.id - 4)}
-                    </th>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {targetClasses.map((cls, idx) => (
-              <tr key={cls.id} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
-                {/* Class Column */}
-                <td style={{
-                  border: '1px solid #000',
-                  fontWeight: 800,
-                  padding: '2px 2px',
-                  fontSize: '8pt',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {cls.name}
-                </td>
-
-                {/* Slots */}
-                {targetDays.map(day => (
-                  <React.Fragment key={day.id}>
-                    {targetPeriods.map(p => {
-                      const slot = timetable[cls.id]?.[day.id]?.[p.id];
-                      const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, name: slot.subjectId }) : null;
-                      const teacher = slot ? teacherMap.get(slot.teacherId) : null;
-                      const isWedOff = day.id === 4 && p.id > 4;
-
-                      if (isWedOff) {
-                        return (
-                          <td
-                            key={p.id}
-                            style={{
-                              border: '1px solid #000',
-                              background: '#f1f5f9',
-                              color: '#94a3b8',
-                              fontSize: '6.5pt',
-                              height: fSizes.cellHeight,
-                              verticalAlign: 'middle'
-                            }}
-                          >
-                            -
-                          </td>
-                        );
-                      }
-
-                      return (
-                        <td
-                          key={p.id}
-                          style={{
-                            border: '1px solid #000',
-                            padding: '1px',
-                            height: fSizes.cellHeight,
-                            verticalAlign: 'middle',
-                            lineHeight: 1.15
-                          }}
-                        >
-                          {slot ? (
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: fSizes.subject, color: '#000' }}>
-                                {sub?.shortName || sub?.name || slot.subjectId}
-                              </div>
-                              {displayOptions.teacherDisplay !== 'none' && (
-                                <div style={{ fontSize: fSizes.teacher, color: '#333' }}>
-                                  {displayOptions.teacherDisplay === 'name' 
-                                    ? (teacher?.name || slot.teacherId)
-                                    : (teacher?.code || teacher?.name?.split(' ').pop() || slot.teacherId)}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ color: '#cbd5e1' }}>-</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* 4. Table Content (Excel or Matrix format) */}
+        {matrixLayout === 'excel' ? renderExcelStyleTable() : renderMatrixStyleTable()}
 
         {/* 5. Footer Signatures */}
         {displayOptions.showSignatures && (
@@ -598,7 +876,7 @@ export const MasterTimetablePrintModal = ({
                   background: '#e0e7ff',
                   color: '#4338ca'
                 }}>
-                  {targetClasses.length} lớp • {paperOrientation === 'landscape' ? 'Khổ ngang' : 'Khổ dọc'}
+                  {targetClasses.length} lớp • {matrixLayout === 'excel' ? 'Mẫu chuẩn Excel' : 'Ma trận lớp'}
                 </span>
               </h2>
               <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
@@ -961,6 +1239,7 @@ export const MasterTimetablePrintModal = ({
                   {/* Summary Box */}
                   <div style={{ padding: '10px 12px', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', fontSize: '0.75rem' }}>
                     <div style={{ fontWeight: 800, marginBottom: '2px' }}>📊 Tóm tắt bảng in ma trận:</div>
+                    <div>• Định dạng: <strong>{matrixLayout === 'excel' ? 'Chuẩn mẫu file Excel (Hàng: Thứ & Tiết)' : 'Ma trận ngang (Hàng: Lớp học)'}</strong></div>
                     <div>• Quy mô: <strong>{targetClasses.length} lớp học</strong></div>
                     <div>• Thời gian: <strong>{targetDays.length} ngày</strong> • <strong>{targetPeriods.length} tiết/ngày</strong></div>
                   </div>
@@ -1043,8 +1322,58 @@ export const MasterTimetablePrintModal = ({
               {/* TAB 3: OPTIONS */}
               {activeTab === 'options' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {/* Orientation & Paper Size */}
+                  {/* Bố cục bảng (Layout switcher) */}
                   <div>
+                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                      Bố cục cấu trúc bảng:
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                      <button
+                        onClick={() => setMatrixLayout('excel')}
+                        style={{
+                          padding: '8px',
+                          borderRadius: '8px',
+                          border: matrixLayout === 'excel' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                          background: matrixLayout === 'excel' ? '#eff6ff' : '#ffffff',
+                          color: matrixLayout === 'excel' ? '#1d4ed8' : '#334155',
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '2px'
+                        }}
+                      >
+                        <span style={{ fontWeight: 800 }}>🥇 Chuẩn file Excel</span>
+                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>(Hàng: Thứ/Tiết • Cột: Lớp)</span>
+                      </button>
+
+                      <button
+                        onClick={() => setMatrixLayout('matrix')}
+                        style={{
+                          padding: '8px',
+                          borderRadius: '8px',
+                          border: matrixLayout === 'matrix' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                          background: matrixLayout === 'matrix' ? '#eff6ff' : '#ffffff',
+                          color: matrixLayout === 'matrix' ? '#1d4ed8' : '#334155',
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '2px'
+                        }}
+                      >
+                        <span style={{ fontWeight: 800 }}>🥈 Ma trận ngang</span>
+                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>(Hàng: Lớp • Cột: Thứ/Tiết)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Orientation & Paper Size */}
+                  <div style={{ paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
                     <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
                       Hướng in & Khổ giấy:
                     </label>
@@ -1154,7 +1483,7 @@ export const MasterTimetablePrintModal = ({
                     </div>
                   </div>
 
-                  {/* Header / Signature / Bell Toggles */}
+                  {/* Header / Signature / Bell / Lunch Toggles */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>
                       <input
@@ -1182,6 +1511,17 @@ export const MasterTimetablePrintModal = ({
                       />
                       <span>Hiển thị thanh Khung giờ học các tiết (Sáng/Chiều)</span>
                     </label>
+
+                    {matrixLayout === 'excel' && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={displayOptions.showLunchRow}
+                          onChange={e => setDisplayOptions({ ...displayOptions, showLunchRow: e.target.checked })}
+                        />
+                        <span>Hiển thị dòng ngăn cách Nghỉ trưa & Ăn bán trú</span>
+                      </label>
+                    )}
                   </div>
 
                   {/* Font Scale */}
@@ -1239,7 +1579,7 @@ export const MasterTimetablePrintModal = ({
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#93c5fd' }}>
-                  📐 Xem trước trực tiếp ({paperOrientation === 'landscape' ? 'Khổ ngang' : 'Khổ dọc'} • {paperSize.toUpperCase()})
+                  📐 Xem trước ({matrixLayout === 'excel' ? 'Chuẩn mẫu file Excel' : 'Ma trận ngang'} • {paperOrientation === 'landscape' ? 'Khổ ngang' : 'Khổ dọc'} • {paperSize.toUpperCase()})
                 </span>
               </div>
 
