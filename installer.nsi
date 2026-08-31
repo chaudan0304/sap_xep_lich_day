@@ -1,4 +1,4 @@
-Unicode True
+﻿Unicode True
 ; installer.nsi - Trình Cài Đặt Tự Động Windows cho EduTimetable Tiểu Học
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
