@@ -337,8 +337,8 @@ export const ClassTimetablePrintModal = ({
         }}>
           <thead>
             <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #000' }}>
-              <th style={{ border: '1px solid #000', width: '34px', padding: '5px 2px', fontWeight: 800 }}>Buổi</th>
-              <th style={{ border: '1px solid #000', width: '28px', padding: '5px 2px', fontWeight: 800 }}>Tiết</th>
+              <th style={{ border: '1px solid #000', width: '52px', padding: '5px 2px', fontWeight: 800 }}>Buổi</th>
+              <th style={{ border: '1px solid #000', width: '32px', padding: '5px 2px', fontWeight: 800 }}>Tiết</th>
               {displayOptions.showPeriodTime && (
                 <th style={{ border: '1px solid #000', width: '68px', padding: '5px 2px', fontWeight: 800 }}>Thời gian</th>
               )}
@@ -365,7 +365,12 @@ export const ClassTimetablePrintModal = ({
                           border: '1px solid #000',
                           fontWeight: 800,
                           verticalAlign: 'middle',
+                          textAlign: 'center',
                           fontSize: fSizes.header,
+                          padding: '2px 4px',
+                          letterSpacing: '0.5px',
+                          whiteSpace: 'nowrap',
+                          boxSizing: 'border-box',
                           background: '#fafafa'
                         }}
                       >
@@ -379,7 +384,12 @@ export const ClassTimetablePrintModal = ({
                           border: '1px solid #000',
                           fontWeight: 800,
                           verticalAlign: 'middle',
+                          textAlign: 'center',
                           fontSize: fSizes.header,
+                          padding: '2px 4px',
+                          letterSpacing: '0.5px',
+                          whiteSpace: 'nowrap',
+                          boxSizing: 'border-box',
                           background: '#fafafa'
                         }}
                       >

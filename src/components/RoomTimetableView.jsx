@@ -658,8 +658,8 @@ export const RoomTimetableView = ({
         <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1.5px solid #000', textAlign: 'center', fontSize: '8.5pt' }}>
           <thead>
             <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #000' }}>
-              <th style={{ border: '1px solid #000', width: '36px', padding: '5px 2px', fontWeight: 800 }}>Buổi</th>
-              <th style={{ border: '1px solid #000', width: '28px', padding: '5px 2px', fontWeight: 800 }}>Tiết</th>
+              <th style={{ border: '1px solid #000', width: '52px', padding: '5px 2px', fontWeight: 800 }}>Buổi</th>
+              <th style={{ border: '1px solid #000', width: '32px', padding: '5px 2px', fontWeight: 800 }}>Tiết</th>
               <th style={{ border: '1px solid #000', width: '68px', padding: '5px 2px', fontWeight: 800 }}>Thời gian</th>
               {DAYS_OF_WEEK.map(d => (
                 <th key={d.id} style={{ border: '1px solid #000', padding: '5px 2px', fontWeight: 800 }}>
@@ -673,17 +673,43 @@ export const RoomTimetableView = ({
               <React.Fragment key={period.id}>
                 <tr>
                   {period.id === 1 && (
-                    <td rowSpan={4} style={{ border: '1px solid #000', fontWeight: 800, verticalAlign: 'middle', fontSize: '9.5pt' }}>
+                    <td
+                      rowSpan={4}
+                      style={{
+                        border: '1px solid #000',
+                        fontWeight: 800,
+                        verticalAlign: 'middle',
+                        textAlign: 'center',
+                        fontSize: '9pt',
+                        padding: '2px 4px',
+                        letterSpacing: '0.5px',
+                        whiteSpace: 'nowrap',
+                        boxSizing: 'border-box'
+                      }}
+                    >
                       SÁNG
                     </td>
                   )}
                   {period.id === 5 && (
-                    <td rowSpan={3} style={{ border: '1px solid #000', fontWeight: 800, verticalAlign: 'middle', fontSize: '9.5pt' }}>
+                    <td
+                      rowSpan={3}
+                      style={{
+                        border: '1px solid #000',
+                        fontWeight: 800,
+                        verticalAlign: 'middle',
+                        textAlign: 'center',
+                        fontSize: '9pt',
+                        padding: '2px 4px',
+                        letterSpacing: '0.5px',
+                        whiteSpace: 'nowrap',
+                        boxSizing: 'border-box'
+                      }}
+                    >
                       CHIỀU
                     </td>
                   )}
 
-                  <td style={{ border: '1px solid #000', fontWeight: 800, verticalAlign: 'middle', fontSize: '10pt' }}>
+                  <td style={{ border: '1px solid #000', fontWeight: 800, verticalAlign: 'middle', fontSize: '9.5pt' }}>
                     {period.id <= 4 ? period.id : (period.id - 4)}
                   </td>
 
