@@ -12,6 +12,7 @@ import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { exportMasterTimetable } from '../services/excelService';
 import { triggerAppPrint } from '../services/printService';
+import { MasterTimetablePrintModal } from './MasterTimetablePrintModal';
 
 export const MasterMatrixView = ({
   classes,
@@ -25,6 +26,7 @@ export const MasterMatrixView = ({
 }) => {
   const [selectedGrade, setSelectedGrade] = useState('ALL');
   const [selectedDay, setSelectedDay] = useState('ALL'); // ALL or 2..6
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
 
@@ -116,24 +118,27 @@ export const MasterMatrixView = ({
           </button>
 
           <button
-            onClick={() => triggerAppPrint()}
+            onClick={() => setIsPrintModalOpen(true)}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '10px 16px',
+              padding: '10px 18px',
               borderRadius: '10px',
               fontSize: '0.875rem',
-              fontWeight: 600,
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              color: '#334155',
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+              border: 'none',
+              color: '#ffffff',
               cursor: 'pointer',
-              boxShadow: 'var(--shadow-sm)'
+              boxShadow: '0 3px 10px rgba(79, 70, 229, 0.3)',
+              transition: 'transform 0.15s ease'
             }}
+            onMouseOver={e => e.currentTarget.style.transform = 'scale(1.03)'}
+            onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
           >
             <Printer size={16} />
-            <span>In Bản Tổng Thể</span>
+            <span>In Bản Tổng Thể (A4/A3)</span>
           </button>
         </div>
       </div>
@@ -444,118 +449,19 @@ export const MasterMatrixView = ({
       </div>
       </div>
 
-      {/* ───────────────────────────────────────────────────────────── */}
-      {/* DEDICATED OFFICIAL PRINTABLE SHEET FOR MASTER MATRIX          */}
-      {/* ───────────────────────────────────────────────────────────── */}
-      <div className="printable-sheet">
-        {/* National / School Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '10pt', textTransform: 'uppercase', fontWeight: 700 }}>{schoolInfo.district || 'UBND PHƯỜNG TÂN MAI'}</div>
-            <div style={{ fontSize: '11pt', textTransform: 'uppercase', fontWeight: 800 }}>{(schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC B').toUpperCase()}</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '10pt', fontWeight: 800 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-            <div style={{ fontSize: '9pt', fontStyle: 'italic', textDecoration: 'underline', marginTop: '2px' }}>Độc lập - Tự do - Hạnh phúc</div>
-          </div>
-        </div>
-
-        {/* Title */}
-        <div style={{ textAlign: 'center', margin: '10px 0 12px 0' }}>
-          <h1 style={{ fontSize: '15pt', fontWeight: 900, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            BẢNG TỔNG HỢP THỜI KHÓA BIỂU TOÀN TRƯỜNG
-          </h1>
-          <div style={{ fontSize: '9pt', fontStyle: 'italic', marginTop: '3px' }}>
-            Áp dụng từ ngày 05/09/2026 • Quy mô: {filteredClasses.length} lớp học • {schoolInfo.year || 'Năm học 2026 - 2027'}
-          </div>
-        </div>
-
-        {/* Printable Matrix Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', textAlign: 'center', fontSize: '7.5pt' }}>
-          <thead>
-            <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #000' }}>
-              <th rowSpan={3} style={{ border: '1px solid #000', width: '55px', fontWeight: 800 }}>Lớp</th>
-              {activeDays.map(d => (
-                <th key={d.id} colSpan={7} style={{ border: '1px solid #000', padding: '4px 2px', fontWeight: 800 }}>
-                  {d.name.toUpperCase()}
-                </th>
-              ))}
-            </tr>
-            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #000' }}>
-              {activeDays.map(d => (
-                <React.Fragment key={d.id}>
-                  <th colSpan={4} style={{ border: '1px solid #000', padding: '2px', fontWeight: 700 }}>SÁNG</th>
-                  <th colSpan={3} style={{ border: '1px solid #000', padding: '2px', fontWeight: 700 }}>CHIỀU</th>
-                </React.Fragment>
-              ))}
-            </tr>
-            <tr style={{ background: '#ffffff', borderBottom: '1.5px solid #000' }}>
-              {activeDays.map(d => (
-                <React.Fragment key={d.id}>
-                  {periods.map(p => (
-                    <th key={p.id} style={{ border: '1px solid #000', width: '28px', padding: '2px', fontWeight: 800 }}>
-                      {p.id <= 4 ? p.id : (p.id - 4)}
-                    </th>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredClasses.map(cls => (
-              <tr key={cls.id}>
-                <td style={{ border: '1px solid #000', fontWeight: 800, padding: '3px 2px' }}>
-                  {cls.name}
-                </td>
-                {activeDays.map(day => (
-                  <React.Fragment key={day.id}>
-                    {periods.map(p => {
-                      const slot = timetable[cls.id]?.[day.id]?.[p.id];
-                      const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId }) : null;
-                      const teacher = slot ? teacherMap.get(slot.teacherId) : null;
-                      const isWedOff = day.id === 4 && p.id > 4;
-
-                      if (isWedOff) {
-                        return <td key={p.id} style={{ border: '1px solid #000', background: '#f5f5f5', color: '#666', fontSize: '6.5pt' }}>-</td>;
-                      }
-
-                      return (
-                        <td key={p.id} style={{ border: '1px solid #000', padding: '2px 1px', height: '28px', verticalAlign: 'middle' }}>
-                          {slot ? (
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: '7.5pt' }}>{sub?.shortName || sub?.name || slot.subjectId}</div>
-                              <div style={{ fontSize: '6.5pt', color: '#333' }}>{teacher?.code || teacher?.name.split(' ').pop() || ''}</div>
-                            </div>
-                          ) : (
-                            <span style={{ color: '#ccc' }}>-</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Signatures */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', fontSize: '9pt' }}>
-          <div style={{ textAlign: 'center', width: '220px' }}>
-            <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>NGƯỜI LẬP BIỂU</div>
-            <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-            <div style={{ height: '45px' }} />
-            <div style={{ fontWeight: 800 }}>{schoolInfo.scheduler || ''}</div>
-          </div>
-          <div style={{ textAlign: 'center', width: '240px' }}>
-            <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
-            <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
-            <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
-            <div style={{ height: '45px' }} />
-            <div style={{ fontWeight: 800 }}>{schoolInfo.principal || 'Bùi Văn Việt'}</div>
-          </div>
-        </div>
-      </div>
+      {/* Professional Master Timetable Print & Zalo Export Modal */}
+      {isPrintModalOpen && (
+        <MasterTimetablePrintModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          classes={classes}
+          teachers={teachers}
+          timetable={timetable}
+          subjects={subjects}
+          periods={periods}
+          schoolInfo={schoolInfo}
+        />
+      )}
     </div>
   );
 };
