@@ -2142,7 +2142,16 @@ export const TeacherDirectory = ({
 
                 {/* Primary Print Button */}
                 <button
-                  onClick={() => triggerAppPrint()}
+                  onClick={async () => {
+                    document.body.classList.add('printing-modal-active');
+                    try {
+                      await triggerAppPrint();
+                    } finally {
+                      setTimeout(() => {
+                        document.body.classList.remove('printing-modal-active');
+                      }, 1200);
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

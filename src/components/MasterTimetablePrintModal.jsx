@@ -229,23 +229,53 @@ export const MasterTimetablePrintModal = ({
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const isLandscape = paperOrientation === 'landscape';
     const pageSize = paperSize === 'a3' 
       ? (isLandscape ? 'A3 landscape' : 'A3 portrait')
       : (isLandscape ? 'A4 landscape' : 'A4 portrait');
-    triggerAppPrint({ landscape: isLandscape, size: pageSize });
+    
+    document.body.classList.add('printing-modal-active');
+    try {
+      await triggerAppPrint({ landscape: isLandscape, size: pageSize });
+    } finally {
+      setTimeout(() => {
+        document.body.classList.remove('printing-modal-active');
+      }, 1200);
+    }
   };
 
   // Get font sizes according to scale
   const getFontSizes = () => {
     if (displayOptions.fontScale === 'compact') {
-      return { table: '6.5pt', subject: '7pt', teacher: '6pt', cellHeight: '25px' };
+      return { 
+        table: '6pt', 
+        subject: '6.2pt', 
+        teacher: '5.2pt', 
+        cellHeight: '17px', 
+        padding: '1px 1px', 
+        headerPadding: '2.5px 1px' 
+      };
     }
     if (displayOptions.fontScale === 'large') {
-      return { table: '8.5pt', subject: '9pt', teacher: '7.5pt', cellHeight: '34px' };
+      return { 
+        table: '8pt', 
+        subject: '8.5pt', 
+        teacher: '7pt', 
+        cellHeight: '26px', 
+        padding: '2.5px 2px', 
+        headerPadding: '5px 2px' 
+      };
     }
-    return { table: '7.5pt', subject: '8pt', teacher: '6.8pt', cellHeight: '29px' };
+    // Normal: perfectly calibrated to fit full schedule cleanly
+    return { 
+      table: '6.8pt', 
+      subject: '7.2pt', 
+      teacher: '5.8pt', 
+      cellHeight: '20px', 
+      padding: '1.5px 2px', 
+      headerPadding: '3.5px 2px' 
+    };
   };
   const fSizes = getFontSizes();
 
@@ -780,7 +810,7 @@ export const MasterTimetablePrintModal = ({
 
         {/* 5. Footer Signatures */}
         {displayOptions.showSignatures && (
-          <div style={{
+          <div className="signatures" style={{
             display: 'flex',
             justifyContent: 'space-between',
             marginTop: '12px',

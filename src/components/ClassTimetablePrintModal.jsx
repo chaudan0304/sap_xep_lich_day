@@ -214,8 +214,15 @@ export const ClassTimetablePrintModal = ({
     if (classes[0]) setSelectedClassIds([classes[0].id]);
   };
 
-  const handlePrint = () => {
-    triggerAppPrint();
+  const handlePrint = async () => {
+    document.body.classList.add('printing-modal-active');
+    try {
+      await triggerAppPrint();
+    } finally {
+      setTimeout(() => {
+        document.body.classList.remove('printing-modal-active');
+      }, 1200);
+    }
   };
 
   const handleExportExcel = async () => {

@@ -127,7 +127,7 @@ button, input, select, textarea {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 6mm 8mm 6mm 8mm;
+    margin: 5mm 6mm 5mm 6mm;
   }
 
   /* 1. Reset document flow */
@@ -160,11 +160,22 @@ button, input, select, textarea {
   .modal-screen-content,
   .print-hide {
     display: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
   }
 
   /* 3. When portal print modal is active, hide #root completely */
-  body:has(.portal-print-modal) #root {
+  body:has(.portal-print-modal) #root,
+  body.printing-modal-active #root {
     display: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
   }
 
   /* 4. Portal modal wrapper reset for print */
@@ -173,6 +184,7 @@ button, input, select, textarea {
     display: block !important;
     width: 100% !important;
     height: auto !important;
+    min-height: 0 !important;
     background: transparent !important;
     padding: 0 !important;
     margin: 0 !important;
@@ -182,9 +194,10 @@ button, input, select, textarea {
     -webkit-backdrop-filter: none !important;
     inset: auto !important;
     transform: none !important;
+    overflow: visible !important;
   }
 
-  /* 5. Display printable sheets cleanly with A4 page breaks */
+  /* 5. Display printable sheets cleanly */
   .printable-batch-container {
     display: block !important;
     width: 100% !important;
@@ -202,14 +215,15 @@ button, input, select, textarea {
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
     overflow: visible !important;
+    box-sizing: border-box !important;
   }
 
   .printable-sheet.page-break {
     page-break-after: always !important;
     break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .printable-sheet:last-child {
@@ -226,6 +240,19 @@ button, input, select, textarea {
     width: 100% !important;
     table-layout: fixed !important;
     border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  .printable-sheet thead {
+    display: table-header-group !important;
+  }
+
+  .printable-sheet tbody {
+    display: table-row-group !important;
+  }
+
+  .printable-sheet tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
@@ -240,5 +267,10 @@ button, input, select, textarea {
   .printable-sheet th {
     background-color: #f1f5f9 !important;
     font-weight: 800 !important;
+  }
+
+  .printable-sheet .signatures {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
