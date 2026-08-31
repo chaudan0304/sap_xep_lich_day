@@ -402,7 +402,7 @@ export const UpdateModal = ({ isOpen, onClose, initialUpdateInfo, onUpdateInfoCh
           fontSize: '0.75rem',
           color: '#64748b'
         }}>
-          <span>Hệ thống Xếp Thời Khóa Biểu Tiểu Học Chuẩn CTGDPT 2018</span>
+          <span>Phần mềm Xếp Thời Khóa Biểu & Quản Lý Giảng Dạy Chuẩn CTGDPT 2018</span>
           <button
             onClick={onClose}
             style={{

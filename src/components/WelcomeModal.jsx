@@ -104,7 +104,7 @@ export const WelcomeModal = ({
                 </span>
               </div>
               <p style={{ fontSize: '0.86rem', color: '#e0e7ff', margin: '4px 0 0 0' }}>
-                Hệ thống Xếp Thời Khóa Biểu & Quản Lý Định Mức Chuẩn CTGDPT 2018
+                Phần mềm Xếp Thời Khóa Biểu & Quản Lý Giảng Dạy Chuẩn CTGDPT 2018
               </p>
             </div>
           </div>

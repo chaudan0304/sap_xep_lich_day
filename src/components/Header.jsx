@@ -212,7 +212,7 @@ export const Header = ({
               </button>
             </div>
             <p style={{ fontSize: '0.78rem', color: '#c7d2fe', marginTop: '2px', margin: 0 }}>
-              Hệ thống Xếp Thời Khóa Biểu & Quản Lý Định Mức Chuẩn CTGDPT 2018
+              Phần mềm Xếp Thời Khóa Biểu & Quản Lý Giảng Dạy Chuẩn CTGDPT 2018
             </p>
           </div>
         </div>
