@@ -5,16 +5,11 @@ import {
   Printer, 
   Download,
   AlertTriangle,
-  CheckCircle2,
-  ExternalLink,
-  Layers,
-  TableProperties,
-  Calendar
+  TableProperties
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { exportMasterTimetable } from '../services/excelService';
-import { triggerAppPrint } from '../services/printService';
 import { MasterTimetablePrintModal } from './MasterTimetablePrintModal';
 
 export const MasterMatrixView = ({
@@ -35,7 +30,6 @@ export const MasterMatrixView = ({
   const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
 
   const errorCount = useMemo(() => conflicts.filter(c => c.severity === 'error').length, [conflicts]);
-  const warningCount = useMemo(() => conflicts.filter(c => c.severity === 'warning').length, [conflicts]);
 
   // Lọc lớp theo khối
   const filteredClasses = useMemo(() => {
@@ -301,45 +295,64 @@ export const MasterMatrixView = ({
           <div style={{ overflowX: 'auto', maxHeight: '78vh' }}>
             {viewLayout === 'excel' ? (
               /* ── FORMAT 1: CHUẨN XUẤT EXCEL (HÀNG: THỨ/TIẾT • CỘT: LỚP) ── */
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.8rem' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'separate',
+                borderSpacing: 0,
+                textAlign: 'center',
+                fontSize: '0.8rem',
+                background: '#ffffff'
+              }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 30, background: '#f8fafc' }}>
-                  <tr style={{ borderBottom: '2px solid #cbd5e1' }}>
+                  <tr>
                     <th style={{
-                      padding: '12px 8px',
-                      width: '90px',
+                      position: 'sticky',
+                      top: 0,
+                      left: 0,
+                      zIndex: 35,
+                      width: '65px',
+                      minWidth: '65px',
+                      maxWidth: '65px',
+                      padding: '10px 4px',
                       background: '#f1f5f9',
+                      borderBottom: '2px solid #cbd5e1',
                       borderRight: '1px solid #cbd5e1',
                       color: '#1e293b',
-                      fontWeight: 800,
-                      position: 'sticky',
-                      left: 0,
-                      zIndex: 35
+                      fontWeight: 800
                     }}>
                       Thứ
                     </th>
                     <th style={{
-                      padding: '12px 8px',
-                      width: '75px',
+                      position: 'sticky',
+                      top: 0,
+                      left: '65px',
+                      zIndex: 35,
+                      width: '60px',
+                      minWidth: '60px',
+                      maxWidth: '60px',
+                      padding: '10px 4px',
                       background: '#f1f5f9',
+                      borderBottom: '2px solid #cbd5e1',
                       borderRight: '1px solid #cbd5e1',
                       color: '#1e293b',
-                      fontWeight: 800,
-                      position: 'sticky',
-                      left: '90px',
-                      zIndex: 35
+                      fontWeight: 800
                     }}>
                       Buổi
                     </th>
                     <th style={{
-                      padding: '12px 6px',
-                      width: '60px',
+                      position: 'sticky',
+                      top: 0,
+                      left: '125px',
+                      zIndex: 35,
+                      width: '45px',
+                      minWidth: '45px',
+                      maxWidth: '45px',
+                      padding: '10px 2px',
                       background: '#f1f5f9',
+                      borderBottom: '2px solid #cbd5e1',
                       borderRight: '2px solid #cbd5e1',
                       color: '#1e293b',
-                      fontWeight: 800,
-                      position: 'sticky',
-                      left: '165px',
-                      zIndex: 35
+                      fontWeight: 800
                     }}>
                       Tiết
                     </th>
@@ -347,9 +360,13 @@ export const MasterMatrixView = ({
                       <th
                         key={cls.id}
                         style={{
-                          padding: '10px 8px',
-                          minWidth: '100px',
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 30,
+                          padding: '10px 6px',
+                          minWidth: '105px',
                           background: '#f8fafc',
+                          borderBottom: '2px solid #cbd5e1',
                           borderRight: '1px solid #e2e8f0',
                           color: '#1e1b4b',
                           fontWeight: 800,
@@ -367,7 +384,7 @@ export const MasterMatrixView = ({
                   {activeDays.map(day => {
                     const morningPeriods = periods.filter(p => p.session === 'morning');
                     const afternoonPeriods = periods.filter(p => p.session === 'afternoon');
-                    const totalDayRows = morningPeriods.length + afternoonPeriods.length + 1; // +1 for lunch break row
+                    const totalDayRows = morningPeriods.length + afternoonPeriods.length + 1; // +1 for lunch row
 
                     let hasRenderedDay = false;
 
@@ -378,7 +395,7 @@ export const MasterMatrixView = ({
                           const isFirstMorning = pIdx === 0;
 
                           return (
-                            <tr key={`${day.id}_${p.id}`} style={{ borderBottom: '1px solid #e2e8f0', background: pIdx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                            <tr key={`${day.id}_${p.id}`} style={{ background: pIdx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
                               {/* Sticky Day Column */}
                               {!hasRenderedDay && (
                                 (() => {
@@ -387,15 +404,19 @@ export const MasterMatrixView = ({
                                     <td
                                       rowSpan={totalDayRows}
                                       style={{
-                                        padding: '10px 6px',
+                                        position: 'sticky',
+                                        left: 0,
+                                        zIndex: 15,
+                                        width: '65px',
+                                        minWidth: '65px',
+                                        maxWidth: '65px',
+                                        padding: '10px 4px',
                                         fontWeight: 900,
                                         fontSize: '0.875rem',
                                         color: '#1e293b',
                                         background: '#f8fafc',
                                         borderRight: '1px solid #cbd5e1',
-                                        position: 'sticky',
-                                        left: 0,
-                                        zIndex: 15,
+                                        borderBottom: '1px solid #cbd5e1',
                                         verticalAlign: 'middle',
                                         boxShadow: '2px 0 5px rgba(0,0,0,0.02)'
                                       }}
@@ -411,15 +432,19 @@ export const MasterMatrixView = ({
                                 <td
                                   rowSpan={morningPeriods.length}
                                   style={{
-                                    padding: '6px',
+                                    position: 'sticky',
+                                    left: '65px',
+                                    zIndex: 15,
+                                    width: '60px',
+                                    minWidth: '60px',
+                                    maxWidth: '60px',
+                                    padding: '6px 2px',
                                     fontWeight: 800,
                                     fontSize: '0.78rem',
                                     color: '#1d4ed8',
                                     background: '#eff6ff',
                                     borderRight: '1px solid #cbd5e1',
-                                    position: 'sticky',
-                                    left: '90px',
-                                    zIndex: 15,
+                                    borderBottom: '1px solid #cbd5e1',
                                     verticalAlign: 'middle',
                                     letterSpacing: '0.5px'
                                   }}
@@ -430,15 +455,19 @@ export const MasterMatrixView = ({
 
                               {/* Sticky Period Number */}
                               <td style={{
-                                padding: '6px 4px',
+                                position: 'sticky',
+                                left: '125px',
+                                zIndex: 15,
+                                width: '45px',
+                                minWidth: '45px',
+                                maxWidth: '45px',
+                                padding: '6px 2px',
                                 fontWeight: 800,
                                 fontSize: '0.82rem',
                                 color: '#1e293b',
                                 background: '#ffffff',
                                 borderRight: '2px solid #cbd5e1',
-                                position: 'sticky',
-                                left: '165px',
-                                zIndex: 15,
+                                borderBottom: '1px solid #e2e8f0',
                                 verticalAlign: 'middle'
                               }}>
                                 {p.id}
@@ -458,6 +487,7 @@ export const MasterMatrixView = ({
                                       padding: '4px',
                                       verticalAlign: 'middle',
                                       borderRight: '1px solid #e2e8f0',
+                                      borderBottom: '1px solid #e2e8f0',
                                       background: conflict ? '#fff5f5' : (sub ? sub.bg : 'transparent'),
                                       height: '46px'
                                     }}
@@ -510,19 +540,23 @@ export const MasterMatrixView = ({
                         })}
 
                         {/* Lunch Break Banner Row */}
-                        <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                        <tr style={{ background: '#f8fafc' }}>
                           <td
                             colSpan={2}
                             style={{
-                              padding: '4px 6px',
+                              position: 'sticky',
+                              left: '65px',
+                              zIndex: 15,
+                              width: '105px',
+                              minWidth: '105px',
+                              maxWidth: '105px',
+                              padding: '5px 2px',
                               fontWeight: 700,
                               fontSize: '0.72rem',
                               color: '#64748b',
                               background: '#f1f5f9',
                               borderRight: '2px solid #cbd5e1',
-                              position: 'sticky',
-                              left: '90px',
-                              zIndex: 15,
+                              borderBottom: '1px solid #cbd5e1',
                               textAlign: 'center'
                             }}
                           >
@@ -531,13 +565,15 @@ export const MasterMatrixView = ({
                           <td
                             colSpan={filteredClasses.length}
                             style={{
-                              padding: '4px 10px',
+                              padding: '5px 10px',
                               fontSize: '0.74rem',
                               fontWeight: 700,
                               fontStyle: 'italic',
                               color: '#475569',
                               textAlign: 'center',
-                              background: '#f8fafc'
+                              background: '#f8fafc',
+                              borderBottom: '1px solid #cbd5e1',
+                              borderRight: '1px solid #e2e8f0'
                             }}
                           >
                             🍱 Nghỉ trưa & Ăn bán trú ({schoolInfo.lunchBreak || '10:30 - 14:00'})
@@ -550,21 +586,25 @@ export const MasterMatrixView = ({
                           const isWedOff = day.id === 4 && p.id > 4;
 
                           return (
-                            <tr key={`${day.id}_${p.id}`} style={{ borderBottom: '1px solid #e2e8f0', background: pIdx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                            <tr key={`${day.id}_${p.id}`} style={{ background: pIdx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
                               {/* Sticky Session Column */}
                               {isFirstAfternoon && (
                                 <td
                                   rowSpan={afternoonPeriods.length}
                                   style={{
-                                    padding: '6px',
+                                    position: 'sticky',
+                                    left: '65px',
+                                    zIndex: 15,
+                                    width: '60px',
+                                    minWidth: '60px',
+                                    maxWidth: '60px',
+                                    padding: '6px 2px',
                                     fontWeight: 800,
                                     fontSize: '0.78rem',
                                     color: '#b45309',
                                     background: '#fffbeb',
                                     borderRight: '1px solid #cbd5e1',
-                                    position: 'sticky',
-                                    left: '90px',
-                                    zIndex: 15,
+                                    borderBottom: '1px solid #cbd5e1',
                                     verticalAlign: 'middle',
                                     letterSpacing: '0.5px'
                                   }}
@@ -575,15 +615,19 @@ export const MasterMatrixView = ({
 
                               {/* Sticky Period Number */}
                               <td style={{
-                                padding: '6px 4px',
+                                position: 'sticky',
+                                left: '125px',
+                                zIndex: 15,
+                                width: '45px',
+                                minWidth: '45px',
+                                maxWidth: '45px',
+                                padding: '6px 2px',
                                 fontWeight: 800,
                                 fontSize: '0.82rem',
                                 color: '#1e293b',
                                 background: '#ffffff',
                                 borderRight: '2px solid #cbd5e1',
-                                position: 'sticky',
-                                left: '165px',
-                                zIndex: 15,
+                                borderBottom: '1px solid #e2e8f0',
                                 verticalAlign: 'middle'
                               }}>
                                 {p.id - 4}
@@ -599,6 +643,7 @@ export const MasterMatrixView = ({
                                         padding: '4px',
                                         verticalAlign: 'middle',
                                         borderRight: '1px solid #e2e8f0',
+                                        borderBottom: '1px solid #e2e8f0',
                                         background: '#f8fafc',
                                         height: '46px',
                                         color: '#cbd5e1'
@@ -621,6 +666,7 @@ export const MasterMatrixView = ({
                                       padding: '4px',
                                       verticalAlign: 'middle',
                                       borderRight: '1px solid #e2e8f0',
+                                      borderBottom: '1px solid #e2e8f0',
                                       background: conflict ? '#fff5f5' : (sub ? sub.bg : 'transparent'),
                                       height: '46px'
                                     }}
@@ -678,20 +724,31 @@ export const MasterMatrixView = ({
               </table>
             ) : (
               /* ── FORMAT 2: MA TRẬN NGANG (HÀNG: LỚP • CỘT: THỨ/TIẾT) ── */
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.8rem' }}>
-                <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'separate',
+                borderSpacing: 0,
+                textAlign: 'center',
+                fontSize: '0.8rem',
+                background: '#ffffff'
+              }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 30, background: '#f8fafc' }}>
                   {/* Row 1: Day Headers */}
-                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <tr>
                     <th rowSpan={3} style={{
-                      padding: '12px',
-                      width: '90px',
-                      background: '#f1f5f9',
-                      borderRight: '1px solid #cbd5e1',
-                      color: '#1e293b',
-                      fontWeight: 800,
                       position: 'sticky',
+                      top: 0,
                       left: 0,
-                      zIndex: 15
+                      zIndex: 35,
+                      width: '85px',
+                      minWidth: '85px',
+                      maxWidth: '85px',
+                      padding: '12px 6px',
+                      background: '#f1f5f9',
+                      borderRight: '2px solid #cbd5e1',
+                      borderBottom: '2px solid #cbd5e1',
+                      color: '#1e293b',
+                      fontWeight: 800
                     }}>
                       Lớp
                     </th>
@@ -703,6 +760,7 @@ export const MasterMatrixView = ({
                           padding: '8px',
                           background: day.id % 2 === 0 ? '#eff6ff' : '#f8fafc',
                           borderRight: '2px solid #cbd5e1',
+                          borderBottom: '1px solid #e2e8f0',
                           color: '#1e1b4b',
                           fontWeight: 800,
                           fontSize: '0.875rem'
@@ -714,7 +772,7 @@ export const MasterMatrixView = ({
                   </tr>
 
                   {/* Row 2: Sáng / Chiều Session Headers */}
-                  <tr style={{ borderBottom: '1px solid #cbd5e1', background: '#f8fafc' }}>
+                  <tr style={{ background: '#f8fafc' }}>
                     {activeDays.map(day => (
                       <React.Fragment key={day.id}>
                         <th
@@ -725,7 +783,8 @@ export const MasterMatrixView = ({
                             color: '#1d4ed8',
                             fontWeight: 700,
                             fontSize: '0.72rem',
-                            borderRight: '1px solid #bfdbfe'
+                            borderRight: '1px solid #bfdbfe',
+                            borderBottom: '1px solid #cbd5e1'
                           }}
                         >
                           SÁNG
@@ -738,7 +797,8 @@ export const MasterMatrixView = ({
                             color: '#b45309',
                             fontWeight: 700,
                             fontSize: '0.72rem',
-                            borderRight: '2px solid #cbd5e1'
+                            borderRight: '2px solid #cbd5e1',
+                            borderBottom: '1px solid #cbd5e1'
                           }}
                         >
                           CHIỀU
@@ -748,7 +808,7 @@ export const MasterMatrixView = ({
                   </tr>
 
                   {/* Row 3: Period Headers (Only Numbers) */}
-                  <tr style={{ borderBottom: '2px solid #cbd5e1', background: '#f8fafc' }}>
+                  <tr style={{ background: '#f8fafc' }}>
                     {activeDays.map(day => (
                       <React.Fragment key={day.id}>
                         {PERIODS.map(p => (
@@ -762,6 +822,7 @@ export const MasterMatrixView = ({
                               fontWeight: 800,
                               fontSize: '0.82rem',
                               borderRight: p.id === 7 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                              borderBottom: '2px solid #cbd5e1',
                               background: p.session === 'morning' ? '#ffffff' : '#fffdf5'
                             }}
                           >
@@ -778,7 +839,6 @@ export const MasterMatrixView = ({
                     <tr
                       key={cls.id}
                       style={{
-                        borderBottom: '1px solid #e2e8f0',
                         background: idx % 2 === 0 ? '#ffffff' : '#fafafa'
                       }}
                     >
@@ -789,10 +849,11 @@ export const MasterMatrixView = ({
                         fontSize: '0.85rem',
                         color: '#1e293b',
                         background: '#f8fafc',
-                        borderRight: '1px solid #cbd5e1',
+                        borderRight: '2px solid #cbd5e1',
+                        borderBottom: '1px solid #e2e8f0',
                         position: 'sticky',
                         left: 0,
-                        zIndex: 5
+                        zIndex: 15
                       }}>
                         <div>{cls.name}</div>
                         <div style={{ fontSize: '0.65rem', fontWeight: 500, color: '#64748b' }}>K.{cls.grade}</div>
@@ -816,7 +877,8 @@ export const MasterMatrixView = ({
                                   style={{
                                     padding: '4px',
                                     verticalAlign: 'middle',
-                                    borderLeft: p.id === 1 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                                    borderRight: p.id === 7 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                                    borderBottom: '1px solid #e2e8f0',
                                     background: '#f8fafc',
                                     height: '48px',
                                     color: '#cbd5e1'
@@ -833,7 +895,8 @@ export const MasterMatrixView = ({
                                 style={{
                                   padding: '3px',
                                   verticalAlign: 'middle',
-                                  borderLeft: p.id === 1 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                                  borderRight: p.id === 7 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                                  borderBottom: '1px solid #e2e8f0',
                                   background: conflict ? '#fff5f5' : (sub ? sub.bg : 'transparent'),
                                   height: '48px'
                                 }}
