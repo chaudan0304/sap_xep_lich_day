@@ -287,6 +287,7 @@ export const TeacherDirectory = ({
       homeroomClassId: '',
       phone: '',
       email: '',
+      note: '',
       dinhMuc: 23,
       weeklyQuota: 23,
       offSessions: [],
@@ -344,6 +345,7 @@ export const TeacherDirectory = ({
 
     setEditingTeacher({
       ...teacher,
+      note: teacher.note || '',
       offSessions: [...(teacher.offSessions || [])],
       subjectAssignments: subjectAssignments
     });
@@ -1027,9 +1029,11 @@ export const TeacherDirectory = ({
                           </div>
                           <div>
                             <div style={{ fontWeight: 700, color: '#1e293b' }}>{teacher.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                              {teacher.task ? teacher.task.substring(0, 45) + '...' : (teacher.phone ? `📞 ${teacher.phone}` : '')}
-                            </div>
+                            {teacher.note ? (
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                                {teacher.note}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       </td>
@@ -1428,6 +1432,20 @@ export const TeacherDirectory = ({
                   value={editingTeacher.name}
                   onChange={(e) => setEditingTeacher({ ...editingTeacher, name: e.target.value })}
                   placeholder="VD: Nguyễn Thị Nga"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
+                />
+              </div>
+
+              {/* Ghi Chú Giáo Viên */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                  📝 Ghi Chú Giáo Viên (Hiển thị ngay dưới tên giáo viên)
+                </label>
+                <input
+                  type="text"
+                  value={editingTeacher.note || ''}
+                  onChange={(e) => setEditingTeacher({ ...editingTeacher, note: e.target.value })}
+                  placeholder="VD: Dạy tăng cường khối 4-5, Tổ trưởng CM, Bồi dưỡng HSG..."
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
                 />
               </div>
