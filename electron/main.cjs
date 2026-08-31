@@ -208,20 +208,21 @@ echo ========================================================
 echo   DANG HOAN TAT CAP NHAT PHAN MEM EDUTIMETABLE TIEU HOC
 echo   Vui long cho trong giay lat...
 echo ========================================================
+
+:: Đảm bảo giải phóng hoàn toàn tiến trình cũ
+taskkill /F /IM "EduTimetable_TieuHoc.exe" /T > nul 2>&1
+taskkill /F /IM "EduTimetable Tiểu Học.exe" /T > nul 2>&1
+taskkill /F /IM "electron.exe" /T > nul 2>&1
 timeout /t 2 /nobreak > nul
 
-:: Chep de toan bo file moi vao thu muc ung dung
-robocopy "${sourceDir}" "${appDir}" /E /IS /IT /NP /NJH /NJS > nul
+:: Chép đè toàn bộ file mới vào thư mục ứng dụng (thử lại tối đa 3 lần, mỗi lần cách 1 giây)
+robocopy "${sourceDir}" "${appDir}" /E /IS /IT /NP /NJH /NJS /R:3 /W:1 > nul
 if %ERRORLEVEL% GEQ 8 (
   xcopy "${sourceDir}\\*" "${appDir}" /E /Y /H /R /Q > nul
 )
 
-:: Khoi dong lai ung dung phien ban moi
+:: Khởi động lại ứng dụng phiên bản mới
 start "" "${appExePath}"
-
-:: Don dep thu muc tam
-timeout /t 2 /nobreak > nul
-rd /s /q "${tempBase}" > nul 2>&1
 exit
 `;
       fs.writeFileSync(batPath, batScript, 'utf8');
@@ -259,10 +260,30 @@ ipcMain.handle('restart-app-for-update', () => {
         stdio: 'ignore'
       }).unref();
     } else if (pendingUpdateScript.endsWith('.exe')) {
-      spawn(pendingUpdateScript, [], {
-        detached: true,
-        stdio: 'ignore'
-      }).unref();
+      // Đối với file installer .exe, đợi 1.5 giây để tiến trình hiện tại thoát hẳn trước khi chạy installer
+      const batPath = path.join(app.getPath('temp'), 'edutimetable_update', 'run_installer.bat');
+      const installerBat = `@echo off
+chcp 65001 > nul
+taskkill /F /IM "EduTimetable_TieuHoc.exe" /T > nul 2>&1
+taskkill /F /IM "EduTimetable Tiểu Học.exe" /T > nul 2>&1
+timeout /t 2 /nobreak > nul
+start "" "${pendingUpdateScript}"
+exit
+`;
+      try {
+        const tempDir = path.dirname(batPath);
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+        fs.writeFileSync(batPath, installerBat, 'utf8');
+        spawn('cmd.exe', ['/c', batPath], {
+          detached: true,
+          stdio: 'ignore'
+        }).unref();
+      } catch (e) {
+        spawn(pendingUpdateScript, [], {
+          detached: true,
+          stdio: 'ignore'
+        }).unref();
+      }
     }
     app.isQuitting = true;
     app.quit();

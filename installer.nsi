@@ -48,21 +48,21 @@ InstallDirRegKey HKLM "Software\EduTimetable_TieuHoc" "Install_Dir"
 Function .onInit
   nsExec::Exec 'taskkill /F /IM EduTimetable_TieuHoc.exe /T'
   nsExec::Exec 'taskkill /F /IM "EduTimetable Tiểu Học.exe" /T'
-  Sleep 500
+  Sleep 1000
 FunctionEnd
 
 ; Tự động đóng ứng dụng trước khi gỡ cài đặt
 Function un.onInit
   nsExec::Exec 'taskkill /F /IM EduTimetable_TieuHoc.exe /T'
   nsExec::Exec 'taskkill /F /IM "EduTimetable Tiểu Học.exe" /T'
-  Sleep 500
+  Sleep 1000
 FunctionEnd
 
 ; Phân Đoạn Cài Đặt Chính
 Section "MainSection" SEC01
   ; Đảm bảo ứng dụng đã đóng hoàn toàn trước khi ghi đè file
   nsExec::Exec 'taskkill /F /IM EduTimetable_TieuHoc.exe /T'
-  Sleep 500
+  Sleep 1000
 
   ; Đảm bảo thư mục đích tồn tại và xóa file exe cũ nếu đang tồn tại
   CreateDirectory "$INSTDIR"
