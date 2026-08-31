@@ -67,7 +67,7 @@ function downloadFileWithRedirect(url, destPath, onProgress) {
         const client = parsedUrl.protocol === 'http:' ? http : https;
         const options = {
           headers: {
-            'User-Agent': 'EduTimetable-AutoUpdater/1.0.1'
+            'User-Agent': 'EduTimetable-AutoUpdater/1.0.2'
           }
         };
 
@@ -275,6 +275,30 @@ ipcMain.handle('restart-app-for-update', () => {
     app.relaunch();
     app.quit();
   }
+});
+
+// IPC Handler cho phép Renderer kích hoạt in ấn bản Desktop an toàn, giữ nguyên màu nền
+ipcMain.handle('print-window', async (event, options = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) {
+    return { success: false, error: 'Không tìm thấy cửa sổ ứng dụng để in.' };
+  }
+
+  return new Promise((resolve) => {
+    win.webContents.print(
+      {
+        silent: false,
+        printBackground: true,
+        ...options
+      },
+      (success, errorType) => {
+        if (!success && errorType !== 'cancelled') {
+          console.warn('Electron print notice:', errorType);
+        }
+        resolve({ success, errorType });
+      }
+    );
+  });
 });
 
 app.whenReady().then(() => {

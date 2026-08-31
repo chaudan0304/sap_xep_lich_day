@@ -6,7 +6,7 @@ Unicode True
 ; Thông Tin Chung
 Name "EduTimetable Tiểu Học"
 Caption "Cài Đặt Phần Mềm EduTimetable Tiểu Học - Chuẩn CTGDPT 2018"
-OutFile "dist-desktop\EduTimetable_TieuHoc_Setup_v1.0.1.exe"
+OutFile "dist-desktop\EduTimetable_TieuHoc_Setup_v1.0.2.exe"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 
@@ -82,7 +82,7 @@ Section "MainSection" SEC01
 
   ; Đăng ký vào Windows Settings & Control Panel (Apps & Features)
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "DisplayName" "EduTimetable Tiểu Học"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "DisplayVersion" "1.0.1"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "DisplayVersion" "1.0.2"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "Publisher" "Châu Đàn"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "DisplayIcon" "$INSTDIR\EduTimetable_TieuHoc.exe"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\EduTimetable_TieuHoc" "UninstallString" '"$INSTDIR\Uninstall.exe"'

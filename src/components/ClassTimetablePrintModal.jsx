@@ -28,6 +28,7 @@ import {
 import { DAYS_OF_WEEK, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { exportClassTimetables } from '../services/excelService';
+import { triggerAppPrint } from '../services/printService';
 
 export const ClassTimetablePrintModal = ({
   isOpen,
@@ -146,7 +147,7 @@ export const ClassTimetablePrintModal = ({
   };
 
   const handlePrint = () => {
-    window.print();
+    triggerAppPrint();
   };
 
   const handleExportExcel = async () => {

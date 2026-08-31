@@ -19,6 +19,7 @@ import {
 import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { exportTeacherDirectory } from '../services/excelService';
+import { triggerAppPrint } from '../services/printService';
 
 export const getTeacherRoleBadge = (teacher) => {
   if (!teacher) return { label: 'Giáo Viên', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
@@ -1571,7 +1572,7 @@ export const TeacherDirectory = ({
           zIndex: 99999,
           padding: '20px'
         }}>
-          <div className="animate-fade-in" style={{
+          <div className="no-print animate-fade-in" style={{
             background: '#ffffff',
             borderRadius: '24px',
             maxWidth: '900px',
@@ -1582,10 +1583,9 @@ export const TeacherDirectory = ({
             padding: '28px'
           }}>
             {/* Screen-Only Header & Interactive Grid */}
-            <div className="no-print">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Calendar size={24} color="#2563eb" />
                   <span>Thời Khóa Biểu: {previewTeacher.name}</span>
                   <span style={{ fontSize: '0.8rem', padding: '2px 8px', borderRadius: '6px', background: '#eff6ff', color: '#2563eb', fontWeight: 700 }}>
@@ -1599,7 +1599,7 @@ export const TeacherDirectory = ({
 
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => triggerAppPrint()}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1784,11 +1784,32 @@ export const TeacherDirectory = ({
                 </tbody>
               </table>
             </div>
-            </div>
 
-            {/* ───────────────────────────────────────────────────────────── */}
-            {/* DEDICATED OFFICIAL PRINTABLE SHEET FOR TEACHER (A4 PORTRAIT)  */}
-            {/* ───────────────────────────────────────────────────────────── */}
+            {/* Screen Modal Close Button */}
+            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setPreviewTeacher(null)}
+                style={{
+                  padding: '10px 22px',
+                  borderRadius: '10px',
+                  background: '#4f46e5',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+
+          {/* ───────────────────────────────────────────────────────────── */}
+          {/* DEDICATED OFFICIAL PRINTABLE SHEET FOR TEACHER (A4 PORTRAIT)  */}
+          {/* ACTIVE DURING BROWSER & ELECTRON PRINTING                     */}
+          {/* ───────────────────────────────────────────────────────────── */}
+          <div className="printable-batch-container">
             <div className="printable-sheet">
               {/* National / School Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
@@ -1922,24 +1943,6 @@ export const TeacherDirectory = ({
                   <div style={{ fontWeight: 800 }}>{schoolInfo.principal || 'Bùi Văn Việt'}</div>
                 </div>
               </div>
-            </div>
-
-            <div className="no-print" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setPreviewTeacher(null)}
-                style={{
-                  padding: '10px 22px',
-                  borderRadius: '10px',
-                  background: '#4f46e5',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontWeight: 600,
-                  fontSize: '0.85rem',
-                  cursor: 'pointer'
-                }}
-              >
-                Đóng
-              </button>
             </div>
           </div>
         </div>,

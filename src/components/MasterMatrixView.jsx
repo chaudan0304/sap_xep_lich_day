@@ -11,6 +11,7 @@ import {
 import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { exportMasterTimetable } from '../services/excelService';
+import { triggerAppPrint } from '../services/printService';
 
 export const MasterMatrixView = ({
   classes,
@@ -115,7 +116,7 @@ export const MasterMatrixView = ({
           </button>
 
           <button
-            onClick={() => window.print()}
+            onClick={() => triggerAppPrint()}
             style={{
               display: 'flex',
               alignItems: 'center',

@@ -190,6 +190,7 @@ button, input, select, textarea {
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
   }
 
   .printable-sheet {
@@ -203,6 +204,7 @@ button, input, select, textarea {
     color: #000000 !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    overflow: visible !important;
   }
 
   .printable-sheet.page-break {
