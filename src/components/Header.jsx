@@ -67,6 +67,7 @@ export const Header = ({
   const navItems = [
     { id: 'studio', label: 'Studio Xếp Lịch', icon: Calendar, badge: null },
     { id: 'teachers', label: 'Danh Sách Giáo Viên', icon: Users, badge: null },
+    { id: 'classes', label: 'Danh Sách Lớp Học', icon: GraduationCap, badge: null },
     { id: 'subjects', label: 'Quản Lý Môn Học', icon: BookOpen, badge: null },
     { id: 'curriculum', label: 'Định Mức Khối (1-5)', icon: Bookmark, badge: null },
     { id: 'assignments', label: 'Phân Công Chuyên Môn', icon: Layers, badge: null },

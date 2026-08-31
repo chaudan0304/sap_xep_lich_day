@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { Header } from './components/Header';
 import { TeacherDirectory } from './components/TeacherDirectory';
+import { ClassDirectory } from './components/ClassDirectory';
 import { SubjectManager } from './components/SubjectManager';
 import { GradeQuotaManager } from './components/GradeQuotaManager';
 import { AssignmentManager } from './components/AssignmentManager';
@@ -539,6 +540,27 @@ export function App() {
             periods={periods}
             schoolInfo={schoolInfo}
             onViewTeacherSchedule={(t) => {
+              setActiveTab('studio');
+            }}
+          />
+        )}
+
+        {activeTab === 'classes' && (
+          <ClassDirectory
+            classes={classes}
+            setClasses={setClasses}
+            teachers={teachers}
+            setTeachers={setTeachers}
+            assignments={assignments}
+            setAssignments={setAssignments}
+            timetable={timetable}
+            setTimetable={setTimetable}
+            rooms={rooms}
+            schoolInfo={schoolInfo}
+            subjects={subjects}
+            periods={periods}
+            onSelectClassForStudio={(cid) => {
+              setSelectedStudioClassId(cid);
               setActiveTab('studio');
             }}
           />
