@@ -436,18 +436,17 @@ export const MasterMatrixView = ({
                           position: 'sticky',
                           top: 0,
                           zIndex: 30,
-                          padding: '10px 6px',
+                          padding: '12px 6px',
                           minWidth: '105px',
                           background: '#f8fafc',
                           borderBottom: '2px solid #cbd5e1',
                           borderRight: '1px solid #e2e8f0',
                           color: '#1e1b4b',
                           fontWeight: 800,
-                          fontSize: '0.85rem'
+                          fontSize: '0.9rem'
                         }}
                       >
                         <div>{cls.name}</div>
-                        <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b' }}>Khối {cls.grade}</div>
                       </th>
                     ))}
                   </tr>
@@ -929,7 +928,6 @@ export const MasterMatrixView = ({
                         zIndex: 15
                       }}>
                         <div>{cls.name}</div>
-                        <div style={{ fontSize: '0.65rem', fontWeight: 500, color: '#64748b' }}>K.{cls.grade}</div>
                       </td>
 
                       {/* Day / Period Slots */}
