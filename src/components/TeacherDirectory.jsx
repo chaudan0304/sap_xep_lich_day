@@ -436,17 +436,71 @@ export const TeacherDirectory = ({
         </div>
 
         {/* Timetable Title */}
-        <div style={{ textAlign: 'center', margin: '10px 0 12px 0' }}>
-          <h1 style={{ fontSize: '15pt', fontWeight: 900, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            LỊCH GIẢNG DẠY CÁ NHÂN
-          </h1>
-          <div style={{ fontSize: '12pt', fontWeight: 800, marginTop: '4px', color: '#000' }}>
-            Giáo viên: {t.name} ({t.code || t.id})
-          </div>
-          <div style={{ fontSize: '9pt', fontStyle: 'italic', marginTop: '3px' }}>
-            Chức vụ / Nhiệm vụ: {t.position || t.task || 'Giáo viên'} • {schoolInfo.year || 'Năm học 2026 - 2027'}
-          </div>
-        </div>
+        {(() => {
+          const taughtClassNames = (() => {
+            const nameSet = new Set();
+            if (t.isHomeroom && t.homeroomClassId) {
+              const c = classes.find(item => item.id === t.homeroomClassId || item.name === t.homeroomClassId);
+              nameSet.add(c ? c.name : t.homeroomClassId);
+            }
+            (assignments || []).forEach(a => {
+              if (a.teacherId === t.id && a.classId) {
+                const c = classes.find(item => item.id === a.classId || item.name === a.classId);
+                nameSet.add(c ? c.name : a.classId);
+              }
+            });
+            if (Array.isArray(t.subjectAssignments)) {
+              t.subjectAssignments.forEach(cfg => {
+                (cfg.classIds || []).forEach(cid => {
+                  const c = classes.find(item => item.id === cid || item.name === cid);
+                  nameSet.add(c ? c.name : cid);
+                });
+              });
+            }
+            classes.forEach(cls => {
+              for (let dayId = 2; dayId <= 6; dayId++) {
+                for (let pId = 1; pId <= 7; pId++) {
+                  if (timetable[cls.id]?.[dayId]?.[pId]?.teacherId === t.id) {
+                    nameSet.add(cls.name);
+                  }
+                }
+              }
+            });
+            return Array.from(nameSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+          })();
+
+          return (
+            <div style={{ textAlign: 'center', margin: '8px 0 10px 0' }}>
+              <h1 style={{ fontSize: '15pt', fontWeight: 900, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                LỊCH GIẢNG DẠY CÁ NHÂN
+              </h1>
+              <div style={{ fontSize: '12pt', fontWeight: 800, marginTop: '3px', color: '#000' }}>
+                Giáo viên: {t.name} ({t.code || t.id})
+              </div>
+              <div style={{ fontSize: '9pt', fontStyle: 'italic', marginTop: '2px' }}>
+                Chức vụ / Nhiệm vụ: {t.position || t.task || 'Giáo viên'} • {schoolInfo.year || 'Năm học 2026 - 2027'}
+              </div>
+              {taughtClassNames.length > 0 && (
+                <div style={{
+                  fontSize: '8.5pt',
+                  fontWeight: 700,
+                  marginTop: '4px',
+                  color: '#000'
+                }}>
+                  Danh sách các lớp giảng dạy ({taughtClassNames.length} lớp):{' '}
+                  <span style={{ fontWeight: 800 }}>
+                    {taughtClassNames.join(', ')}
+                  </span>
+                  {t.isHomeroom && t.homeroomClassId && (
+                    <span style={{ fontStyle: 'italic', marginLeft: '6px' }}>
+                      (Chủ nhiệm lớp: {classes.find(c => c.id === t.homeroomClassId)?.name || t.homeroomClassId})
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Official Printable Table */}
         <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1.5px solid #000', textAlign: 'center', fontSize: '8.5pt' }}>
@@ -1773,20 +1827,63 @@ export const TeacherDirectory = ({
                 }}>
                   <Printer size={20} />
                 </div>
-                <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>Thời Khóa Biểu: {previewTeacher.name}</span>
-                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: '#eff6ff', color: '#2563eb', fontWeight: 700 }}>
-                      {previewTeacher.code || previewTeacher.id}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#475569', fontWeight: 600 }}>
-                      {getTeacherRoleBadge(previewTeacher).label}
-                    </span>
-                  </h3>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#64748b' }}>
-                    Xem trước bản in A4 chuẩn Bộ GD&ĐT và in trực tiếp ra máy in hoặc file PDF.
-                  </p>
-                </div>
+                {(() => {
+                  const taughtClasses = (() => {
+                    const nameSet = new Set();
+                    if (previewTeacher.isHomeroom && previewTeacher.homeroomClassId) {
+                      const c = classes.find(item => item.id === previewTeacher.homeroomClassId || item.name === previewTeacher.homeroomClassId);
+                      nameSet.add(c ? c.name : previewTeacher.homeroomClassId);
+                    }
+                    (assignments || []).forEach(a => {
+                      if (a.teacherId === previewTeacher.id && a.classId) {
+                        const c = classes.find(item => item.id === a.classId || item.name === a.classId);
+                        nameSet.add(c ? c.name : a.classId);
+                      }
+                    });
+                    if (Array.isArray(previewTeacher.subjectAssignments)) {
+                      previewTeacher.subjectAssignments.forEach(cfg => {
+                        (cfg.classIds || []).forEach(cid => {
+                          const c = classes.find(item => item.id === cid || item.name === cid);
+                          nameSet.add(c ? c.name : cid);
+                        });
+                      });
+                    }
+                    classes.forEach(cls => {
+                      for (let dayId = 2; dayId <= 6; dayId++) {
+                        for (let pId = 1; pId <= 7; pId++) {
+                          if (timetable[cls.id]?.[dayId]?.[pId]?.teacherId === previewTeacher.id) {
+                            nameSet.add(cls.name);
+                          }
+                        }
+                      }
+                    });
+                    return Array.from(nameSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                  })();
+
+                  return (
+                    <div>
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span>Thời Khóa Biểu: {previewTeacher.name}</span>
+                        <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: '#eff6ff', color: '#2563eb', fontWeight: 700 }}>
+                          {previewTeacher.code || previewTeacher.id}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#475569', fontWeight: 600 }}>
+                          {getTeacherRoleBadge(previewTeacher).label}
+                        </span>
+                      </h3>
+                      <p style={{ margin: '3px 0 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                        {taughtClasses.length > 0 ? (
+                          <span>
+                            Lớp giảng dạy ({taughtClasses.length} lớp):{' '}
+                            <strong style={{ color: '#1d4ed8' }}>{taughtClasses.join(', ')}</strong>
+                          </span>
+                        ) : (
+                          'Xem trước bản in A4 chuẩn Bộ GD&ĐT và in trực tiếp ra máy in hoặc file PDF.'
+                        )}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Header Action Controls */}
@@ -1934,6 +2031,77 @@ export const TeacherDirectory = ({
               ) : (
                 /* TAB 2: INTERACTIVE GRID VIEWPORT */
                 <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                  {/* Taught Classes Summary Tags */}
+                  {(() => {
+                    const taughtClasses = (() => {
+                      const nameSet = new Set();
+                      if (previewTeacher.isHomeroom && previewTeacher.homeroomClassId) {
+                        const c = classes.find(item => item.id === previewTeacher.homeroomClassId || item.name === previewTeacher.homeroomClassId);
+                        nameSet.add(c ? c.name : previewTeacher.homeroomClassId);
+                      }
+                      (assignments || []).forEach(a => {
+                        if (a.teacherId === previewTeacher.id && a.classId) {
+                          const c = classes.find(item => item.id === a.classId || item.name === a.classId);
+                          nameSet.add(c ? c.name : a.classId);
+                        }
+                      });
+                      if (Array.isArray(previewTeacher.subjectAssignments)) {
+                        previewTeacher.subjectAssignments.forEach(cfg => {
+                          (cfg.classIds || []).forEach(cid => {
+                            const c = classes.find(item => item.id === cid || item.name === cid);
+                            nameSet.add(c ? c.name : cid);
+                          });
+                        });
+                      }
+                      classes.forEach(cls => {
+                        for (let dayId = 2; dayId <= 6; dayId++) {
+                          for (let pId = 1; pId <= 7; pId++) {
+                            if (timetable[cls.id]?.[dayId]?.[pId]?.teacherId === previewTeacher.id) {
+                              nameSet.add(cls.name);
+                            }
+                          }
+                        }
+                      });
+                      return Array.from(nameSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                    })();
+
+                    if (taughtClasses.length === 0) return null;
+
+                    return (
+                      <div style={{
+                        background: '#eff6ff',
+                        borderRadius: '10px',
+                        border: '1px solid #bfdbfe',
+                        padding: '8px 12px',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexWrap: 'wrap'
+                      }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e40af' }}>
+                          📚 Danh sách các lớp giảng dạy ({taughtClasses.length} lớp):
+                        </span>
+                        {taughtClasses.map(clsName => (
+                          <span
+                            key={clsName}
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              background: '#ffffff',
+                              border: '1px solid #93c5fd',
+                              color: '#1d4ed8',
+                              fontWeight: 700,
+                              fontSize: '0.75rem'
+                            }}
+                          >
+                            {clsName}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
                   {/* Bell Schedule Bar */}
                   <div style={{
                     background: '#f8fafc',
