@@ -252,49 +252,51 @@ ipcMain.handle('check-for-updates', async () => {
   }
 });
 
-ipcMain.handle('restart-app-for-update', () => {
-  if (pendingUpdateScript) {
-    if (pendingUpdateScript.endsWith('.bat')) {
-      spawn('cmd.exe', ['/c', pendingUpdateScript], {
-        detached: true,
-        stdio: 'ignore'
-      }).unref();
-    } else if (pendingUpdateScript.endsWith('.exe')) {
-      // Đối với file installer .exe, đợi 1.5 giây để tiến trình hiện tại thoát hẳn trước khi chạy installer
-      const batPath = path.join(app.getPath('temp'), 'edutimetable_update', 'run_installer.bat');
-      const installerBat = `@echo off
-chcp 65001 > nul
-taskkill /F /IM "EduTimetable_TieuHoc.exe" /T > nul 2>&1
-taskkill /F /IM "EduTimetable Tiểu Học.exe" /T > nul 2>&1
-timeout /t 2 /nobreak > nul
-start "" "${pendingUpdateScript}"
-exit
-`;
-      try {
-        const tempDir = path.dirname(batPath);
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-        fs.writeFileSync(batPath, installerBat, 'utf8');
-        spawn('cmd.exe', ['/c', batPath], {
-          detached: true,
-          stdio: 'ignore'
-        }).unref();
-      } catch (e) {
-        spawn(pendingUpdateScript, [], {
-          detached: true,
-          stdio: 'ignore'
-        }).unref();
-      }
-    }
-    app.isQuitting = true;
-    app.quit();
-    return;
-  }
-
+ipcMain.handle('restart-app-for-update', async () => {
   try {
-    autoUpdater.quitAndInstall(false, true);
-  } catch (e) {
+    if (pendingUpdateScript) {
+      if (pendingUpdateScript.toLowerCase().endsWith('.bat')) {
+        const child = spawn('cmd.exe', ['/c', pendingUpdateScript], {
+          detached: true,
+          stdio: 'ignore'
+        });
+        child.on('error', (err) => {
+          console.error('Lỗi khi chạy script cập nhật .bat:', err);
+        });
+        child.unref();
+      } else if (pendingUpdateScript.toLowerCase().endsWith('.exe')) {
+        // Đối với file installer .exe: Dùng electron shell.openPath để Windows ShellExecute thực thi và tự động xử lý UAC Admin elevation không bao giờ bị lỗi EACCES
+        try {
+          await shell.openPath(pendingUpdateScript);
+        } catch (openErr) {
+          console.error('Lỗi shell.openPath:', openErr);
+          const child = spawn('cmd.exe', ['/c', 'start', '""', pendingUpdateScript], {
+            detached: true,
+            stdio: 'ignore'
+          });
+          child.on('error', (err) => {
+            console.error('Lỗi khi chạy installer .exe:', err);
+          });
+          child.unref();
+        }
+      }
+      app.isQuitting = true;
+      app.quit();
+      return { success: true };
+    }
+
+    try {
+      autoUpdater.quitAndInstall(false, true);
+    } catch (e) {
+      app.relaunch();
+      app.quit();
+    }
+    return { success: true };
+  } catch (globalErr) {
+    console.error('Lỗi trong restart-app-for-update:', globalErr);
     app.relaunch();
     app.quit();
+    return { success: false, error: globalErr.message };
   }
 });
 

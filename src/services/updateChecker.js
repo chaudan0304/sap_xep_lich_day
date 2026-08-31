@@ -49,9 +49,9 @@ export async function checkForAppUpdates() {
 
       const isNewer = compareVersions(latestVersion, CURRENT_APP_VERSION) > 0;
 
-      // Tìm file .exe hoặc file zip đính kèm trong Release Assets nếu có
-      const exeAsset = data.assets?.find(a => a.name.endsWith('.exe'));
-      const zipAsset = data.assets?.find(a => a.name.endsWith('.zip'));
+      // Tìm file .exe hoặc file zip đính kèm trong Release Assets nếu có (ưu tiên zip cho cập nhật ngầm không cần popup UAC)
+      const zipAsset = data.assets?.find(a => a.name.toLowerCase().endsWith('.zip') && !a.name.includes('-win32-x64'));
+      const exeAsset = data.assets?.find(a => a.name.toLowerCase().endsWith('.exe'));
       const chosenAsset = zipAsset || exeAsset;
       const downloadUrl = chosenAsset?.browser_download_url || data.html_url;
       const fileName = chosenAsset?.name || 'EduTimetable_TieuHoc.zip';
