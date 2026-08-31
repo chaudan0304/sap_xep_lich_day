@@ -1,5 +1,5 @@
 // src/components/MasterMatrixView.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Grid3X3, 
   Printer, 
@@ -27,6 +27,13 @@ export const MasterMatrixView = ({
   const [viewLayout, setViewLayout] = useState('excel'); // 'excel' | 'matrix'
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
+  // Dual Synchronized Scrollbar Refs & State
+  const topScrollRef = useRef(null);
+  const bottomScrollRef = useRef(null);
+  const isSyncingTop = useRef(false);
+  const isSyncingBottom = useRef(false);
+  const [contentScrollWidth, setContentScrollWidth] = useState(0);
+
   const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
 
   const errorCount = useMemo(() => conflicts.filter(c => c.severity === 'error').length, [conflicts]);
@@ -46,6 +53,46 @@ export const MasterMatrixView = ({
   const getSlotConflict = (classId, dayId, periodId) => {
     return (conflicts || []).find(c => (c.classId === classId || (c.conflictingClassIds && c.conflictingClassIds.includes(classId))) && c.day === dayId && c.period === periodId);
   };
+
+  // Synchronize Scroll from Top to Bottom
+  const handleTopScroll = () => {
+    if (isSyncingTop.current) {
+      isSyncingTop.current = false;
+      return;
+    }
+    if (bottomScrollRef.current && topScrollRef.current) {
+      isSyncingBottom.current = true;
+      bottomScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+  };
+
+  // Synchronize Scroll from Bottom to Top
+  const handleBottomScroll = () => {
+    if (isSyncingBottom.current) {
+      isSyncingBottom.current = false;
+      return;
+    }
+    if (topScrollRef.current && bottomScrollRef.current) {
+      isSyncingTop.current = true;
+      topScrollRef.current.scrollLeft = bottomScrollRef.current.scrollLeft;
+    }
+  };
+
+  // Measure content scroll width dynamically whenever filters or layout change
+  useEffect(() => {
+    const updateWidth = () => {
+      if (bottomScrollRef.current) {
+        setContentScrollWidth(bottomScrollRef.current.scrollWidth);
+      }
+    };
+    updateWidth();
+    const timer = setTimeout(updateWidth, 100);
+    window.addEventListener('resize', updateWidth);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, [filteredClasses, activeDays, viewLayout]);
 
   return (
     <div className="animate-fade-in" style={{ padding: '24px', maxWidth: '1650px', margin: '0 auto' }}>
@@ -292,7 +339,33 @@ export const MasterMatrixView = ({
           boxShadow: 'var(--shadow-sm)',
           overflow: 'hidden'
         }}>
-          <div style={{ overflowX: 'auto', maxHeight: '78vh' }}>
+          {/* Top Synchronized Horizontal Scrollbar */}
+          <div style={{
+            background: '#f8fafc',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '4px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#4f46e5', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+              ↔️ Thanh cuộn ngang trên:
+            </span>
+            <div
+              ref={topScrollRef}
+              onScroll={handleTopScroll}
+              style={{
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                flex: 1,
+                height: '14px'
+              }}
+            >
+              <div style={{ width: `${contentScrollWidth}px`, height: '1px' }} />
+            </div>
+          </div>
+
+          <div ref={bottomScrollRef} onScroll={handleBottomScroll} style={{ overflowX: 'auto', maxHeight: '78vh' }}>
             {viewLayout === 'excel' ? (
               /* ── FORMAT 1: CHUẨN XUẤT EXCEL (HÀNG: THỨ/TIẾT • CỘT: LỚP) ── */
               <table style={{
@@ -930,7 +1003,7 @@ export const MasterMatrixView = ({
                                       {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
                                     </span>
                                     <span style={{
-                                      fontSize: '0.65rem',
+                                      fontSize: '0.66rem',
                                       color: conflict ? '#dc2626' : '#475569',
                                       fontWeight: 700,
                                       whiteSpace: 'nowrap'
