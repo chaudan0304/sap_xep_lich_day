@@ -25,12 +25,12 @@ import {
   Copy,
   CheckCircle2
 } from 'lucide-react';
-import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
+import { DAYS_OF_WEEK, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { exportTeacherDirectory } from '../services/excelService';
-import { triggerAppPrint } from '../services/printService';
+import { TeacherTimetablePrintModal } from './TeacherTimetablePrintModal';
 
-export const getTeacherRoleBadge = (teacher) => {
+const getTeacherRoleBadge = (teacher) => {
   if (!teacher) return { label: 'Giáo Viên', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
 
   const position = (teacher.position || '').trim().toLowerCase();
@@ -137,78 +137,13 @@ export const TeacherDirectory = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState(null);
 
-  // Quick Timetable View Modal
-  const [previewTeacher, setPreviewTeacher] = useState(null);
-  const [teacherPreviewTab, setTeacherPreviewTab] = useState('a4'); // 'a4' | 'grid'
-  const [teacherPreviewZoom, setTeacherPreviewZoom] = useState(90);
-  const [showTeacherHeader, setShowTeacherHeader] = useState(true);
-  const [showTeacherSignatures, setShowTeacherSignatures] = useState(true);
-  const [isExportingTeacherImg, setIsExportingTeacherImg] = useState(false);
-  const [isCopyingTeacherImg, setIsCopyingTeacherImg] = useState(false);
-  const [teacherToast, setTeacherToast] = useState('');
-
-  const teacherSheetRef = useRef(null);
-
-  const showTeacherToast = (msg) => {
-    setTeacherToast(msg);
-    setTimeout(() => setTeacherToast(''), 3500);
-  };
-
-  // Xuất ảnh TKB Giáo viên nét cao gửi Zalo
-  const handleExportTeacherZaloImage = async () => {
-    if (!teacherSheetRef.current || !previewTeacher) return;
-    try {
-      setIsExportingTeacherImg(true);
-      const dataUrl = await toPng(teacherSheetRef.current, {
-        quality: 1,
-        pixelRatio: 2.5,
-        backgroundColor: '#ffffff'
-      });
-      const link = document.createElement('a');
-      const safeName = (previewTeacher.name || 'GiaoVien').replace(/\s+/g, '_');
-      link.download = `TKB_GV_${safeName}_Zalo.png`;
-      link.href = dataUrl;
-      link.click();
-      showTeacherToast(`Đã tải ảnh TKB Thầy/Cô ${previewTeacher.name} nét cao cho Zalo!`);
-    } catch (err) {
-      console.error('Lỗi xuất ảnh GV:', err);
-      alert('Không thể tạo file ảnh. Vui lòng thử lại!');
-    } finally {
-      setIsExportingTeacherImg(false);
-    }
-  };
-
-  // Sao chép ảnh TKB Giáo viên vào Clipboard để dán ngay Ctrl+V vào Zalo
-  const handleCopyTeacherZaloImage = async () => {
-    if (!teacherSheetRef.current || !previewTeacher) return;
-    try {
-      setIsCopyingTeacherImg(true);
-      const blob = await toBlob(teacherSheetRef.current, {
-        quality: 1,
-        pixelRatio: 2.5,
-        backgroundColor: '#ffffff'
-      });
-      if (!blob) throw new Error('Không thể tạo blob ảnh');
-
-      if (navigator.clipboard && window.ClipboardItem) {
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]);
-        showTeacherToast(`Đã sao chép ảnh TKB ${previewTeacher.name}! Nhấn Ctrl+V để dán vào Zalo.`);
-      } else {
-        handleExportTeacherZaloImage();
-      }
-    } catch (err) {
-      console.error('Lỗi copy ảnh clipboard:', err);
-      handleExportTeacherZaloImage();
-    } finally {
-      setIsCopyingTeacherImg(false);
-    }
-  };
+  // Print Modal State
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [selectedPrintTeacherId, setSelectedPrintTeacherId] = useState(null);
 
   // Lock body scroll when modal is open so popup stays dead-center
   useEffect(() => {
-    if (isModalOpen || previewTeacher) {
+    if (isModalOpen || isPrintModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -216,7 +151,7 @@ export const TeacherDirectory = ({
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isModalOpen, previewTeacher]);
+  }, [isModalOpen, isPrintModalOpen]);
 
 
   // Tính toán số tiết phân công & số tiết thực tế đã xếp của từng GV
@@ -258,7 +193,13 @@ export const TeacherDirectory = ({
         t.phone?.includes(searchQuery);
 
       let matchRole = true;
-      if (selectedRole === 'HOMEROOM') {
+      if (selectedRole === 'TO_123') {
+        matchRole = t.department === 'Tổ 1, 2, 3';
+      } else if (selectedRole === 'TO_45') {
+        matchRole = t.department === 'Tổ 4, 5';
+      } else if (selectedRole === 'SUBJECT_GROUP') {
+        matchRole = t.department === 'Giáo viên bộ môn';
+      } else if (selectedRole === 'HOMEROOM') {
         matchRole = t.isHomeroom;
       } else if (selectedRole === 'SUBJECT') {
         const badge = getTeacherRoleBadge(t);
@@ -282,7 +223,7 @@ export const TeacherDirectory = ({
       id: nextId,
       name: '',
       code: '',
-      department: 'Giáo viên',
+      department: 'Giáo viên bộ môn',
       isHomeroom: false,
       homeroomClassId: '',
       phone: '',
@@ -482,322 +423,96 @@ export const TeacherDirectory = ({
     setEditingTeacher(null);
   };
 
-  // Helper to render an individual A4 Printable Teacher Schedule Sheet
-  const renderTeacherSheet = (t, isPreview = false) => {
-    if (!t) return null;
-    return (
-      <div
-        className={isPreview ? 'preview-sheet' : 'printable-sheet page-break'}
-        style={{
-          width: '100%',
-          maxWidth: isPreview ? '100%' : '210mm',
-          margin: '0 auto',
-          background: '#ffffff',
-          color: '#000000',
-          fontFamily: '"Times New Roman", Times, serif',
-          padding: isPreview ? '24px 28px' : '0',
-          boxSizing: 'border-box'
-        }}
-      >
-        {/* National / School Header */}
-        {showTeacherHeader && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            borderBottom: '1.5px solid #000',
-            paddingBottom: '8px',
-            marginBottom: '12px'
-          }}>
-            <div style={{ textAlign: 'center', width: '45%' }}>
-              <div style={{ fontSize: '9.5pt', textTransform: 'uppercase', fontWeight: 700 }}>
-                {schoolInfo.district || 'UBND PHƯỜNG TÂN MAI'}
-              </div>
-              <div style={{ fontSize: '10.5pt', textTransform: 'uppercase', fontWeight: 800 }}>
-                {(schoolInfo.name || 'TRƯỜNG TIỂU HỌC QUỲNH LỘC').toUpperCase()}
-              </div>
-            </div>
-            <div style={{ textAlign: 'center', width: '50%' }}>
-              <div style={{ fontSize: '9.5pt', fontWeight: 800 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-              <div style={{ fontSize: '9pt', fontStyle: 'italic', textDecoration: 'underline', marginTop: '2px' }}>
-                Độc lập - Tự do - Hạnh phúc
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Timetable Title */}
-        {(() => {
-          const taughtClassNames = (() => {
-            const nameSet = new Set();
-            if (t.isHomeroom && t.homeroomClassId) {
-              const c = classes.find(item => item.id === t.homeroomClassId || item.name === t.homeroomClassId);
-              nameSet.add(c ? c.name : t.homeroomClassId);
-            }
-            (assignments || []).forEach(a => {
-              if (a.teacherId === t.id && a.classId) {
-                const c = classes.find(item => item.id === a.classId || item.name === a.classId);
-                nameSet.add(c ? c.name : a.classId);
-              }
-            });
-            if (Array.isArray(t.subjectAssignments)) {
-              t.subjectAssignments.forEach(cfg => {
-                (cfg.classIds || []).forEach(cid => {
-                  const c = classes.find(item => item.id === cid || item.name === cid);
-                  nameSet.add(c ? c.name : cid);
-                });
-              });
-            }
-            classes.forEach(cls => {
-              for (let dayId = 2; dayId <= 6; dayId++) {
-                for (let pId = 1; pId <= 7; pId++) {
-                  if (timetable[cls.id]?.[dayId]?.[pId]?.teacherId === t.id) {
-                    nameSet.add(cls.name);
-                  }
-                }
-              }
-            });
-            return Array.from(nameSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-          })();
-
-          return (
-            <div style={{ textAlign: 'center', margin: '8px 0 10px 0' }}>
-              <h1 style={{ fontSize: '15pt', fontWeight: 900, margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                LỊCH GIẢNG DẠY CÁ NHÂN
-              </h1>
-              <div style={{ fontSize: '12pt', fontWeight: 800, marginTop: '3px', color: '#000' }}>
-                Giáo viên: {t.name} ({t.code || t.id})
-              </div>
-              <div style={{ fontSize: '9pt', fontStyle: 'italic', marginTop: '2px' }}>
-                Chức vụ / Nhiệm vụ: {t.position || t.task || 'Giáo viên'} • {schoolInfo.year || 'Năm học 2026 - 2027'}
-              </div>
-              {taughtClassNames.length > 0 && (
-                <div style={{
-                  fontSize: '8.5pt',
-                  fontWeight: 700,
-                  marginTop: '4px',
-                  color: '#000'
-                }}>
-                  Danh sách các lớp giảng dạy ({taughtClassNames.length} lớp):{' '}
-                  <span style={{ fontWeight: 800 }}>
-                    {taughtClassNames.join(', ')}
-                  </span>
-                  {t.isHomeroom && t.homeroomClassId && (
-                    <span style={{ fontStyle: 'italic', marginLeft: '6px' }}>
-                      (Chủ nhiệm lớp: {classes.find(c => c.id === t.homeroomClassId)?.name || t.homeroomClassId})
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* Official Printable Table */}
-        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1.5px solid #000', textAlign: 'center', fontSize: '8.5pt' }}>
-          <thead>
-            <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #000' }}>
-              <th style={{ border: '1px solid #000', width: '52px', padding: '5px 2px', fontWeight: 800 }}>Buổi</th>
-              <th style={{ border: '1px solid #000', width: '32px', padding: '5px 2px', fontWeight: 800 }}>Tiết</th>
-              <th style={{ border: '1px solid #000', width: '68px', padding: '5px 2px', fontWeight: 800 }}>Thời gian</th>
-              {DAYS_OF_WEEK.map(d => (
-                <th key={d.id} style={{ border: '1px solid #000', padding: '5px 2px', fontWeight: 800 }}>
-                  {d.name.toUpperCase()}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {periods.map(p => (
-              <React.Fragment key={p.id}>
-                <tr>
-                  {p.id === 1 && (
-                    <td
-                      rowSpan={4}
-                      style={{
-                        border: '1px solid #000',
-                        fontWeight: 800,
-                        verticalAlign: 'middle',
-                        textAlign: 'center',
-                        fontSize: '9pt',
-                        padding: '2px 4px',
-                        letterSpacing: '0.5px',
-                        whiteSpace: 'nowrap',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      SÁNG
-                    </td>
-                  )}
-                  {p.id === 5 && (
-                    <td
-                      rowSpan={3}
-                      style={{
-                        border: '1px solid #000',
-                        fontWeight: 800,
-                        verticalAlign: 'middle',
-                        textAlign: 'center',
-                        fontSize: '9pt',
-                        padding: '2px 4px',
-                        letterSpacing: '0.5px',
-                        whiteSpace: 'nowrap',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      CHIỀU
-                    </td>
-                  )}
-
-                  <td style={{ border: '1px solid #000', fontWeight: 800, verticalAlign: 'middle', fontSize: '9.5pt' }}>
-                    {p.id <= 4 ? p.id : (p.id - 4)}
-                  </td>
-
-                  <td style={{ border: '1px solid #000', fontSize: '8pt', verticalAlign: 'middle', color: '#222' }}>
-                    {p.time}
-                  </td>
-
-                  {DAYS_OF_WEEK.map(day => {
-                    let matchSlot = null;
-                    let matchClass = null;
-
-                    classes.forEach(cls => {
-                      const slot = timetable[cls.id]?.[day.id]?.[p.id];
-                      if (slot && slot.teacherId === t.id) {
-                        matchSlot = slot;
-                        matchClass = cls;
-                      }
-                    });
-
-                    const sub = matchSlot ? ((subjects && subjects[matchSlot.subjectId]) || DEFAULT_SUBJECTS[matchSlot.subjectId] || { name: matchSlot.subjectRaw || matchSlot.subjectId }) : null;
-                    const isWedOff = day.id === 4 && p.id > 4;
-
-                    if (isWedOff) {
-                      return (
-                        <td key={day.id} style={{ border: '1px solid #000', fontStyle: 'italic', color: '#555', background: '#f8fafc', height: '40px', verticalAlign: 'middle' }}>
-                          Nghỉ
-                        </td>
-                      );
-                    }
-
-                    return (
-                      <td key={day.id} style={{ border: '1px solid #000', height: '36px', padding: '2px 2px', verticalAlign: 'middle', wordBreak: 'break-word' }}>
-                        {matchSlot ? (
-                          <div>
-                            <div style={{ fontWeight: 800, fontSize: '9pt', color: '#000', lineHeight: 1.15 }}>
-                              {sub?.name || matchSlot.subjectId}
-                            </div>
-                            <div style={{ fontSize: '8pt', fontWeight: 700, color: '#000', marginTop: '1px' }}>
-                              {matchClass?.name}
-                            </div>
-                          </div>
-                        ) : (
-                          <span style={{ color: '#aaa' }}>-</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-
-                {p.id === 4 && (
-                  <tr style={{ background: '#f1f5f9', border: '1px solid #000' }}>
-                    <td colSpan={8} style={{ border: '1px solid #000', padding: '3px', fontSize: '8pt', fontWeight: 800, fontStyle: 'italic' }}>
-                      {schoolInfo.lunchBreak ? `🍱 NGHỈ TRƯA (${schoolInfo.lunchBreak})` : '🍱 NGHỈ TRƯA (10:30 - 14:00)'}
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Footer Signatures */}
-        {showTeacherSignatures && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '9pt' }}>
-            <div style={{ textAlign: 'center', width: '200px' }}>
-              <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>GIÁO VIÊN</div>
-              <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-              <div style={{ height: '40px' }} />
-              <div style={{ fontWeight: 800 }}>{t.name}</div>
-            </div>
-            <div style={{ textAlign: 'center', width: '220px' }}>
-              <div style={{ fontStyle: 'italic', fontSize: '8.5pt' }}>Tân Mai, ngày 05 tháng 09 năm 2026</div>
-              <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
-              <div style={{ fontStyle: 'italic', fontSize: '8pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
-              <div style={{ height: '40px' }} />
-              <div style={{ fontWeight: 800 }}>{schoolInfo.principal || 'Bùi Văn Việt'}</div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="animate-fade-in" style={{ padding: '24px', maxWidth: '1600px', margin: '0 auto' }}>
       <div className="no-print">
         {/* 1. Header & Summary Stats */}
         <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '16px',
-        marginBottom: '24px'
-      }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Users size={28} color="#4f46e5" />
-            <span>Danh Sách & Hồ Sơ Giáo Viên</span>
-          </h2>
-          <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
-            Quản lý thông tin cán bộ giáo viên, phân loại chuyên môn, định mức tiết và lịch đăng ký nghỉ
-          </p>
-        </div>
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '24px'
+        }}>
+          <div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Users size={28} color="#4f46e5" />
+              <span>Danh Sách & Hồ Sơ Giáo Viên</span>
+            </h2>
+            <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
+              Quản lý thông tin cán bộ giáo viên, phân loại chuyên môn, định mức tiết và lịch đăng ký nghỉ
+            </p>
+          </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={() => exportTeacherDirectory(teachers, assignments, timetable, classes)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '10px 16px',
-              borderRadius: '10px',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              color: '#334155',
-              cursor: 'pointer',
-              boxShadow: 'var(--shadow-sm)'
-            }}
-          >
-            <Download size={16} />
-            <span>Xuất Excel Danh Sách GV</span>
-          </button>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                setSelectedPrintTeacherId(null);
+                setIsPrintModalOpen(true);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '10px 16px',
+                borderRadius: '10px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#334155',
+                cursor: 'pointer',
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <Printer size={16} color="#4f46e5" />
+              <span>In Thời Khóa Biểu</span>
+            </button>
 
-          <button
-            onClick={handleAddNew}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '10px 18px',
-              borderRadius: '10px',
-              fontSize: '0.875rem',
-              fontWeight: 700,
-              background: '#4f46e5',
-              border: 'none',
-              color: '#ffffff',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)'
-            }}
-          >
-            <UserPlus size={16} />
-            <span>Thêm Giáo Viên Mới</span>
-          </button>
+            <button
+              onClick={() => exportTeacherDirectory(teachers, assignments, timetable, classes)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '10px 16px',
+                borderRadius: '10px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#334155',
+                cursor: 'pointer',
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <Download size={16} />
+              <span>Xuất Excel Danh Sách GV</span>
+            </button>
+
+            <button
+              onClick={handleAddNew}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '10px 18px',
+                borderRadius: '10px',
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                background: '#4f46e5',
+                border: 'none',
+                color: '#ffffff',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)'
+              }}
+            >
+              <UserPlus size={16} />
+              <span>Thêm Giáo Viên Mới</span>
+            </button>
+          </div>
         </div>
-      </div>
 
       {/* 2. Top Stats Overview Cards */}
       <div style={{
@@ -936,7 +651,7 @@ export const TeacherDirectory = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* Vai trò */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Vai trò:</span>
+            <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Tổ / Vai trò:</span>
             <select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
@@ -950,9 +665,11 @@ export const TeacherDirectory = ({
                 outline: 'none'
               }}
             >
-              <option value="ALL">Tất cả vai trò</option>
+              <option value="ALL">Tất cả giáo viên</option>
+              <option value="TO_123">Tổ 1, 2, 3</option>
+              <option value="TO_45">Tổ 4, 5</option>
+              <option value="SUBJECT_GROUP">Giáo viên Bộ Môn</option>
               <option value="HOMEROOM">Giáo viên Chủ Nhiệm</option>
-              <option value="SUBJECT">Giáo viên Bộ Môn</option>
               <option value="ADMIN">Ban Giám Hiệu</option>
               <option value="STAFF">Văn phòng / Nhân viên</option>
             </select>
@@ -1289,8 +1006,11 @@ export const TeacherDirectory = ({
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                               {!isOnLeave && !isStaff && hasSchedule && (
                                 <button
-                                  onClick={() => setPreviewTeacher(teacher)}
-                                  title="Xem Thời khóa biểu của giáo viên này"
+                                  onClick={() => {
+                                    setSelectedPrintTeacherId(teacher.id);
+                                    setIsPrintModalOpen(true);
+                                  }}
+                                  title="Xem & Tùy chọn in Thời khóa biểu giáo viên này (A4)"
                                   style={{
                                     padding: '6px 10px',
                                     borderRadius: '8px',
@@ -1305,8 +1025,8 @@ export const TeacherDirectory = ({
                                     fontWeight: 600
                                   }}
                                 >
-                                  <Calendar size={13} />
-                                  <span>Xem TKB</span>
+                                  <Printer size={13} />
+                                  <span>In TKB</span>
                                 </button>
                               )}
 
@@ -1450,7 +1170,22 @@ export const TeacherDirectory = ({
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                    Tổ Chuyên Môn
+                  </label>
+                  <select
+                    value={editingTeacher.department || 'Giáo viên bộ môn'}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, department: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
+                  >
+                    <option value="Tổ 1, 2, 3">Tổ 1, 2, 3</option>
+                    <option value="Tổ 4, 5">Tổ 4, 5</option>
+                    <option value="Giáo viên bộ môn">Giáo viên bộ môn</option>
+                  </select>
+                </div>
+
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
                     Chức Vụ / Vị Trí Công Tác
@@ -1905,646 +1640,20 @@ export const TeacherDirectory = ({
       )}
       </div>
 
-      {/* 6. QUICK TIMETABLE PREVIEW & PRINT MODAL (PORTAL TO ROOT BODY) */}
-      {previewTeacher && createPortal(
-        <div className="portal-print-modal" style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(15, 23, 42, 0.8)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 99999,
-          padding: '16px'
-        }}>
-          {/* SCREEN-ONLY INTERACTIVE MODAL CONTAINER */}
-          <div className="no-print animate-fade-in" style={{
-            background: '#ffffff',
-            borderRadius: '20px',
-            maxWidth: '1100px',
-            width: '100%',
-            height: '92vh',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.4)',
-            border: '1px solid #e2e8f0',
-            overflow: 'hidden'
-          }}>
-            {/* Modal Top Header */}
-            <div style={{
-              padding: '14px 20px',
-              borderBottom: '1px solid #e2e8f0',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
-              flexWrap: 'wrap',
-              gap: '12px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 10px rgba(37, 99, 235, 0.3)'
-                }}>
-                  <Printer size={20} />
-                </div>
-                {(() => {
-                  const taughtClasses = (() => {
-                    const nameSet = new Set();
-                    if (previewTeacher.isHomeroom && previewTeacher.homeroomClassId) {
-                      const c = classes.find(item => item.id === previewTeacher.homeroomClassId || item.name === previewTeacher.homeroomClassId);
-                      nameSet.add(c ? c.name : previewTeacher.homeroomClassId);
-                    }
-                    (assignments || []).forEach(a => {
-                      if (a.teacherId === previewTeacher.id && a.classId) {
-                        const c = classes.find(item => item.id === a.classId || item.name === a.classId);
-                        nameSet.add(c ? c.name : a.classId);
-                      }
-                    });
-                    if (Array.isArray(previewTeacher.subjectAssignments)) {
-                      previewTeacher.subjectAssignments.forEach(cfg => {
-                        (cfg.classIds || []).forEach(cid => {
-                          const c = classes.find(item => item.id === cid || item.name === cid);
-                          nameSet.add(c ? c.name : cid);
-                        });
-                      });
-                    }
-                    classes.forEach(cls => {
-                      for (let dayId = 2; dayId <= 6; dayId++) {
-                        for (let pId = 1; pId <= 7; pId++) {
-                          if (timetable[cls.id]?.[dayId]?.[pId]?.teacherId === previewTeacher.id) {
-                            nameSet.add(cls.name);
-                          }
-                        }
-                      }
-                    });
-                    return Array.from(nameSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-                  })();
-
-                  return (
-                    <div>
-                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span>Thời Khóa Biểu: {previewTeacher.name}</span>
-                        <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: '#eff6ff', color: '#2563eb', fontWeight: 700 }}>
-                          {previewTeacher.code || previewTeacher.id}
-                        </span>
-                        <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#475569', fontWeight: 600 }}>
-                          {getTeacherRoleBadge(previewTeacher).label}
-                        </span>
-                      </h3>
-                      <p style={{ margin: '3px 0 0 0', fontSize: '0.75rem', color: '#64748b' }}>
-                        {taughtClasses.length > 0 ? (
-                          <span>
-                            Lớp giảng dạy ({taughtClasses.length} lớp):{' '}
-                            <strong style={{ color: '#1d4ed8' }}>{taughtClasses.join(', ')}</strong>
-                          </span>
-                        ) : (
-                          'Xem trước bản in A4 chuẩn Bộ GD&ĐT và in trực tiếp ra máy in hoặc file PDF.'
-                        )}
-                      </p>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Header Action Controls */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                {/* View Switcher Tabs */}
-                <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                  <button
-                    onClick={() => setTeacherPreviewTab('a4')}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '6px 12px',
-                      borderRadius: '7px',
-                      border: 'none',
-                      background: teacherPreviewTab === 'a4' ? '#ffffff' : 'transparent',
-                      color: teacherPreviewTab === 'a4' ? '#2563eb' : '#64748b',
-                      fontWeight: 700,
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      boxShadow: teacherPreviewTab === 'a4' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                    }}
-                  >
-                    <FileText size={14} />
-                    <span>Xem Bản In A4</span>
-                  </button>
-                  <button
-                    onClick={() => setTeacherPreviewTab('grid')}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '6px 12px',
-                      borderRadius: '7px',
-                      border: 'none',
-                      background: teacherPreviewTab === 'grid' ? '#ffffff' : 'transparent',
-                      color: teacherPreviewTab === 'grid' ? '#2563eb' : '#64748b',
-                      fontWeight: 700,
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      boxShadow: teacherPreviewTab === 'grid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                    }}
-                  >
-                    <LayoutGrid size={14} />
-                    <span>Lưới Tương Tác</span>
-                  </button>
-                </div>
-
-                {/* Zoom Controls (when on A4 preview tab) */}
-                {teacherPreviewTab === 'a4' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#f8fafc', padding: '2px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                    <button
-                      onClick={() => setTeacherPreviewZoom(prev => Math.max(60, prev - 10))}
-                      title="Thu nhỏ"
-                      style={{ padding: '5px 7px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#475569' }}
-                    >
-                      <ZoomOut size={14} />
-                    </button>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '36px', textAlign: 'center', color: '#334155' }}>
-                      {teacherPreviewZoom}%
-                    </span>
-                    <button
-                      onClick={() => setTeacherPreviewZoom(prev => Math.min(140, prev + 10))}
-                      title="Phóng to"
-                      style={{ padding: '5px 7px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#475569' }}
-                    >
-                      <ZoomIn size={14} />
-                    </button>
-                    <button
-                      onClick={() => setTeacherPreviewZoom(90)}
-                      title="Mặc định 90%"
-                      style={{ padding: '5px 7px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#475569' }}
-                    >
-                      <Maximize2 size={13} />
-                    </button>
-                  </div>
-                )}
-
-                {/* Print Options Toggle (when on A4 preview tab) */}
-                {teacherPreviewTab === 'a4' && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    background: '#f8fafc',
-                    padding: '5px 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '0.78rem'
-                  }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
-                      <input
-                        type="checkbox"
-                        checked={showTeacherHeader}
-                        onChange={e => setShowTeacherHeader(e.target.checked)}
-                      />
-                      <span>Tiêu đề UBND</span>
-                    </label>
-                    <div style={{ width: '1px', height: '12px', background: '#cbd5e1' }} />
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
-                      <input
-                        type="checkbox"
-                        checked={showTeacherSignatures}
-                        onChange={e => setShowTeacherSignatures(e.target.checked)}
-                      />
-                      <span>Chữ ký duyệt</span>
-                    </label>
-                  </div>
-                )}
-
-                {/* Copy Image Button */}
-                <button
-                  onClick={handleCopyTeacherZaloImage}
-                  disabled={isCopyingTeacherImg}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    padding: '8px 13px',
-                    borderRadius: '10px',
-                    background: '#eff6ff',
-                    border: '1px solid #bfdbfe',
-                    color: '#1d4ed8',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    cursor: isCopyingTeacherImg ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title="Sao chép ảnh TKB vào Clipboard. Mở Zalo và nhấn Ctrl+V để gửi ngay cho giáo viên!"
-                >
-                  <Copy size={15} />
-                  <span>{isCopyingTeacherImg ? 'Đang copy...' : 'Copy Ảnh (Dán Zalo)'}</span>
-                </button>
-
-                {/* Download Zalo Image Button */}
-                <button
-                  onClick={handleExportTeacherZaloImage}
-                  disabled={isExportingTeacherImg}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    padding: '8px 13px',
-                    borderRadius: '10px',
-                    background: '#fdf4ff',
-                    border: '1px solid #f5d0fe',
-                    color: '#a21caf',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    cursor: isExportingTeacherImg ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title="Tải file ảnh PNG sắc nét (High-DPI) để gửi qua Zalo hoặc in ảnh"
-                >
-                  <ImageIcon size={15} />
-                  <span>{isExportingTeacherImg ? 'Đang tạo...' : 'Tải Ảnh Zalo'}</span>
-                </button>
-
-                {/* Primary Print Button */}
-                <button
-                  onClick={async () => {
-                    document.body.classList.add('printing-modal-active');
-                    try {
-                      await triggerAppPrint();
-                    } finally {
-                      setTimeout(() => {
-                        document.body.classList.remove('printing-modal-active');
-                      }, 1200);
-                    }
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                    border: 'none',
-                    color: '#ffffff',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)'
-                  }}
-                >
-                  <Printer size={15} />
-                  <span>In Thời Khóa Biểu</span>
-                </button>
-
-                {/* Close Button */}
-                <button
-                  onClick={() => setPreviewTeacher(null)}
-                  style={{
-                    padding: '6px',
-                    borderRadius: '8px',
-                    border: '1px solid #e2e8f0',
-                    background: '#f8fafc',
-                    color: '#64748b',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Body Viewport */}
-            <div style={{
-              flex: 1,
-              overflow: 'auto',
-              background: teacherPreviewTab === 'a4' ? '#334155' : '#ffffff',
-              padding: teacherPreviewTab === 'a4' ? '20px' : '24px',
-              position: 'relative'
-            }}>
-              {/* Teacher Toast Alert */}
-              {teacherToast && (
-                <div style={{
-                  position: 'fixed',
-                  bottom: '24px',
-                  right: '24px',
-                  zIndex: 999999,
-                  background: '#059669',
-                  color: '#ffffff',
-                  padding: '12px 20px',
-                  borderRadius: '12px',
-                  fontWeight: 700,
-                  fontSize: '0.9rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.25)',
-                  animation: 'slideInRight 0.2s ease-out'
-                }}>
-                  <CheckCircle2 size={18} />
-                  <span>{teacherToast}</span>
-                </div>
-              )}
-
-              {teacherPreviewTab === 'a4' ? (
-                /* TAB 1: A4 PAPER PREVIEW VIEWPORT */
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', minHeight: '100%' }}>
-                  <div
-                    ref={teacherSheetRef}
-                    style={{
-                      background: '#ffffff',
-                      width: '210mm',
-                      minHeight: '297mm',
-                      boxShadow: '0 20px 45px rgba(0, 0, 0, 0.5)',
-                      borderRadius: '2px',
-                      transform: `scale(${teacherPreviewZoom / 100})`,
-                      transformOrigin: 'top center',
-                      transition: 'transform 0.15s ease',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    {renderTeacherSheet(previewTeacher, true)}
-                  </div>
-                </div>
-              ) : (
-                /* TAB 2: INTERACTIVE GRID VIEWPORT */
-                <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-                  {/* Taught Classes Summary Tags */}
-                  {(() => {
-                    const taughtClasses = (() => {
-                      const nameSet = new Set();
-                      if (previewTeacher.isHomeroom && previewTeacher.homeroomClassId) {
-                        const c = classes.find(item => item.id === previewTeacher.homeroomClassId || item.name === previewTeacher.homeroomClassId);
-                        nameSet.add(c ? c.name : previewTeacher.homeroomClassId);
-                      }
-                      (assignments || []).forEach(a => {
-                        if (a.teacherId === previewTeacher.id && a.classId) {
-                          const c = classes.find(item => item.id === a.classId || item.name === a.classId);
-                          nameSet.add(c ? c.name : a.classId);
-                        }
-                      });
-                      if (Array.isArray(previewTeacher.subjectAssignments)) {
-                        previewTeacher.subjectAssignments.forEach(cfg => {
-                          (cfg.classIds || []).forEach(cid => {
-                            const c = classes.find(item => item.id === cid || item.name === cid);
-                            nameSet.add(c ? c.name : cid);
-                          });
-                        });
-                      }
-                      classes.forEach(cls => {
-                        for (let dayId = 2; dayId <= 6; dayId++) {
-                          for (let pId = 1; pId <= 7; pId++) {
-                            if (timetable[cls.id]?.[dayId]?.[pId]?.teacherId === previewTeacher.id) {
-                              nameSet.add(cls.name);
-                            }
-                          }
-                        }
-                      });
-                      return Array.from(nameSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-                    })();
-
-                    if (taughtClasses.length === 0) return null;
-
-                    return (
-                      <div style={{
-                        background: '#eff6ff',
-                        borderRadius: '10px',
-                        border: '1px solid #bfdbfe',
-                        padding: '8px 12px',
-                        marginBottom: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        flexWrap: 'wrap'
-                      }}>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e40af' }}>
-                          📚 Danh sách các lớp giảng dạy ({taughtClasses.length} lớp):
-                        </span>
-                        {taughtClasses.map(clsName => (
-                          <span
-                            key={clsName}
-                            style={{
-                              padding: '2px 8px',
-                              borderRadius: '6px',
-                              background: '#ffffff',
-                              border: '1px solid #93c5fd',
-                              color: '#1d4ed8',
-                              fontWeight: 700,
-                              fontSize: '0.75rem'
-                            }}
-                          >
-                            {clsName}
-                          </span>
-                        ))}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Bell Schedule Bar */}
-                  <div style={{
-                    background: '#f8fafc',
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
-                    padding: '6px 12px',
-                    marginBottom: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '8px',
-                    fontSize: '0.72rem'
-                  }}>
-                    <span style={{ fontWeight: 800, color: '#1e293b' }}>⏰ Khung Giờ:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ fontWeight: 800, color: '#1d4ed8', background: '#eff6ff', padding: '1px 4px', borderRadius: '3px' }}>SÁNG:</span>
-                        <span style={{ color: '#334155' }}>
-                          {periods.filter(p => p.session === 'morning').map(p => `T${p.id} (${p.time})`).join(' • ')}
-                        </span>
-                      </div>
-                      <div style={{ width: '1px', height: '10px', background: '#cbd5e1' }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '1px 4px', borderRadius: '3px' }}>CHIỀU:</span>
-                        <span style={{ color: '#334155' }}>
-                          {periods.filter(p => p.session === 'afternoon').map(p => `T${p.id <= 4 ? p.id : (p.id - 4)} (${p.time})`).join(' • ')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Interactive Table Grid */}
-                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.85rem' }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                          <th style={{ padding: '10px 6px', width: '55px', color: '#475569', fontWeight: 800, borderRight: '1px solid #e2e8f0' }}>Buổi</th>
-                          <th style={{ padding: '10px 6px', width: '50px', color: '#475569', fontWeight: 800, borderRight: '1px solid #e2e8f0' }}>Tiết</th>
-                          {DAYS_OF_WEEK.map(d => (
-                            <th key={d.id} style={{ padding: '10px', color: '#1e293b', fontWeight: 700 }}>
-                              {d.name}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {PERIODS.map(p => (
-                          <React.Fragment key={p.id}>
-                            <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              {/* Buổi Sáng / Chiều */}
-                              {p.id === 1 && (
-                                <td
-                                  rowSpan={4}
-                                  style={{
-                                    background: '#eff6ff',
-                                    color: '#1e40af',
-                                    fontWeight: 800,
-                                    fontSize: '0.8rem',
-                                    borderRight: '2px solid #bfdbfe',
-                                    verticalAlign: 'middle',
-                                    letterSpacing: '1px'
-                                  }}
-                                >
-                                  <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>
-                                    SÁNG
-                                  </div>
-                                </td>
-                              )}
-
-                              {p.id === 5 && (
-                                <td
-                                  rowSpan={3}
-                                  style={{
-                                    background: '#fffbeb',
-                                    color: '#b45309',
-                                    fontWeight: 800,
-                                    fontSize: '0.8rem',
-                                    borderRight: '2px solid #fde68a',
-                                    verticalAlign: 'middle',
-                                    letterSpacing: '1px'
-                                  }}
-                                >
-                                  <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>
-                                    CHIỀU
-                                  </div>
-                                </td>
-                              )}
-
-                              <td
-                                title={`${p.name}: ${p.time}`}
-                                style={{
-                                  padding: '10px 4px',
-                                  background: p.session === 'morning' ? '#f8fafc' : '#fffdf5',
-                                  borderRight: '1px solid #e2e8f0',
-                                  fontWeight: 800,
-                                  color: p.session === 'morning' ? '#2563eb' : '#d97706',
-                                  fontSize: '0.95rem',
-                                  verticalAlign: 'middle'
-                                }}
-                              >
-                                {p.id <= 4 ? p.id : (p.id - 4)}
-                              </td>
-
-                              {DAYS_OF_WEEK.map(day => {
-                                let matchSlot = null;
-                                let matchClass = null;
-
-                                classes.forEach(cls => {
-                                  const slot = timetable[cls.id]?.[day.id]?.[p.id];
-                                  if (slot && slot.teacherId === previewTeacher.id) {
-                                    matchSlot = slot;
-                                    matchClass = cls;
-                                  }
-                                });
-
-                                const sub = matchSlot ? ((subjects && subjects[matchSlot.subjectId]) || DEFAULT_SUBJECTS[matchSlot.subjectId] || { name: matchSlot.subjectRaw || matchSlot.subjectId, bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af' }) : null;
-
-                                return (
-                                  <td key={day.id} style={{ padding: '8px', verticalAlign: 'middle', height: '60px' }}>
-                                    {matchSlot ? (
-                                      <div style={{
-                                        padding: '6px 8px',
-                                        borderRadius: '8px',
-                                        background: sub?.bg || '#eff6ff',
-                                        border: `1px solid ${sub?.border || '#bfdbfe'}`,
-                                        color: sub?.text || '#1e40af',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        gap: '2px'
-                                      }}>
-                                        <span style={{ fontWeight: 800, fontSize: '0.8rem' }}>
-                                          {sub?.name || matchSlot.subjectId}
-                                        </span>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ffffff', background: '#3b82f6', padding: '1px 6px', borderRadius: '4px' }}>
-                                          {matchClass?.name}
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>-</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-
-                            {p.id === 4 && (
-                              <tr style={{ background: '#f8fafc', borderTop: '2px solid #e2e8f0', borderBottom: '2px solid #e2e8f0' }}>
-                                <td colSpan="7" style={{ padding: '6px', color: '#64748b', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}>
-                                  🍱 NGHỈ TRƯA (10:30 - 14:00)
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                      onClick={() => setPreviewTeacher(null)}
-                      style={{
-                        padding: '10px 22px',
-                        borderRadius: '10px',
-                        background: '#4f46e5',
-                        border: 'none',
-                        color: '#ffffff',
-                        fontWeight: 600,
-                        fontSize: '0.85rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Đóng
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ───────────────────────────────────────────────────────────── */}
-          {/* DEDICATED OFFICIAL PRINTABLE SHEET FOR TEACHER (A4 PORTRAIT)  */}
-          {/* ACTIVE DURING BROWSER & ELECTRON PRINTING                     */}
-          {/* ───────────────────────────────────────────────────────────── */}
-          <div className="printable-batch-container">
-            {renderTeacherSheet(previewTeacher, false)}
-          </div>
-        </div>,
-        document.body
+      {/* 6. TEACHER TIMETABLE PRINT MODAL */}
+      {isPrintModalOpen && (
+        <TeacherTimetablePrintModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          teachers={teachers}
+          classes={classes}
+          timetable={timetable}
+          subjects={subjects}
+          periods={periods}
+          schoolInfo={schoolInfo}
+          assignments={assignments}
+          initialTeacherId={selectedPrintTeacherId}
+        />
       )}
     </div>
   );

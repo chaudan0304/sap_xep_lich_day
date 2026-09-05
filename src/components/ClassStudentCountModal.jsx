@@ -23,8 +23,6 @@ export const ClassStudentCountModal = ({
   setClasses,
   teachers = []
 }) => {
-  if (!isOpen) return null;
-
   const teacherMap = useMemo(() => new Map((teachers || []).map(t => [t.id, t])), [teachers]);
 
   // Helper to extract numeric grade reliably (1..5)
@@ -170,6 +168,8 @@ export const ClassStudentCountModal = ({
     if (classes.length === 0) return 0;
     return Math.round((totalStudents / classes.length) * 10) / 10;
   }, [totalStudents, classes.length]);
+
+  if (!isOpen) return null;
 
   return createPortal(
     <div

@@ -20,38 +20,30 @@ export const SAMPLE_CLASSES = [
 ];
 
 export const SAMPLE_TEACHERS = [
-  // GVCN
-  { id: 'GV01', name: 'Cô Nguyễn Thị Mai', code: 'MAI.NT', department: 'Tổ Khối 1', isHomeroom: true, homeroomClassId: '1A1', phone: '0912.111.001', email: 'mai.nguyen@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#3b82f6' },
-  { id: 'GV02', name: 'Cô Trần Thu Trang', code: 'TRANG.TT', department: 'Tổ Khối 1', isHomeroom: true, homeroomClassId: '1A2', phone: '0912.111.002', email: 'trang.tran@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: ['4_afternoon'], color: '#ec4899' },
-  { id: 'GV03', name: 'Cô Lê Hoàng Yến', code: 'YEN.LH', department: 'Tổ Khối 2', isHomeroom: true, homeroomClassId: '2A1', phone: '0912.111.003', email: 'yen.le@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#8b5cf6' },
-  { id: 'GV04', name: 'Thầy Phạm Văn Hùng', code: 'HUNG.PV', department: 'Tổ Khối 2', isHomeroom: true, homeroomClassId: '2A2', phone: '0912.111.004', email: 'hung.pham@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: ['3_afternoon'], color: '#10b981' },
-  { id: 'GV05', name: 'Cô Bùi Minh Ngọc', code: 'NGOC.BM', department: 'Tổ Khối 3', isHomeroom: true, homeroomClassId: '3A1', phone: '0912.111.005', email: 'ngoc.bui@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#f59e0b' },
-  { id: 'GV06', name: 'Thầy Đỗ Quốc Bình', code: 'BINH.DQ', department: 'Tổ Khối 3', isHomeroom: true, homeroomClassId: '3A2', phone: '0912.111.006', email: 'binh.do@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: ['5_morning'], color: '#06b6d4' },
-  { id: 'GV07', name: 'Cô Đặng Thùy Dương', code: 'DUONG.DT', department: 'Tổ Khối 4-5', isHomeroom: true, homeroomClassId: '4A1', phone: '0912.111.007', email: 'duong.dang@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#6366f1' },
-  { id: 'GV08', name: 'Thầy Vũ Minh Tuấn', code: 'TUAN.VM', department: 'Tổ Khối 4-5', isHomeroom: true, homeroomClassId: '4A2', phone: '0912.111.008', email: 'tuan.vu@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: ['2_afternoon'], color: '#14b8a6' },
-  { id: 'GV09', name: 'Cô Phan Kiều Oanh', code: 'OANH.PK', department: 'Tổ Khối 4-5', isHomeroom: true, homeroomClassId: '5A1', phone: '0912.111.009', email: 'oanh.phan@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#d946ef' },
-  { id: 'GV10', name: 'Thầy Hoàng Đức Nam', code: 'NAM.HD', department: 'Tổ Khối 4-5', isHomeroom: true, homeroomClassId: '5A2', phone: '0912.111.010', email: 'nam.hoang@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#f97316' },
+  // Tổ 1, 2, 3 (GVCN Khối 1, 2, 3)
+  { id: 'GV01', name: 'Cô Nguyễn Thị Mai', code: 'MAI.NT', department: 'Tổ 1, 2, 3', isHomeroom: true, homeroomClassId: '1A1', phone: '0912.111.001', email: 'mai.nguyen@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#3b82f6' },
+  { id: 'GV02', name: 'Cô Trần Thu Trang', code: 'TRANG.TT', department: 'Tổ 1, 2, 3', isHomeroom: true, homeroomClassId: '1A2', phone: '0912.111.002', email: 'trang.tran@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: ['4_afternoon'], color: '#ec4899' },
+  { id: 'GV03', name: 'Cô Lê Hoàng Yến', code: 'YEN.LH', department: 'Tổ 1, 2, 3', isHomeroom: true, homeroomClassId: '2A1', phone: '0912.111.003', email: 'yen.le@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#8b5cf6' },
+  { id: 'GV04', name: 'Thầy Phạm Văn Hùng', code: 'HUNG.PV', department: 'Tổ 1, 2, 3', isHomeroom: true, homeroomClassId: '2A2', phone: '0912.111.004', email: 'hung.pham@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: ['3_afternoon'], color: '#10b981' },
+  { id: 'GV05', name: 'Cô Bùi Minh Ngọc', code: 'NGOC.BM', department: 'Tổ 1, 2, 3', isHomeroom: true, homeroomClassId: '3A1', phone: '0912.111.005', email: 'ngoc.bui@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#f59e0b' },
+  { id: 'GV06', name: 'Thầy Đỗ Quốc Bình', code: 'BINH.DQ', department: 'Tổ 1, 2, 3', isHomeroom: true, homeroomClassId: '3A2', phone: '0912.111.006', email: 'binh.do@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: ['5_morning'], color: '#06b6d4' },
 
-  // GV Bộ Môn Ngoại Ngữ
-  { id: 'GV11', name: 'Cô Jennifer Hoàng Lan', code: 'LAN.JH', department: 'Tổ Ngoại Ngữ', isHomeroom: false, homeroomClassId: null, phone: '0912.222.011', email: 'lan.english@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: ['6_afternoon'], color: '#7c3aed' },
-  { id: 'GV12', name: 'Thầy Nguyễn Trí Dũng', code: 'DUNG.NT', department: 'Tổ Ngoại Ngữ', isHomeroom: false, homeroomClassId: null, phone: '0912.222.012', email: 'dung.english@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: ['2_afternoon'], color: '#a855f7' },
+  // Tổ 4, 5 (GVCN Khối 4, 5)
+  { id: 'GV07', name: 'Cô Đặng Thùy Dương', code: 'DUONG.DT', department: 'Tổ 4, 5', isHomeroom: true, homeroomClassId: '4A1', phone: '0912.111.007', email: 'duong.dang@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#6366f1' },
+  { id: 'GV08', name: 'Thầy Vũ Minh Tuấn', code: 'TUAN.VM', department: 'Tổ 4, 5', isHomeroom: true, homeroomClassId: '4A2', phone: '0912.111.008', email: 'tuan.vu@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: ['2_afternoon'], color: '#14b8a6' },
+  { id: 'GV09', name: 'Cô Phan Kiều Oanh', code: 'OANH.PK', department: 'Tổ 4, 5', isHomeroom: true, homeroomClassId: '5A1', phone: '0912.111.009', email: 'oanh.phan@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#d946ef' },
+  { id: 'GV10', name: 'Thầy Hoàng Đức Nam', code: 'NAM.HD', department: 'Tổ 4, 5', isHomeroom: true, homeroomClassId: '5A2', phone: '0912.111.010', email: 'nam.hoang@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#f97316' },
 
-  // GV Bộ Môn Tin Học & Công Nghệ
-  { id: 'GV13', name: 'Thầy Trần Đình Trọng', code: 'TRONG.TD', department: 'Tổ Tin Học', isHomeroom: false, homeroomClassId: null, phone: '0912.333.013', email: 'trong.tin@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: ['4_morning'], color: '#0284c7' },
-  { id: 'GV14', name: 'Cô Phạm Thị Thu', code: 'THU.PT', department: 'Tổ Tin Học', isHomeroom: false, homeroomClassId: null, phone: '0912.333.014', email: 'thu.tin@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: [], color: '#38bdf8' },
-
-  // GV Bộ Môn Giáo Dục Thể Chất
-  { id: 'GV15', name: 'Thầy Ngô Quốc Toàn', code: 'TOAN.NQ', department: 'Tổ Thể Chất - Nghệ Thuật', isHomeroom: false, homeroomClassId: null, phone: '0912.444.015', email: 'toan.gdtc@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: [], color: '#059669' },
-  { id: 'GV16', name: 'Thầy Lý Văn Long', code: 'LONG.LV', department: 'Tổ Thể Chất - Nghệ Thuật', isHomeroom: false, homeroomClassId: null, phone: '0912.444.016', email: 'long.gdtc@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: ['5_afternoon'], color: '#10b981' },
-
-  // GV Bộ Môn Âm Nhạc
-  { id: 'GV17', name: 'Cô Vũ Khánh Linh', code: 'LINH.VK', department: 'Tổ Thể Chất - Nghệ Thuật', isHomeroom: false, homeroomClassId: null, phone: '0912.555.017', email: 'linh.music@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: [], color: '#d97706' },
-
-  // GV Bộ Môn Mỹ Thuật
-  { id: 'GV18', name: 'Thầy Hà Huy Hoàng', code: 'HOANG.HH', department: 'Tổ Thể Chất - Nghệ Thuật', isHomeroom: false, homeroomClassId: null, phone: '0912.555.018', email: 'hoang.art@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: [], color: '#ea580c' },
-
-  // GV Tự chọn / Bồi dưỡng kỹ năng sống
-  { id: 'GV19', name: 'Cô Trịnh Thanh Thảo', code: 'THAO.TT', department: 'Tổ Kỹ Năng Sống', isHomeroom: false, homeroomClassId: null, phone: '0912.666.019', email: 'thao.kns@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#65a30d' }
+  // Giáo viên bộ môn (Ngoại ngữ, Tin học, Thể chất, Âm nhạc, Mỹ thuật, Kỹ năng)
+  { id: 'GV11', name: 'Cô Jennifer Hoàng Lan', code: 'LAN.JH', department: 'Giáo viên bộ môn', isHomeroom: false, homeroomClassId: null, phone: '0912.222.011', email: 'lan.english@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: ['6_afternoon'], color: '#7c3aed' },
+  { id: 'GV12', name: 'Thầy Nguyễn Trí Dũng', code: 'DUNG.NT', department: 'Giáo viên bộ môn', isHomeroom: false, homeroomClassId: null, phone: '0912.222.012', email: 'dung.english@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: ['2_afternoon'], color: '#a855f7' },
+  { id: 'GV13', name: 'Thầy Trần Đình Trọng', code: 'TRONG.TD', department: 'Giáo viên bộ môn', isHomeroom: false, homeroomClassId: null, phone: '0912.333.013', email: 'trong.tin@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: ['4_morning'], color: '#0284c7' },
+  { id: 'GV14', name: 'Cô Phạm Thị Thu', code: 'THU.PT', department: 'Giáo viên bộ môn', isHomeroom: false, homeroomClassId: null, phone: '0912.333.014', email: 'thu.tin@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: [], color: '#38bdf8' },
+  { id: 'GV15', name: 'Thầy Ngô Quốc Toàn', code: 'TOAN.NQ', department: 'Giáo viên bộ môn', isHomeroom: false, homeroomClassId: null, phone: '0912.444.015', email: 'toan.gdtc@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: [], color: '#059669' },
+  { id: 'GV16', name: 'Thầy Lý Văn Long', code: 'LONG.LV', department: 'Giáo viên bộ môn', isHomeroom: false, homeroomClassId: null, phone: '0912.444.016', email: 'long.gdtc@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: ['5_afternoon'], color: '#10b981' },
+  { id: 'GV17', name: 'Cô Vũ Khánh Linh', code: 'LINH.VK', department: 'Giáo viên bộ môn', isHomeroom: false, homeroomClassId: null, phone: '0912.555.017', email: 'linh.music@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: [], color: '#d97706' },
+  { id: 'GV18', name: 'Thầy Hà Huy Hoàng', code: 'HOANG.HH', department: 'Giáo viên bộ môn', isHomeroom: false, homeroomClassId: null, phone: '0912.555.018', email: 'hoang.art@anhduong.edu.vn', maxPeriodsPerDay: 5, offSessions: [], color: '#ea580c' },
+  { id: 'GV19', name: 'Cô Trịnh Thanh Thảo', code: 'THAO.TT', department: 'Giáo viên bộ môn', isHomeroom: false, homeroomClassId: null, phone: '0912.666.019', email: 'thao.kns@anhduong.edu.vn', maxPeriodsPerDay: 6, offSessions: [], color: '#65a30d' }
 ];
 
 // Hàm tự động sinh phân công chuyên môn thông minh và an toàn

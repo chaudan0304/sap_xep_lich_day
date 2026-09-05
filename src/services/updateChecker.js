@@ -1,7 +1,7 @@
 // src/services/updateChecker.js
 // Kiểm tra bản cập nhật mới từ GitHub Releases
 
-export const CURRENT_APP_VERSION = '1.0.3';
+export const CURRENT_APP_VERSION = '1.0.4';
 export const GITHUB_REPOS = [
   'chaudan0304/edutimetable-app',
   'chaudan0304/sap_xep_lich_day'

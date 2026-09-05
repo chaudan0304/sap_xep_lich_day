@@ -12,6 +12,7 @@ import { TimetableStudio } from './components/TimetableStudio';
 import { MasterMatrixView } from './components/MasterMatrixView';
 import { RoomTimetableView } from './components/RoomTimetableView';
 import { ExcelModal } from './components/ExcelModal';
+import { ImportReportModal } from './components/ImportReportModal';
 import { AutoScheduleModal } from './components/AutoScheduleModal';
 import { ConflictModal } from './components/ConflictModal';
 import SchoolSettingsModal, { DEFAULT_SCHOOL_INFO } from './components/SchoolSettingsModal';
@@ -47,21 +48,46 @@ export function App() {
       return {
         ...DEFAULT_SCHOOL_INFO,
         name: QUYNH_LOC_DATA.schoolName || DEFAULT_SCHOOL_INFO.name,
-        year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year
+        year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year,
+        scheduler: ''
       };
     }
     const saved = localStorage.getItem('EDUTIMETABLE_SCHOOL_INFO');
-    return saved ? JSON.parse(saved) : {
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.scheduler === 'Châu Đàn') {
+          parsed.scheduler = '';
+        }
+        return parsed;
+      } catch (e) {
+        console.error('Error parsing schoolInfo:', e);
+      }
+    }
+    return {
       ...DEFAULT_SCHOOL_INFO,
       name: QUYNH_LOC_DATA.schoolName || DEFAULT_SCHOOL_INFO.name,
-      year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year
+      year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year,
+      scheduler: ''
     };
   });
 
   const [periods, setPeriods] = useState(() => {
     if (!isUpToDate) return JSON.parse(JSON.stringify(DEFAULT_PERIODS));
     const saved = localStorage.getItem('EDUTIMETABLE_PERIODS');
-    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_PERIODS));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Tự động nâng cấp nếu người dùng đang dùng khung giờ mặc định cũ (07:30 - 08:05)
+        if (Array.isArray(parsed) && parsed.some(p => p.time === '07:30 - 08:05')) {
+          return JSON.parse(JSON.stringify(DEFAULT_PERIODS));
+        }
+        return parsed;
+      } catch {
+        return JSON.parse(JSON.stringify(DEFAULT_PERIODS));
+      }
+    }
+    return JSON.parse(JSON.stringify(DEFAULT_PERIODS));
   });
 
   const [subjects, setSubjects] = useState(() => {
@@ -83,9 +109,31 @@ export function App() {
   });
 
   const [teachers, setTeachers] = useState(() => {
-    if (!isUpToDate) return [...QUYNH_LOC_DATA.teachers];
-    const saved = localStorage.getItem('EDUTIMETABLE_TEACHERS');
-    return saved ? JSON.parse(saved) : [...QUYNH_LOC_DATA.teachers];
+    const raw = !isUpToDate
+      ? [...QUYNH_LOC_DATA.teachers]
+      : (() => {
+          const saved = localStorage.getItem('EDUTIMETABLE_TEACHERS');
+          return saved ? JSON.parse(saved) : [...QUYNH_LOC_DATA.teachers];
+        })();
+
+    // Chuẩn hóa chỉ có 3 nhóm duy nhất: Tổ 1, 2, 3; Tổ 4, 5 và Giáo viên bộ môn
+    return raw.map(t => {
+      const d = (t.department || '').trim();
+      if (d === 'Tổ 1, 2, 3' || d === 'Tổ 4, 5' || d === 'Giáo viên bộ môn') return t;
+      let newDept = 'Giáo viên bộ môn';
+      if (t.isHomeroom && t.homeroomClassId) {
+        const match = String(t.homeroomClassId).match(/([1-5])/);
+        if (match) newDept = parseInt(match[1], 10) <= 3 ? 'Tổ 1, 2, 3' : 'Tổ 4, 5';
+      } else {
+        const pos = (t.position || '').toLowerCase();
+        const task = (t.task || '').toLowerCase();
+        if (pos.includes('hiệu trưởng') || task.includes('hiệu trưởng')) {
+          if (task.includes('4-5') || pos.includes('4-5')) newDept = 'Tổ 4, 5';
+          else if (task.includes('1,2,3') || pos.includes('1,2,3')) newDept = 'Tổ 1, 2, 3';
+        }
+      }
+      return { ...t, department: newDept };
+    });
   });
 
   const [rooms, setRooms] = useState(() => {
@@ -107,6 +155,9 @@ export function App() {
   });
 
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [importReport, setImportReport] = useState(null);
+  const [isImportReportOpen, setIsImportReportOpen] = useState(false);
+  const skipAssignmentSyncRef = useRef(false);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
@@ -222,6 +273,11 @@ export function App() {
   // ★ TỰ ĐỘNG ĐỒNG BỘ: Mỗi khi Phân Công Chuyên Môn (assignments) thay đổi ->
   // Tự động cập nhật teacherId & phòng học của tất cả các tiết đã xếp trên Thời Khóa Biểu (timetable)
   useEffect(() => {
+    if (skipAssignmentSyncRef.current) {
+      skipAssignmentSyncRef.current = false;
+      return;
+    }
+
     setTimetable(prevTimetable => {
       let changed = false;
       const nextTimetable = { ...prevTimetable };
@@ -378,7 +434,7 @@ export function App() {
       district: 'UBND Phường Tân Mai',
       year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year,
       principal: 'Bùi Văn Việt',
-      scheduler: 'Châu Đàn',
+      scheduler: '',
       address: 'Phường Tân Mai, TX Hoàng Mai, Nghệ An',
       lunchBreak: '10:30 - 14:00'
     });
@@ -431,10 +487,13 @@ export function App() {
   };
 
   // 8. Tiếp Nhận Dữ Liệu Nhập Từ File Excel Tùy Chỉnh
-  const handleImportSuccess = (importedData) => {
+  const handleImportSuccess = (importedData, diagnostics) => {
+    skipAssignmentSyncRef.current = true; // Bảo vệ dữ liệu TKB nguyên bản vừa nạp từ Excel, không cho assignments ghi đè
+
     if (importedData.teachers) setTeachers(importedData.teachers);
     if (importedData.classes) setClasses(importedData.classes);
     if (importedData.rooms) setRooms(importedData.rooms);
+    if (importedData.subjects) setSubjects(prev => ({ ...prev, ...importedData.subjects }));
     if (importedData.gradeQuotas) setGradeQuotas(importedData.gradeQuotas);
     if (importedData.assignments) setAssignments(importedData.assignments);
 
@@ -444,6 +503,24 @@ export function App() {
       const empty = initializeEmptyTimetable(importedData.classes);
       setTimetable(empty);
     }
+
+    if (importedData.classes && importedData.classes.length > 0) {
+      setSelectedStudioClassId(importedData.classes[0].id);
+    }
+
+    // Hiển thị báo cáo đối soát lỗi sau khi nạp nếu có lỗi hoặc cảnh báo
+    if (diagnostics && ((diagnostics.errors && diagnostics.errors.length > 0) || (diagnostics.warnings && diagnostics.warnings.length > 0))) {
+      setImportReport(diagnostics);
+      setIsImportReportOpen(true);
+    } else {
+      const totalSlots = diagnostics?.summary?.validSlots || diagnostics?.summary?.totalSlots || 0;
+      alert(`🎉 Nhập dữ liệu thành công!\nĐã nạp ${importedData.classes?.length || 0} lớp học, ${importedData.teachers?.length || 0} giáo viên và ${totalSlots} tiết học lên Thời khóa biểu. Dữ liệu hoàn toàn hợp lệ.`);
+    }
+  };
+
+  const handleNavigateToStudioSlot = (classId, day, period) => {
+    if (classId) setSelectedStudioClassId(classId);
+    setActiveTab('studio');
   };
 
   // 9. Xuất File Sao Lưu Dữ Liệu Toàn Dự Án (.json)
@@ -505,6 +582,8 @@ export function App() {
         conflicts={conflicts}
         isAutoScheduling={isAutoScheduling}
         schoolInfo={schoolInfo}
+        onOpenImportReport={() => setIsImportReportOpen(true)}
+        importReportCount={(importReport?.errors?.length || 0) + (importReport?.warnings?.length || 0)}
       />
 
       {/* Main Content Area */}
@@ -521,6 +600,7 @@ export function App() {
             subjects={subjects}
             periods={periods}
             schoolInfo={schoolInfo}
+            rooms={rooms}
             selectedClassId={selectedStudioClassId}
             onSelectClass={setSelectedStudioClassId}
             onOpenConflictModal={() => setIsConflictModalOpen(true)}
@@ -574,6 +654,11 @@ export function App() {
             setRooms={setRooms}
             assignments={assignments}
             setAssignments={setAssignments}
+            timetable={timetable}
+            setTimetable={setTimetable}
+            gradeQuotas={gradeQuotas}
+            setGradeQuotas={setGradeQuotas}
+            classes={classes}
           />
         )}
 
@@ -664,6 +749,15 @@ export function App() {
           setSelectedStudioClassId(clsId);
           setActiveTab('studio');
         }}
+      />
+
+      {/* Post-Import Error & Diagnostics Report Modal */}
+      <ImportReportModal
+        isOpen={isImportReportOpen}
+        onClose={() => setIsImportReportOpen(false)}
+        report={importReport || {}}
+        classes={classes}
+        onNavigateToSlot={handleNavigateToStudioSlot}
       />
 
       {/* Auto Schedule AI Modal */}

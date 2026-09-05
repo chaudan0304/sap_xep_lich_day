@@ -47,8 +47,6 @@ export const MasterTimetablePrintModal = ({
   periods = DEFAULT_PERIODS,
   schoolInfo = {}
 }) => {
-  if (!isOpen) return null;
-
   // 1. Layout Mode: 'excel' (Hàng là Thứ/Tiết, Cột là Lớp) | 'matrix' (Hàng là Lớp, Cột là Thứ/Tiết)
   const [matrixLayout, setMatrixLayout] = useState('excel');
 
@@ -71,7 +69,7 @@ export const MasterTimetablePrintModal = ({
     year: schoolInfo.year || 'Năm học 2026 - 2027',
     effectiveDate: 'Áp dụng từ ngày 05/09/2026',
     signLocationDate: 'Tân Mai, ngày 05 tháng 09 năm 2026',
-    scheduler: schoolInfo.scheduler || 'Châu Đàn',
+    scheduler: (schoolInfo?.scheduler && schoolInfo.scheduler !== 'Châu Đàn') ? schoolInfo.scheduler : '',
     principal: schoolInfo.principal || 'Bùi Văn Việt',
     lunchBreak: schoolInfo.lunchBreak || '10:30 - 14:00'
   });
@@ -794,13 +792,13 @@ export const MasterTimetablePrintModal = ({
             flexWrap: 'wrap'
           }}>
             <div>
-              <strong>⏰ KHUNG GIỜ SÁNG:</strong> T1: 07:30 - 08:05 • T2: 08:15 - 08:50 • T3: 09:10 - 09:45 • T4: 09:55 - 10:30
+              <strong>⏰ KHUNG GIỜ SÁNG:</strong> T1: {periods?.find(p => p.id === 1)?.time || '07:15 - 07:55'} • T2: {periods?.find(p => p.id === 2)?.time || '07:55 - 08:35'} • T3: {periods?.find(p => p.id === 3)?.time || '09:00 - 09:40'} • T4: {periods?.find(p => p.id === 4)?.time || '09:40 - 10:20'}
             </div>
             <div>
               <strong>🍱 NGHỈ TRƯA:</strong> {printMeta.lunchBreak}
             </div>
             <div>
-              <strong>⏰ KHUNG GIỜ CHIỀU:</strong> T1: 14:00 - 14:35 • T2: 14:45 - 15:20 • T3: 15:30 - 16:05
+              <strong>⏰ KHUNG GIỜ CHIỀU:</strong> T1: {periods?.find(p => p.id === 5)?.time || '14:00 - 14:40'} • T2: {periods?.find(p => p.id === 6)?.time || '14:40 - 15:20'} • T3: {periods?.find(p => p.id === 7)?.time || '15:40 - 16:20'}
             </div>
           </div>
         )}
@@ -836,6 +834,8 @@ export const MasterTimetablePrintModal = ({
       </div>
     );
   };
+
+  if (!isOpen) return null;
 
   return createPortal(
     <div
@@ -1333,6 +1333,7 @@ export const MasterTimetablePrintModal = ({
                         type="text"
                         value={printMeta.scheduler}
                         onChange={e => setPrintMeta({ ...printMeta, scheduler: e.target.value })}
+                        placeholder="Để trống hoặc nhập họ tên"
                         style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', boxSizing: 'border-box' }}
                       />
                     </div>

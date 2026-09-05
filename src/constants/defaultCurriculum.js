@@ -115,11 +115,11 @@ export const DAYS_OF_WEEK = [
 ];
 
 export const PERIODS = [
-  { id: 1, name: 'Tiết 1', session: 'morning', time: '07:30 - 08:05', sessionLabel: 'Sáng - Tiết 1' },
-  { id: 2, name: 'Tiết 2', session: 'morning', time: '08:15 - 08:50', sessionLabel: 'Sáng - Tiết 2' },
-  { id: 3, name: 'Tiết 3', session: 'morning', time: '09:10 - 09:45', sessionLabel: 'Sáng - Tiết 3' },
-  { id: 4, name: 'Tiết 4', session: 'morning', time: '09:55 - 10:30', sessionLabel: 'Sáng - Tiết 4' },
-  { id: 5, name: 'Tiết 5', session: 'afternoon', time: '14:00 - 14:35', sessionLabel: 'Chiều - Tiết 1' },
-  { id: 6, name: 'Tiết 6', session: 'afternoon', time: '14:45 - 15:20', sessionLabel: 'Chiều - Tiết 2' },
-  { id: 7, name: 'Tiết 7', session: 'afternoon', time: '15:30 - 16:05', sessionLabel: 'Chiều - Tiết 3' }
+  { id: 1, name: 'Tiết 1', session: 'morning', time: '07:15 - 07:55', sessionLabel: 'Sáng - Tiết 1' },
+  { id: 2, name: 'Tiết 2', session: 'morning', time: '07:55 - 08:35', sessionLabel: 'Sáng - Tiết 2' },
+  { id: 3, name: 'Tiết 3', session: 'morning', time: '09:00 - 09:40', sessionLabel: 'Sáng - Tiết 3' },
+  { id: 4, name: 'Tiết 4', session: 'morning', time: '09:40 - 10:20', sessionLabel: 'Sáng - Tiết 4' },
+  { id: 5, name: 'Tiết 5', session: 'afternoon', time: '14:00 - 14:40', sessionLabel: 'Chiều - Tiết 1' },
+  { id: 6, name: 'Tiết 6', session: 'afternoon', time: '14:40 - 15:20', sessionLabel: 'Chiều - Tiết 2' },
+  { id: 7, name: 'Tiết 7', session: 'afternoon', time: '15:40 - 16:20', sessionLabel: 'Chiều - Tiết 3' }
 ];

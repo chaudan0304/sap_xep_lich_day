@@ -18,7 +18,8 @@ import {
   BookOpen,
   School,
   Check,
-  ShieldAlert
+  ShieldAlert,
+  Search
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
@@ -49,6 +50,8 @@ export const ExcelModal = ({
   const [previewTab, setPreviewTab] = useState('overview'); // 'overview' | 'timetable' | 'teachers' | 'validation'
   const [previewClassId, setPreviewClassId] = useState('1A1');
   const [errorMessage, setErrorMessage] = useState('');
+  const [diagFilter, setDiagFilter] = useState('ALL');
+  const [diagSearch, setDiagSearch] = useState('');
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -96,15 +99,18 @@ export const ExcelModal = ({
   const handleConfirmImport = () => {
     if (!importResult || !importResult.data) return;
 
-    onImportSuccess(importResult.data);
+    onImportSuccess(importResult.data, {
+      errors: importResult.errors || [],
+      warnings: importResult.warnings || [],
+      summary: importResult.summary || {}
+    });
+
     confetti({
       particleCount: 150,
       spread: 90,
       origin: { y: 0.6 }
     });
 
-    const totalSlots = importResult.summary?.validSlots || importResult.summary?.totalSlots || 0;
-    alert(`🎉 Nhập dữ liệu thành công!\nĐã nạp ${importResult.summary?.totalClasses || 0} lớp học, ${importResult.summary?.totalTeachers || 0} giáo viên và ${totalSlots} tiết học lên Thời khóa biểu.`);
     onClose();
   };
 
@@ -468,32 +474,180 @@ export const ExcelModal = ({
 
             {/* TAB CONTENT 4: VALIDATION DIAGNOSTICS */}
             {previewTab === 'validation' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '350px', overflowY: 'auto' }}>
-                {importResult.errors?.length === 0 && importResult.warnings?.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px', color: '#16a34a' }}>
-                    <CheckCircle2 size={36} style={{ margin: '0 auto 10px auto' }} />
-                    <div style={{ fontWeight: 700 }}>Không phát hiện bất kỳ lỗi hay cảnh báo nào!</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Diagnostics Filter and Search Bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', background: '#f8fafc', padding: '10px 14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => setDiagFilter('ALL')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: diagFilter === 'ALL' ? '1px solid #2563eb' : '1px solid #cbd5e1',
+                        background: diagFilter === 'ALL' ? '#2563eb' : '#ffffff',
+                        color: diagFilter === 'ALL' ? '#ffffff' : '#475569'
+                      }}
+                    >
+                      Tất cả ({(importResult.errors?.length || 0) + (importResult.warnings?.length || 0)})
+                    </button>
+                    <button
+                      onClick={() => setDiagFilter('ERRORS')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: diagFilter === 'ERRORS' ? '1px solid #dc2626' : '1px solid #cbd5e1',
+                        background: diagFilter === 'ERRORS' ? '#dc2626' : '#ffffff',
+                        color: diagFilter === 'ERRORS' ? '#ffffff' : '#475569'
+                      }}
+                    >
+                      Lỗi trùng giờ ({importResult.errors?.length || 0})
+                    </button>
+                    <button
+                      onClick={() => setDiagFilter('WARNINGS')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: diagFilter === 'WARNINGS' ? '1px solid #d97706' : '1px solid #cbd5e1',
+                        background: diagFilter === 'WARNINGS' ? '#d97706' : '#ffffff',
+                        color: diagFilter === 'WARNINGS' ? '#ffffff' : '#475569'
+                      }}
+                    >
+                      Cảnh báo ({importResult.warnings?.length || 0})
+                    </button>
                   </div>
-                ) : (
-                  <>
-                    {importResult.errors?.map((err, idx) => (
-                      <div key={`err_${idx}`} style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '10px', padding: '10px 14px', fontSize: '0.8rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b', fontWeight: 700 }}>
-                          <AlertCircle size={16} /> Lỗi tại Sheet [{err.sheet}] Dòng {err.row}, Cột {err.col}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '4px 8px' }}>
+                    <Search size={14} color="#94a3b8" />
+                    <input
+                      type="text"
+                      placeholder="Tìm lỗi, GV, lớp, ô Excel..."
+                      value={diagSearch}
+                      onChange={(e) => setDiagSearch(e.target.value)}
+                      style={{ border: 'none', outline: 'none', fontSize: '0.78rem', width: '160px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Diagnostics List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '350px', overflowY: 'auto' }}>
+                  {(() => {
+                    const allItems = [
+                      ...(importResult.errors || []).map(e => ({ ...e, isError: true })),
+                      ...(importResult.warnings || []).map(w => ({ ...w, isError: false }))
+                    ];
+
+                    const filtered = allItems.filter(item => {
+                      if (diagFilter === 'ERRORS' && !item.isError) return false;
+                      if (diagFilter === 'WARNINGS' && item.isError) return false;
+                      if (diagSearch.trim()) {
+                        const kw = diagSearch.toLowerCase();
+                        const msgMatch = item.message?.toLowerCase().includes(kw);
+                        const refMatch = item.cellRef?.toLowerCase().includes(kw);
+                        const tchMatch = item.teacherName?.toLowerCase().includes(kw) || item.value?.toLowerCase().includes(kw);
+                        const clsMatch = item.classId?.toLowerCase().includes(kw);
+                        if (!msgMatch && !refMatch && !tchMatch && !clsMatch) return false;
+                      }
+                      return true;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div style={{ textAlign: 'center', padding: '36px 20px', color: '#16a34a' }}>
+                          <CheckCircle2 size={40} style={{ margin: '0 auto 10px auto' }} />
+                          <div style={{ fontWeight: 800, fontSize: '1rem' }}>
+                            {allItems.length === 0 ? 'Dữ liệu hoàn hảo — Không phát hiện bất kỳ lỗi hay cảnh báo nào!' : 'Không có mục nào phù hợp với bộ lọc tìm kiếm.'}
+                          </div>
                         </div>
-                        <div style={{ color: '#b91c1c', marginTop: '4px' }}>{err.message}</div>
-                      </div>
-                    ))}
-                    {importResult.warnings?.map((warn, idx) => (
-                      <div key={`warn_${idx}`} style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '10px 14px', fontSize: '0.8rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#92400e', fontWeight: 700 }}>
-                          <AlertTriangle size={16} /> Cảnh báo tại Sheet [{warn.sheet}] Dòng {warn.row}
+                      );
+                    }
+
+                    return filtered.map((item, idx) => (
+                      <div
+                        key={`diag_${idx}`}
+                        style={{
+                          background: item.isError ? '#fff5f5' : '#fffbeb',
+                          border: `1.5px solid ${item.isError ? '#fca5a5' : '#fde68a'}`,
+                          borderRadius: '12px',
+                          padding: '12px 16px',
+                          fontSize: '0.82rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px'
+                        }}
+                      >
+                        {/* Header: Type Badge + Location */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              background: item.isError ? '#dc2626' : '#d97706',
+                              color: '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              {item.isError ? <AlertCircle size={12} /> : <AlertTriangle size={12} />}
+                              <span>{item.title || (item.isError ? 'LỖI TRÙNG LỊCH' : 'CẢNH BÁO')}</span>
+                            </span>
+
+                            {/* Location Badge */}
+                            {item.cellRef && (
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                background: '#ffffff',
+                                border: '1px solid #cbd5e1',
+                                color: '#1e293b'
+                              }}>
+                                📍 Vị trí: <strong>{item.cellRef}</strong> {item.row > 0 ? `(Dòng ${item.row}, Cột ${item.col})` : ''}
+                              </span>
+                            )}
+                          </div>
+
+                          {item.classId && (
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              background: '#eff6ff',
+                              color: '#1d4ed8',
+                              border: '1px solid #bfdbfe'
+                            }}>
+                              Lớp: {item.classId}
+                            </span>
+                          )}
                         </div>
-                        <div style={{ color: '#b45309', marginTop: '4px' }}>{warn.message}</div>
+
+                        {/* Message */}
+                        <div style={{ color: item.isError ? '#991b1b' : '#92400e', fontWeight: 600, lineHeight: '1.4' }}>
+                          {item.message}
+                        </div>
+
+                        {/* Actionable Suggestion */}
+                        {item.suggestion && (
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', background: 'rgba(255, 255, 255, 0.7)', padding: '6px 10px', borderRadius: '6px', borderLeft: `3px solid ${item.isError ? '#ef4444' : '#f59e0b'}` }}>
+                            💡 <strong>Gợi ý:</strong> {item.suggestion}
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </>
-                )}
+                    ));
+                  })()}
+                </div>
               </div>
             )}
 

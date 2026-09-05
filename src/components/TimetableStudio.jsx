@@ -46,6 +46,7 @@ export const TimetableStudio = ({
   subjects = DEFAULT_SUBJECTS,
   periods = DEFAULT_PERIODS,
   schoolInfo = {},
+  rooms = [],
   onAutoScheduleSingleClass,
   onOpenConflictModal,
   selectedClassId: externalClassId,
@@ -63,6 +64,7 @@ export const TimetableStudio = ({
   const [draggedSlot, setDraggedSlot] = useState(null); // { fromDay, fromPeriod }
   const [swapSource, setSwapSource] = useState(null); // { day, period, slot } for click-to-swap mode
   const [drawerSearch, setDrawerSearch] = useState('');
+  const [editingSlotInfo, setEditingSlotInfo] = useState(null); // { day, period, subjectId, teacherId, roomId, isLocked, subjectRaw, teacherRaw }
 
   // Undo & Redo History State
   const [history, setHistory] = useState([]);
@@ -386,7 +388,7 @@ export const TimetableStudio = ({
 
   // 4. Xóa Ô
   const handleClearSlot = (e, day, period) => {
-    e.stopPropagation();
+    if (e && e.stopPropagation) e.stopPropagation();
 
     setTimetableWithHistory(prev => {
       const updatedClass = { ...prev[selectedClassId] };
@@ -394,6 +396,57 @@ export const TimetableStudio = ({
       updatedClass[day][period] = null;
       return { ...prev, [selectedClassId]: updatedClass };
     });
+  };
+
+  // 5. Chỉnh sửa chi tiết Ô (Môn, Giáo viên, Phòng, Khóa)
+  const handleOpenEditSlot = (e, day, period, slot) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    setEditingSlotInfo({
+      day,
+      period,
+      subjectId: slot?.subjectId || '',
+      teacherId: slot?.teacherId || '',
+      roomId: slot?.roomId || 'LOP_HOC',
+      isLocked: !!slot?.isLocked,
+      subjectRaw: slot?.subjectRaw || '',
+      teacherRaw: slot?.teacherRaw || ''
+    });
+  };
+
+  const handleSaveSlotEdit = (updatedData) => {
+    if (!editingSlotInfo) return;
+    const { day, period } = editingSlotInfo;
+
+    // Nếu không chọn môn học -> xóa ô
+    if (!updatedData.subjectId && !updatedData.subjectRaw) {
+      setTimetableWithHistory(prev => {
+        const updatedClass = { ...prev[selectedClassId] };
+        updatedClass[day] = { ...updatedClass[day] };
+        updatedClass[day][period] = null;
+        return { ...prev, [selectedClassId]: updatedClass };
+      });
+      setEditingSlotInfo(null);
+      return;
+    }
+
+    setTimetableWithHistory(prev => {
+      const updatedClass = { ...prev[selectedClassId] };
+      updatedClass[day] = { ...updatedClass[day] };
+      const currentSlot = updatedClass[day][period] || {};
+      updatedClass[day][period] = {
+        ...currentSlot,
+        classId: selectedClassId,
+        subjectId: updatedData.subjectId,
+        teacherId: updatedData.teacherId,
+        roomId: updatedData.roomId,
+        isLocked: !!updatedData.isLocked,
+        // Nếu đã chọn môn chuẩn thì xóa cảnh báo subjectRaw
+        subjectRaw: updatedData.subjectId ? '' : updatedData.subjectRaw,
+        teacherRaw: updatedData.teacherId ? '' : updatedData.teacherRaw
+      };
+      return { ...prev, [selectedClassId]: updatedClass };
+    });
+    setEditingSlotInfo(null);
   };
 
   return (
@@ -1320,14 +1373,14 @@ export const TimetableStudio = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontWeight: 800, color: '#1d4ed8', background: '#eff6ff', padding: '1px 5px', borderRadius: '4px' }}>SÁNG:</span>
                 <span style={{ color: '#334155' }}>
-                  <strong>T1</strong> (07:30 - 08:05) • <strong>T2</strong> (08:15 - 08:50) • <strong>T3</strong> (09:10 - 09:45) • <strong>T4</strong> (09:55 - 10:30)
+                  <strong>T1</strong> ({periods?.find(p => p.id === 1)?.time || '07:15 - 07:55'}) • <strong>T2</strong> ({periods?.find(p => p.id === 2)?.time || '07:55 - 08:35'}) • <strong>T3</strong> ({periods?.find(p => p.id === 3)?.time || '09:00 - 09:40'}) • <strong>T4</strong> ({periods?.find(p => p.id === 4)?.time || '09:40 - 10:20'})
                 </span>
               </div>
               <div style={{ width: '1px', height: '12px', background: '#cbd5e1' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '1px 5px', borderRadius: '4px' }}>CHIỀU:</span>
                 <span style={{ color: '#334155' }}>
-                  <strong>T1</strong> (14:00 - 14:35) • <strong>T2</strong> (14:45 - 15:20) • <strong>T3</strong> (15:30 - 16:05)
+                  <strong>T1</strong> ({periods?.find(p => p.id === 5)?.time || '14:00 - 14:40'}) • <strong>T2</strong> ({periods?.find(p => p.id === 6)?.time || '14:40 - 15:20'}) • <strong>T3</strong> ({periods?.find(p => p.id === 7)?.time || '15:40 - 16:20'})
                 </span>
               </div>
             </div>
@@ -1358,7 +1411,7 @@ export const TimetableStudio = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {PERIODS.map((period, pIdx) => {
+                  {(periods || PERIODS).map((period, pIdx) => {
                     const isMorning = period.session === 'morning';
                     const isLunchBreak = period.id === 4; // Sau tiết 4 sáng là giờ nghỉ trưa
 
@@ -1499,7 +1552,7 @@ export const TimetableStudio = ({
                                   {/* Top line: Subject Name + Lock / Action Icons */}
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontWeight: 800, fontSize: '0.82rem', color: sub?.text || '#1e293b' }}>
-                                      {sub?.name || slot.subjectId}
+                                      {sub?.name || slot.subjectRaw || slot.subjectId}
                                     </span>
 
                                     {/* Action Icons */}
@@ -1509,6 +1562,20 @@ export const TimetableStudio = ({
                                           <AlertTriangle size={14} />
                                         </span>
                                       )}
+
+                                      <button
+                                        onClick={(e) => handleOpenEditSlot(e, day.id, period.id, slot)}
+                                        title="Chỉnh sửa ô này (đổi môn, giáo viên, phòng hoặc trạng thái)"
+                                        style={{
+                                          border: 'none',
+                                          background: 'transparent',
+                                          cursor: 'pointer',
+                                          padding: '2px',
+                                          color: '#64748b'
+                                        }}
+                                      >
+                                        <Edit2 size={12} />
+                                      </button>
 
                                       <button
                                         onClick={(e) => toggleLockSlot(e, day.id, period.id)}
@@ -1574,8 +1641,12 @@ export const TimetableStudio = ({
 
                                   {/* Bottom line: Teacher & Room */}
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem' }}>
-                                    <span style={{ color: '#475569', fontWeight: 600 }}>
-                                      {teacher?.code || teacher?.name || slot.teacherId}
+                                    <span style={{
+                                      color: (teacher?.code || teacher?.name || slot.teacherId) ? '#475569' : (slot.teacherRaw ? '#d97706' : '#94a3b8'),
+                                      fontWeight: 600,
+                                      fontStyle: !(teacher?.code || teacher?.name || slot.teacherId || slot.teacherRaw) ? 'italic' : 'normal'
+                                    }}>
+                                      {teacher?.code || teacher?.name || (slot.teacherRaw ? `⚠️ ${slot.teacherRaw}` : (slot.teacherId ? slot.teacherId : 'Chưa có GV'))}
                                     </span>
 
                                     {slot.roomId && slot.roomId !== 'LOP_HOC' && (
@@ -1595,6 +1666,8 @@ export const TimetableStudio = ({
                               ) : (
                                 /* Empty Slot Dropzone */
                                 <div
+                                  onClick={() => handleOpenEditSlot(null, day.id, period.id, null)}
+                                  title="Bấm để xếp môn học vào ô này"
                                   style={{
                                     height: '100%',
                                     border: '1.5px dashed #cbd5e1',
@@ -1605,12 +1678,13 @@ export const TimetableStudio = ({
                                     color: '#cbd5e1',
                                     fontSize: '0.75rem',
                                     background: '#fafafa',
+                                    cursor: 'pointer',
                                     transition: 'all 0.15s ease'
                                   }}
                                   onMouseOver={(e) => {
-                                    e.currentTarget.style.borderColor = '#94a3b8';
-                                    e.currentTarget.style.background = '#f1f5f9';
-                                    e.currentTarget.style.color = '#64748b';
+                                    e.currentTarget.style.borderColor = '#4f46e5';
+                                    e.currentTarget.style.background = '#eef2ff';
+                                    e.currentTarget.style.color = '#4f46e5';
                                   }}
                                   onMouseOut={(e) => {
                                     e.currentTarget.style.borderColor = '#cbd5e1';
@@ -1665,6 +1739,232 @@ export const TimetableStudio = ({
         setClasses={setClasses}
         teachers={teachers}
       />
+
+      {/* QUICK SLOT EDIT MODAL */}
+      {editingSlotInfo && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
+          onClick={() => setEditingSlotInfo(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '480px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              background: '#f8fafc',
+              padding: '16px 20px',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#1e293b' }}>
+                  Chỉnh Sửa Tiết Học
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                  Lớp {classes.find(c => c.id === selectedClassId)?.name || selectedClassId} &bull; Thứ {editingSlotInfo.day} &bull; Tiết {editingSlotInfo.period}
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingSlotInfo(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}
+              >
+                <CloseIcon size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Môn Học */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Môn học
+                </label>
+                <select
+                  value={editingSlotInfo.subjectId}
+                  onChange={e => setEditingSlotInfo(prev => ({ ...prev, subjectId: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    outline: 'none'
+                  }}
+                >
+                  <option value="">-- Chọn môn học --</option>
+                  {Object.entries(subjects || DEFAULT_SUBJECTS).map(([sId, sObj]) => (
+                    <option key={sId} value={sId}>
+                      {sObj.name || sId}
+                    </option>
+                  ))}
+                </select>
+                {editingSlotInfo.subjectRaw && !editingSlotInfo.subjectId && (
+                  <span style={{ display: 'block', marginTop: '5px', fontSize: '0.75rem', color: '#d97706', fontWeight: 600 }}>
+                    ⚠️ Tên môn đọc từ Excel: <u>{editingSlotInfo.subjectRaw}</u> (vui lòng chuẩn hóa bằng cách chọn môn trong danh sách)
+                  </span>
+                )}
+              </div>
+
+              {/* Giáo Viên Giảng Dạy */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Giáo viên giảng dạy
+                </label>
+                <select
+                  value={editingSlotInfo.teacherId}
+                  onChange={e => setEditingSlotInfo(prev => ({ ...prev, teacherId: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    outline: 'none'
+                  }}
+                >
+                  <option value="">-- Chưa phân công giáo viên --</option>
+                  {teachers.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.code || t.id})
+                    </option>
+                  ))}
+                </select>
+                {editingSlotInfo.teacherRaw && !editingSlotInfo.teacherId && (
+                  <span style={{ display: 'block', marginTop: '5px', fontSize: '0.75rem', color: '#d97706', fontWeight: 600 }}>
+                    ⚠️ Tên giáo viên đọc từ Excel: <u>{editingSlotInfo.teacherRaw}</u> (chưa khớp danh sách GV)
+                  </span>
+                )}
+              </div>
+
+              {/* Phòng Học / Địa Điểm */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Phòng học / Địa điểm
+                </label>
+                <select
+                  value={editingSlotInfo.roomId}
+                  onChange={e => setEditingSlotInfo(prev => ({ ...prev, roomId: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    outline: 'none'
+                  }}
+                >
+                  <option value="LOP_HOC">Lớp học chính</option>
+                  {rooms && rooms.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.code || r.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Khóa Ô Cố Định */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '6px' }}>
+                <input
+                  type="checkbox"
+                  checked={editingSlotInfo.isLocked}
+                  onChange={e => setEditingSlotInfo(prev => ({ ...prev, isLocked: e.target.checked }))}
+                  style={{ width: '16px', height: '16px', accentColor: '#4f46e5' }}
+                />
+                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#334155' }}>
+                  Khóa cố định tiết này (không để xếp tự động di chuyển)
+                </span>
+              </label>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              background: '#f8fafc',
+              padding: '14px 20px',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <button
+                onClick={() => {
+                  handleClearSlot({ stopPropagation: () => {} }, editingSlotInfo.day, editingSlotInfo.period);
+                  setEditingSlotInfo(null);
+                }}
+                style={{
+                  background: 'none',
+                  border: '1px solid #fca5a5',
+                  color: '#dc2626',
+                  borderRadius: '8px',
+                  padding: '7px 12px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Xóa tiết
+              </button>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setEditingSlotInfo(null)}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    color: '#64748b',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Đóng
+                </button>
+                <button
+                  onClick={() => handleSaveSlotEdit(editingSlotInfo)}
+                  style={{
+                    background: '#4f46e5',
+                    border: 'none',
+                    color: '#ffffff',
+                    borderRadius: '8px',
+                    padding: '7px 18px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(79, 70, 229, 0.2)'
+                  }}
+                >
+                  Lưu cập nhật
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   </div>
   );

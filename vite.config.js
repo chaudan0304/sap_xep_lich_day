@@ -50,4 +50,28 @@ function autoSavePlugin() {
 export default defineConfig({
   base: './',
   plugins: [react(), autoSavePlugin()],
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('exceljs') || id.includes('xlsx')) {
+              return 'vendor-excel';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('canvas-confetti') || id.includes('html-to-image')) {
+              return 'vendor-media';
+            }
+            return 'vendor-libs';
+          }
+        }
+      }
+    }
+  }
 })

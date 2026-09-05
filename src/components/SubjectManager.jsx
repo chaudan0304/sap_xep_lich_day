@@ -1,5 +1,5 @@
 // src/components/SubjectManager.jsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   BookOpen, 
@@ -17,10 +17,17 @@ import {
   ShieldCheck, 
   Download,
   Flame,
-  Bookmark
+  Bookmark,
+  Calendar,
+  RefreshCw,
+  AlertTriangle,
+  FileSpreadsheet,
+  Check,
+  ArrowRight
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { SUBJECT_CATEGORIES, ROOM_TYPES, SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
+import { parseExcelWorkbook } from '../services/excelParser.js';
 import * as XLSX from 'xlsx';
 
 // Preset color palettes for nice visual presentation
@@ -47,16 +54,24 @@ export const SubjectManager = ({
   rooms = [],
   setRooms,
   assignments = [],
-  setAssignments
+  setAssignments,
+  timetable = {},
+  setTimetable,
+  gradeQuotas = {},
+  setGradeQuotas,
+  classes = []
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedRoomFilter, setSelectedRoomFilter] = useState('ALL');
+  const [selectedUsageFilter, setSelectedUsageFilter] = useState('ALL'); // 'ALL' | 'IN_TKB' | 'NOT_IN_TKB'
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [scanMessage, setScanMessage] = useState(null);
+  const excelFileInputRef = useRef(null);
 
   // Danh sách phòng học đồng bộ động từ tab Phòng Chức Năng
   const availableRoomTypes = useMemo(() => {
@@ -85,6 +100,70 @@ export const SubjectManager = ({
     };
   }, [isModalOpen]);
 
+  // 1. Quét dữ liệu TKB thực tế & Đối soát môn học
+  const { timetableUsage, missingSubjectsInTimetable } = useMemo(() => {
+    const usage = {}; // subjectId -> { count: number, classIds: Set, sampleRaw: string }
+    const missing = new Map(); // subjectId -> { id, rawName, count, classIds: Set }
+
+    if (timetable && typeof timetable === 'object') {
+      Object.entries(timetable).forEach(([cId, days]) => {
+        if (!days) return;
+        Object.entries(days).forEach(([d, periods]) => {
+          if (!periods) return;
+          Object.entries(periods).forEach(([p, slot]) => {
+            if (slot && slot.subjectId) {
+              const sId = slot.subjectId;
+              const sRaw = slot.subjectRaw || sId;
+
+              // Thống kê số tiết đã xếp
+              if (!usage[sId]) {
+                usage[sId] = { count: 0, classIds: new Set(), sampleRaw: sRaw };
+              }
+              usage[sId].count++;
+              usage[sId].classIds.add(cId);
+
+              // Kiểm tra xem đã có trong danh mục subjects chưa
+              if (!subjects || !subjects[sId]) {
+                if (!missing.has(sId)) {
+                  missing.set(sId, {
+                    id: sId,
+                    rawName: sRaw,
+                    count: 0,
+                    classIds: new Set()
+                  });
+                }
+                const m = missing.get(sId);
+                m.count++;
+                m.classIds.add(cId);
+              }
+            }
+          });
+        });
+      });
+    }
+
+    // Kiểm tra thêm assignments (phân công chuyên môn)
+    if (Array.isArray(assignments)) {
+      assignments.forEach(a => {
+        if (a && a.subjectId && (!subjects || !subjects[a.subjectId])) {
+          if (!missing.has(a.subjectId)) {
+            missing.set(a.subjectId, {
+              id: a.subjectId,
+              rawName: a.subjectId,
+              count: 0,
+              classIds: new Set([a.classId])
+            });
+          }
+        }
+      });
+    }
+
+    return {
+      timetableUsage: usage,
+      missingSubjectsInTimetable: Array.from(missing.values())
+    };
+  }, [timetable, assignments, subjects]);
+
   // Convert subjects object to array (deduplicating by id)
   const subjectList = useMemo(() => {
     const list = Object.values(subjects || {});
@@ -112,9 +191,15 @@ export const SubjectManager = ({
         (selectedRoomFilter === 'SPECIALIZED' && sub.defaultRoom && sub.defaultRoom !== 'LOP_HOC') ||
         (selectedRoomFilter === 'CLASSROOM' && (!sub.defaultRoom || sub.defaultRoom === 'LOP_HOC'));
 
-      return matchSearch && matchCat && matchRoom;
+      const inTkb = timetableUsage[sub.id] && timetableUsage[sub.id].count > 0;
+      const matchUsage = 
+        selectedUsageFilter === 'ALL' ||
+        (selectedUsageFilter === 'IN_TKB' && inTkb) ||
+        (selectedUsageFilter === 'NOT_IN_TKB' && !inTkb);
+
+      return matchSearch && matchCat && matchRoom && matchUsage;
     });
-  }, [subjectList, searchQuery, selectedCategory, selectedRoomFilter]);
+  }, [subjectList, searchQuery, selectedCategory, selectedRoomFilter, selectedUsageFilter, timetableUsage]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -123,10 +208,27 @@ export const SubjectManager = ({
     const coreCount = subjectList.filter(s => s.category === SUBJECT_CATEGORIES.CORE).length;
     const specializedCount = subjectList.filter(s => s.category === SUBJECT_CATEGORIES.SPECIALIZED || s.category === SUBJECT_CATEGORIES.LANGUAGE).length;
 
-    return { total, specializedRooms, coreCount, specializedCount };
-  }, [subjectList]);
+    let timetableUsedCount = 0;
+    let totalTimetableSlots = 0;
+    Object.values(timetableUsage).forEach(u => {
+      if (u.count > 0) {
+        timetableUsedCount++;
+        totalTimetableSlots += u.count;
+      }
+    });
 
-  // Mở modal thêm môn
+    return { 
+      total, 
+      specializedRooms, 
+      coreCount, 
+      specializedCount,
+      timetableUsedCount,
+      totalTimetableSlots,
+      missingCount: missingSubjectsInTimetable.length
+    };
+  }, [subjectList, timetableUsage, missingSubjectsInTimetable]);
+
+  // Mở modal thêm môn mới
   const handleAddNew = () => {
     const defaultColor = COLOR_PRESETS[0];
     setEditingSubject({
@@ -141,21 +243,53 @@ export const SubjectManager = ({
       defaultRoom: 'LOP_HOC',
       isFixed: false,
       description: '',
-      _isNew: true
+      _isNew: true,
+      _originalId: ''
     });
     setIsModalOpen(true);
   };
 
-  // Mở modal sửa môn
+  // Mở modal sửa môn hiện có
   const handleEdit = (sub) => {
-    setEditingSubject({ ...sub, _isNew: false });
+    setEditingSubject({ 
+      ...sub, 
+      _originalId: sub.id, 
+      _isNew: false 
+    });
     setIsModalOpen(true);
   };
 
-  // Xóa môn
-  const handleDelete = (subjectId) => {
+  // Mở modal hoàn thiện môn học thiếu phát hiện từ TKB
+  const handleQuickEditMissing = (item) => {
+    const pIndex = Object.keys(subjects || {}).length % COLOR_PRESETS.length;
+    const preset = COLOR_PRESETS[pIndex];
+    setEditingSubject({
+      id: item.id,
+      name: item.rawName || item.id,
+      shortName: item.rawName ? (item.rawName.length > 8 ? item.rawName.substring(0, 8) : item.rawName) : item.id,
+      category: SUBJECT_CATEGORIES.CORE,
+      color: preset.color,
+      bg: preset.bg,
+      border: preset.border,
+      text: preset.text,
+      defaultRoom: 'LOP_HOC',
+      isFixed: false,
+      description: `Môn học phát hiện từ Thời khóa biểu (${item.count} tiết đang dạy)`,
+      _isNew: false,
+      _originalId: item.id
+    });
+    setIsModalOpen(true);
+  };
 
-    if (window.confirm(`Bạn có chắc chắn muốn xóa môn [${subjects[subjectId]?.name || subjectId}] khỏi danh mục môn học?`)) {
+  // Xóa môn (có kiểm tra cảnh báo nếu môn đang có tiết trên TKB)
+  const handleDelete = (subjectId) => {
+    const usage = timetableUsage[subjectId];
+    let confirmMsg = `Bạn có chắc chắn muốn xóa môn [${subjects[subjectId]?.name || subjectId}] khỏi danh mục môn học?`;
+    if (usage && usage.count > 0) {
+      confirmMsg = `⚠️ CẢNH BÁO QUAN TRỌNG:\nMôn [${subjects[subjectId]?.name || subjectId}] đang được xếp trong ${usage.count} tiết trên Thời khóa biểu (${usage.classIds.size} lớp học)!\nNếu xóa, các ô TKB này sẽ chuyển về trạng thái chưa cấu hình màu sắc.\n\nBạn có chắc chắn muốn xóa môn này không?`;
+    }
+
+    if (window.confirm(confirmMsg)) {
       setSubjects(prev => {
         const next = { ...prev };
         delete next[subjectId];
@@ -165,7 +299,146 @@ export const SubjectManager = ({
     }
   };
 
-  // Lưu môn học & Đồng bộ sang Phân công & Phòng chức năng
+  // ⚡ Thêm tất cả môn thiếu phát hiện từ TKB vào danh mục trong 1 click
+  const handleAddAllMissingSubjects = () => {
+    if (missingSubjectsInTimetable.length === 0) return;
+
+    const newSubjectsToAdd = {};
+    const currentKeysCount = Object.keys(subjects || {}).length;
+
+    missingSubjectsInTimetable.forEach((item, idx) => {
+      const pIndex = (currentKeysCount + idx) % COLOR_PRESETS.length;
+      const preset = COLOR_PRESETS[pIndex];
+      newSubjectsToAdd[item.id] = {
+        id: item.id,
+        name: item.rawName || item.id,
+        shortName: item.rawName ? (item.rawName.length > 8 ? item.rawName.substring(0, 8) : item.rawName) : item.id,
+        category: SUBJECT_CATEGORIES.CORE,
+        color: preset.color,
+        bg: preset.bg,
+        border: preset.border,
+        text: preset.text,
+        defaultRoom: 'LOP_HOC',
+        isFixed: false,
+        description: `Môn học trích xuất tự động từ Thời khóa biểu (${item.count} tiết đang dạy)`
+      };
+    });
+
+    setSubjects(prev => ({
+      ...prev,
+      ...newSubjectsToAdd
+    }));
+    triggerSaveNotification();
+    showBannerMessage(`🎉 Đã bổ sung thành công ${missingSubjectsInTimetable.length} môn học vào Danh mục môn học!`);
+  };
+
+  // 🔍 Quét trực tiếp thời khóa biểu và trích xuất tất cả môn học
+  const handleScanFromTimetable = () => {
+    const foundSubjects = new Map();
+    let totalSlotsScanned = 0;
+
+    if (timetable && typeof timetable === 'object') {
+      Object.entries(timetable).forEach(([cId, days]) => {
+        if (!days) return;
+        Object.entries(days).forEach(([d, periods]) => {
+          if (!periods) return;
+          Object.entries(periods).forEach(([p, slot]) => {
+            if (slot && slot.subjectId) {
+              totalSlotsScanned++;
+              const sId = slot.subjectId;
+              const sRaw = slot.subjectRaw || sId;
+              if (!foundSubjects.has(sId)) {
+                foundSubjects.set(sId, {
+                  id: sId,
+                  name: sRaw,
+                  shortName: sRaw.length > 8 ? sRaw.substring(0, 8) : sRaw,
+                  count: 0
+                });
+              }
+              foundSubjects.get(sId).count++;
+            }
+          });
+        });
+      });
+    }
+
+    if (foundSubjects.size === 0) {
+      alert('Thời khóa biểu hiện tại đang trống (chưa có tiết học nào). Bạn có thể thêm môn thủ công hoặc nạp từ file Excel.');
+      return;
+    }
+
+    const newSubjectsToAdd = {};
+    let newlyAddedCount = 0;
+    const currentKeys = new Set(Object.keys(subjects || {}));
+
+    foundSubjects.forEach((val, sId) => {
+      if (!currentKeys.has(sId)) {
+        const pIndex = (currentKeys.size + newlyAddedCount) % COLOR_PRESETS.length;
+        const preset = COLOR_PRESETS[pIndex];
+        newSubjectsToAdd[sId] = {
+          id: sId,
+          name: val.name,
+          shortName: val.shortName,
+          category: SUBJECT_CATEGORIES.CORE,
+          color: preset.color,
+          bg: preset.bg,
+          border: preset.border,
+          text: preset.text,
+          defaultRoom: 'LOP_HOC',
+          isFixed: false,
+          description: `Môn học trích xuất tự động từ Thời khóa biểu (${val.count} tiết đang dạy)`
+        };
+        newlyAddedCount++;
+      }
+    });
+
+    if (newlyAddedCount > 0) {
+      setSubjects(prev => ({
+        ...prev,
+        ...newSubjectsToAdd
+      }));
+      triggerSaveNotification();
+      showBannerMessage(`🎉 Đã quét ${totalSlotsScanned} tiết trên TKB và bổ sung ${newlyAddedCount} môn học mới vào danh mục!`);
+    } else {
+      showBannerMessage(`✅ Đã rà soát ${totalSlotsScanned} tiết trên TKB: Toàn bộ ${foundSubjects.size} môn học đều đã có đầy đủ trong danh mục!`);
+    }
+  };
+
+  // 📁 Đọc trực tiếp môn học từ một file Excel TKB
+  const handleImportFromExcelFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const parsed = parseExcelWorkbook(buffer);
+      if (parsed && parsed.subjects) {
+        const found = Object.values(parsed.subjects);
+        let addedCount = 0;
+        setSubjects(prev => {
+          const next = { ...prev };
+          found.forEach(s => {
+            if (!next[s.id]) {
+              next[s.id] = s;
+              addedCount++;
+            }
+          });
+          return next;
+        });
+        triggerSaveNotification();
+        showBannerMessage(`🎉 Đã đọc file Excel [${file.name}]: Trích xuất được ${found.length} môn học (trong đó đã bổ sung ${addedCount} môn mới vào danh mục)!`);
+      } else {
+        alert('Không tìm thấy dữ liệu môn học trong file Excel này.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert(`Lỗi khi đọc file Excel: ${err.message}`);
+    } finally {
+      if (excelFileInputRef.current) excelFileInputRef.current.value = '';
+    }
+  };
+
+  // Lưu môn học & Đồng bộ dây chuyền (Cascade) sang TKB, Phân công, Định mức & Phòng
   const handleSaveSubject = (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!editingSubject) return;
@@ -194,6 +467,15 @@ export const SubjectManager = ({
       return;
     }
 
+    const originalId = editingSubject._originalId || cleanId;
+    const isIdChanged = !editingSubject._isNew && originalId && originalId !== cleanId;
+
+    if (isIdChanged && subjects && subjects[cleanId]) {
+      if (!window.confirm(`Mã môn học [${cleanId}] đã tồn tại trong danh mục! Bạn có chắc muốn ghi đè môn [${originalId}] vào [${cleanId}] không?`)) {
+        return;
+      }
+    }
+
     const targetRoom = editingSubject.defaultRoom || 'LOP_HOC';
     const shortName = editingSubject.shortName?.trim() || editingSubject.name.trim().substring(0, 10);
 
@@ -205,24 +487,91 @@ export const SubjectManager = ({
       defaultRoom: targetRoom
     };
     delete updatedSubject._isNew;
+    delete updatedSubject._originalId;
 
-    // 1. Cập nhật danh mục môn học
-    setSubjects(prev => ({
-      ...prev,
-      [cleanId]: updatedSubject
-    }));
+    // 1. Cập nhật danh mục môn học (subjects)
+    setSubjects(prev => {
+      const next = { ...prev };
+      if (isIdChanged && next[originalId]) {
+        delete next[originalId];
+      }
+      next[cleanId] = updatedSubject;
+      return next;
+    });
 
-    // 2. Đồng bộ roomType sang bảng Phân công chuyên môn (assignments)
-    if (setAssignments) {
-      setAssignments(prev => prev.map(a => 
-        a.subjectId === cleanId ? { ...a, roomType: targetRoom } : a
-      ));
+    // 2. Đồng bộ dây chuyền (Cascade) sang Thời khóa biểu (timetable)
+    if (isIdChanged && setTimetable && timetable) {
+      setTimetable(prevTkb => {
+        const nextTkb = { ...prevTkb };
+        Object.keys(nextTkb).forEach(cId => {
+          if (nextTkb[cId]) {
+            nextTkb[cId] = { ...nextTkb[cId] };
+            for (let d = 2; d <= 6; d++) {
+              if (nextTkb[cId][d]) {
+                nextTkb[cId][d] = { ...nextTkb[cId][d] };
+                for (let p = 1; p <= 7; p++) {
+                  const slot = nextTkb[cId][d][p];
+                  if (slot && slot.subjectId === originalId) {
+                    nextTkb[cId][d][p] = {
+                      ...slot,
+                      subjectId: cleanId,
+                      subjectRaw: shortName || updatedSubject.name
+                    };
+                  }
+                }
+              }
+            }
+          }
+        });
+        return nextTkb;
+      });
     }
 
-    // 3. Đồng bộ subjectId sang danh sách Phòng chức năng (rooms)
+    // 3. Đồng bộ sang Phân công chuyên môn (assignments)
+    if (setAssignments) {
+      setAssignments(prev => (prev || []).map(a => {
+        if (a.subjectId === originalId || a.subjectId === cleanId) {
+          return {
+            ...a,
+            subjectId: cleanId,
+            roomType: targetRoom
+          };
+        }
+        return a;
+      }));
+    }
+
+    // 4. Đồng bộ sang Định mức khối (gradeQuotas)
+    if (setGradeQuotas && gradeQuotas) {
+      setGradeQuotas(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(g => {
+          if (next[g] && Array.isArray(next[g].subjects)) {
+            next[g] = {
+              ...next[g],
+              subjects: next[g].subjects.map(s => {
+                if (s.subjectId === originalId || s.subjectId === cleanId) {
+                  return {
+                    ...s,
+                    subjectId: cleanId,
+                    name: updatedSubject.name,
+                    shortName: shortName,
+                    roomType: targetRoom
+                  };
+                }
+                return s;
+              })
+            };
+          }
+        });
+        return next;
+      });
+    }
+
+    // 5. Đồng bộ sang danh sách Phòng chức năng (rooms)
     if (setRooms && targetRoom !== 'LOP_HOC' && targetRoom !== 'SAN_TRUONG') {
-      setRooms(prev => prev.map(r => 
-        r.id === targetRoom ? { ...r, subjectId: cleanId } : r
+      setRooms(prev => (prev || []).map(r => 
+        r.id === targetRoom ? { ...r, subjectId: cleanId } : (r.subjectId === originalId ? { ...r, subjectId: cleanId } : r)
       ));
     }
 
@@ -236,6 +585,7 @@ export const SubjectManager = ({
     if (window.confirm('Khôi phục toàn bộ danh mục môn học về chuẩn CTGDPT 2018 của Bộ GD&ĐT?')) {
       setSubjects(JSON.parse(JSON.stringify(DEFAULT_SUBJECTS)));
       triggerSaveNotification();
+      showBannerMessage('Đã khôi phục toàn bộ danh mục môn học về chuẩn CTGDPT 2018!');
     }
   };
 
@@ -266,6 +616,11 @@ export const SubjectManager = ({
     setTimeout(() => setSaveSuccess(false), 2500);
   };
 
+  const showBannerMessage = (msg) => {
+    setScanMessage(msg);
+    setTimeout(() => setScanMessage(null), 4000);
+  };
+
   return (
     <div className="animate-fade-in" style={{ padding: '24px', maxWidth: '1600px', margin: '0 auto' }}>
       {/* 1. Header & Actions */}
@@ -283,11 +638,65 @@ export const SubjectManager = ({
             <span>Quản Lý Danh Mục Môn Học & Hoạt Động Giáo Dục</span>
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>
-            Cấu hình tên môn, mã hiển thị trên TKB, nhóm chuyên môn, phòng thực hành và màu sắc nhận diện
+            Cấu hình tên môn, mã hiển thị trên TKB, nhóm chuyên môn, phòng thực hành, màu sắc nhận diện và tự động đồng bộ sang TKB
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Nút Đọc Môn Từ Thời Khóa Biểu */}
+          <button
+            onClick={handleScanFromTimetable}
+            title="Quét toàn bộ thời khóa biểu để đối soát và tự động trích xuất các môn học vào danh mục"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '10px 16px',
+              borderRadius: '10px',
+              fontSize: '0.875rem',
+              fontWeight: 700,
+              background: '#e0e7ff',
+              border: '1.5px solid #c7d2fe',
+              color: '#3730a3',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(79, 70, 229, 0.1)'
+            }}
+          >
+            <Calendar size={16} color="#4f46e5" />
+            <span>Đọc Môn Từ TKB</span>
+          </button>
+
+          {/* Nút Đọc Môn Từ File Excel */}
+          <input
+            type="file"
+            ref={excelFileInputRef}
+            onChange={handleImportFromExcelFile}
+            accept=".xlsx,.xls"
+            style={{ display: 'none' }}
+          />
+
+          <button
+            onClick={() => excelFileInputRef.current?.click()}
+            title="Đọc nhanh danh mục môn học từ một file Excel thời khóa biểu"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '10px 16px',
+              borderRadius: '10px',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              background: '#f0fdf4',
+              border: '1.5px solid #bbf7d0',
+              color: '#166534',
+              cursor: 'pointer',
+              boxShadow: 'var(--shadow-sm)'
+            }}
+          >
+            <FileSpreadsheet size={16} color="#16a34a" />
+            <span>Đọc Môn Từ File Excel</span>
+          </button>
+
           <button
             onClick={handleExportExcel}
             style={{
@@ -353,6 +762,27 @@ export const SubjectManager = ({
         </div>
       </div>
 
+      {/* Thông báo quét môn học TKB / Excel */}
+      {scanMessage && (
+        <div className="animate-fade-in" style={{
+          background: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          color: '#1e40af',
+          padding: '12px 18px',
+          borderRadius: '10px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          boxShadow: '0 2px 4px rgba(59, 130, 246, 0.08)'
+        }}>
+          <Sparkles size={18} color="#3b82f6" />
+          <span>{scanMessage}</span>
+        </div>
+      )}
+
       {/* Save Success Alert */}
       {saveSuccess && (
         <div className="animate-fade-in" style={{
@@ -369,193 +799,109 @@ export const SubjectManager = ({
           fontSize: '0.875rem'
         }}>
           <CheckCircle2 size={18} color="#10b981" />
-          <span>Đã lưu và cập nhật danh mục môn học thành công!</span>
+          <span>Đã lưu và cập nhật đồng bộ môn học thành công!</span>
         </div>
       )}
 
-      {/* 2. Top Stats Overview Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: '16px',
-        marginBottom: '24px'
-      }}>
-        <div style={{
-          background: '#ffffff',
-          padding: '16px 20px',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px'
+      {/* CẢNH BÁO MÔN HỌC TRONG TKB CHƯA CÓ TRONG DANH MỤC */}
+      {missingSubjectsInTimetable.length > 0 && (
+        <div className="animate-fade-in" style={{
+          background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+          border: '1.5px solid #f59e0b',
+          borderRadius: '16px',
+          padding: '20px 24px',
+          marginBottom: '24px',
+          boxShadow: '0 10px 15px -3px rgba(245, 158, 11, 0.12)'
         }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
-            <BookOpen size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Tổng Số Môn & Hoạt Động</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>
-              {stats.total} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8' }}>môn học</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#fef3c7', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#92400e' }}>
+                  Phát hiện {missingSubjectsInTimetable.length} môn học trong Thời khóa biểu chưa có trong Danh mục môn học!
+                </h4>
+                <p style={{ margin: '3px 0 0 0', fontSize: '0.83rem', color: '#b45309' }}>
+                  Các môn này đang có tiết trên TKB nhưng chưa được định cấu hình tên chuẩn, màu sắc và phòng học. Hãy thêm hoặc cấu hình ngay để hiển thị TKB chuẩn đẹp:
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <div style={{
-          background: '#ffffff',
-          padding: '16px 20px',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px'
-        }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a' }}>
-            <Layers size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Môn Cơ Bản & Văn Hóa</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>
-              {stats.coreCount} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8' }}>môn</span>
-            </div>
-          </div>
-        </div>
-
-        <div style={{
-          background: '#ffffff',
-          padding: '16px 20px',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px'
-        }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed' }}>
-            <Sparkles size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Ngoại Ngữ & Năng Khiếu</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>
-              {stats.specializedCount} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8' }}>môn</span>
-            </div>
-          </div>
-        </div>
-
-        <div style={{
-          background: '#ffffff',
-          padding: '16px 20px',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px'
-        }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ea580c' }}>
-            <Building2 size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Dùng Phòng Chức Năng</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>
-              {stats.specializedRooms} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8' }}>phòng chuyên biệt</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Search & Filter Bar */}
-      <div style={{
-        background: '#ffffff',
-        padding: '16px 20px',
-        borderRadius: '14px',
-        border: '1px solid #e2e8f0',
-        marginBottom: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        {/* Search */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: '#f8fafc',
-          border: '1px solid #cbd5e1',
-          padding: '8px 14px',
-          borderRadius: '10px',
-          width: '320px'
-        }}>
-          <Search size={16} color="#94a3b8" />
-          <input
-            type="text"
-            placeholder="Tìm theo tên môn, mã viết tắt..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              outline: 'none',
-              width: '100%',
-              fontSize: '0.875rem'
-            }}
-          />
-          {searchQuery && (
-            <X size={14} color="#94a3b8" style={{ cursor: 'pointer' }} onClick={() => setSearchQuery('')} />
-          )}
-        </div>
-
-        {/* Filters */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* Nhóm môn */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Nhóm:</span>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
+            <button
+              onClick={handleAddAllMissingSubjects}
               style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                background: '#ffffff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '10px',
+                background: '#d97706',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 700,
                 fontSize: '0.85rem',
-                color: '#334155',
-                outline: 'none'
+                cursor: 'pointer',
+                boxShadow: '0 4px 10px rgba(217, 119, 6, 0.35)'
               }}
             >
-              <option value="ALL">Tất cả nhóm môn</option>
-              {Object.entries(SUBJECT_CATEGORIES).map(([key, label]) => (
-                <option key={key} value={label}>{label}</option>
-              ))}
-            </select>
+              <Sparkles size={16} />
+              <span>⚡ Thêm Tất Cả {missingSubjectsInTimetable.length} Môn Vào Danh Mục</span>
+            </button>
           </div>
 
-          {/* Phòng học */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Phòng:</span>
-            <select
-              value={selectedRoomFilter}
-              onChange={(e) => setSelectedRoomFilter(e.target.value)}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                background: '#ffffff',
-                fontSize: '0.85rem',
-                color: '#334155',
-                outline: 'none'
-              }}
-            >
-              <option value="ALL">Tất cả phòng học</option>
-              <option value="SPECIALIZED">Chỉ môn dùng phòng chức năng</option>
-              <option value="CLASSROOM">Học tại lớp học thông thường</option>
-            </select>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            {missingSubjectsInTimetable.map((item, idx) => (
+              <div 
+                key={idx}
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #fed7aa',
+                  borderRadius: '10px',
+                  padding: '8px 14px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                <div>
+                  <span style={{ fontWeight: 800, fontSize: '0.85rem', color: '#9a3412', marginRight: '6px' }}>
+                    {item.rawName || item.id}
+                  </span>
+                  <span style={{ fontSize: '0.72rem', background: '#ffedd5', color: '#c2410c', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                    Mã: {item.id}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: '#78350f', marginLeft: '6px' }}>
+                    ({item.count} tiết - {item.classIds.size} lớp)
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => handleQuickEditMissing(item)}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    background: '#fff7ed',
+                    border: '1px solid #fdba74',
+                    color: '#c2410c',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <Edit3 size={12} />
+                  <span>Sửa & Cấu hình</span>
+                </button>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      )}
+
 
       {/* 4. Subjects Table */}
       <div style={{
@@ -575,6 +921,7 @@ export const SubjectManager = ({
                 <th style={{ padding: '14px 18px', width: '140px' }}>Viết Tắt (TKB)</th>
                 <th style={{ padding: '14px 18px', width: '180px' }}>Nhóm Môn Học</th>
                 <th style={{ padding: '14px 18px', width: '220px' }}>Phòng Yêu Cầu</th>
+                <th style={{ padding: '14px 18px', width: '160px' }}>Sử Dụng TKB</th>
                 <th style={{ padding: '14px 18px' }}>Mô Tả & Ghi Chú</th>
                 <th style={{ padding: '14px 18px', textAlign: 'right', width: '100px' }}>Thao Tác</th>
               </tr>
@@ -582,7 +929,7 @@ export const SubjectManager = ({
             <tbody>
               {filteredSubjects.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                  <td colSpan="9" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
                     Không tìm thấy môn học nào phù hợp với bộ lọc tìm kiếm.
                   </td>
                 </tr>
@@ -697,6 +1044,47 @@ export const SubjectManager = ({
                         </span>
                       </td>
 
+                      {/* Sử Dụng TKB */}
+                      <td style={{ padding: '14px 18px' }}>
+                        {(() => {
+                          const usage = timetableUsage[sub.id];
+                          if (usage && usage.count > 0) {
+                            return (
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '4px 10px',
+                                borderRadius: '999px',
+                                background: '#ecfdf5',
+                                border: '1px solid #a7f3d0',
+                                color: '#065f46',
+                                fontWeight: 700,
+                                fontSize: '0.78rem'
+                              }}>
+                                <CheckCircle2 size={13} color="#10b981" />
+                                <span>{usage.count} tiết ({usage.classIds.size} lớp)</span>
+                              </span>
+                            );
+                          }
+                          return (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '3px 8px',
+                              borderRadius: '999px',
+                              background: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              color: '#94a3b8',
+                              fontSize: '0.75rem'
+                            }}>
+                              Chưa xếp TKB
+                            </span>
+                          );
+                        })()}
+                      </td>
+
                       {/* Description */}
                       <td style={{ padding: '14px 18px', color: '#64748b', fontSize: '0.8rem' }}>
                         {sub.description || '-'}
@@ -796,12 +1184,25 @@ export const SubjectManager = ({
                   <input
                     type="text"
                     required
-                    disabled={!editingSubject._isNew}
                     value={editingSubject.id || ''}
                     onChange={(e) => setEditingSubject({ ...editingSubject, id: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-                    placeholder="VD: STEM, KHOA_HOC"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem', background: !editingSubject._isNew ? '#f1f5f9' : '#ffffff' }}
+                    placeholder="VD: STEM, KHOA_HOC, TIENG_ANH"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 12px', 
+                      borderRadius: '8px', 
+                      border: '1px solid #cbd5e1', 
+                      fontSize: '0.875rem', 
+                      background: '#ffffff',
+                      fontWeight: 700,
+                      fontFamily: 'var(--font-mono)'
+                    }}
                   />
+                  {!editingSubject._isNew && (
+                    <span style={{ display: 'block', fontSize: '0.72rem', color: '#6366f1', marginTop: '4px', lineHeight: 1.3 }}>
+                      💡 Có thể đổi mã môn. Hệ thống sẽ tự động cập nhật đồng bộ sang TKB, Phân công và Định mức khối.
+                    </span>
+                  )}
                 </div>
 
                 <div>

@@ -22,7 +22,7 @@ export const DEFAULT_SCHOOL_INFO = {
   district: 'UBND Phường Tân Mai',
   year: 'Năm học 2026 - 2027',
   principal: 'Bùi Văn Việt',
-  scheduler: 'Châu Đàn',
+  scheduler: '',
   address: 'Phường Tân Mai, TX Hoàng Mai, Nghệ An',
   lunchBreak: '10:30 - 14:00'
 };
@@ -43,7 +43,7 @@ const SchoolSettingsModal = ({
     district: schoolInfo.district || DEFAULT_SCHOOL_INFO.district,
     year: schoolInfo.year || DEFAULT_SCHOOL_INFO.year,
     principal: schoolInfo.principal || DEFAULT_SCHOOL_INFO.principal,
-    scheduler: schoolInfo.scheduler || DEFAULT_SCHOOL_INFO.scheduler,
+    scheduler: (schoolInfo.scheduler !== undefined && schoolInfo.scheduler !== 'Châu Đàn') ? schoolInfo.scheduler : '',
     address: schoolInfo.address || DEFAULT_SCHOOL_INFO.address,
     lunchBreak: schoolInfo.lunchBreak || DEFAULT_SCHOOL_INFO.lunchBreak
   });
@@ -54,11 +54,12 @@ const SchoolSettingsModal = ({
 
   // Auto schedule generator inputs
   const [autoGen, setAutoGen] = useState({
-    morningStart: '07:30',
+    morningStart: '07:15',
     afternoonStart: '14:00',
-    periodDuration: 35,
-    shortBreak: 10,
-    longBreak: 20 // between P2 and P3
+    periodDuration: 40,
+    shortBreak: 0,
+    longBreak: 25, // Nghỉ giữa tiết 2 & 3 sáng (Ra chơi: 25 phút)
+    afternoonBreak: 20 // Nghỉ giữa tiết 2 & 3 chiều (Ra chơi: 20 phút)
   });
 
   const [toastMessage, setToastMessage] = useState('');
@@ -70,7 +71,7 @@ const SchoolSettingsModal = ({
         district: schoolInfo.district || DEFAULT_SCHOOL_INFO.district,
         year: schoolInfo.year || DEFAULT_SCHOOL_INFO.year,
         principal: schoolInfo.principal || DEFAULT_SCHOOL_INFO.principal,
-        scheduler: schoolInfo.scheduler || DEFAULT_SCHOOL_INFO.scheduler,
+        scheduler: (schoolInfo.scheduler !== undefined && schoolInfo.scheduler !== 'Châu Đàn') ? schoolInfo.scheduler : '',
         address: schoolInfo.address || DEFAULT_SCHOOL_INFO.address,
         lunchBreak: schoolInfo.lunchBreak || DEFAULT_SCHOOL_INFO.lunchBreak
       });
@@ -109,19 +110,20 @@ const SchoolSettingsModal = ({
   // Auto Generate Periods
   const handleAutoGeneratePeriods = () => {
     const newPeriods = JSON.parse(JSON.stringify(localPeriods));
-    const dur = Number(autoGen.periodDuration) || 35;
-    const sBreak = Number(autoGen.shortBreak) || 10;
-    const lBreak = Number(autoGen.longBreak) || 20;
+    const dur = Number(autoGen.periodDuration) || 40;
+    const sBreak = Number(autoGen.shortBreak) || 0;
+    const lBreak = Number(autoGen.longBreak) || 25;
+    const aftBreak = Number(autoGen.afternoonBreak) || 20;
 
     // Morning: 4 periods
-    let curTime = autoGen.morningStart || '07:30';
+    let curTime = autoGen.morningStart || '07:15';
     for (let i = 1; i <= 4; i++) {
       const pIndex = newPeriods.findIndex(p => p.id === i);
       const endTime = addMinutes(curTime, dur);
       if (pIndex !== -1) {
         newPeriods[pIndex].time = `${curTime} - ${endTime}`;
       }
-      // calculate next start time
+      // Sau tiết 2 sáng là ra chơi (lBreak = 25m), các tiết khác cách nhau sBreak (0m)
       const breakMins = (i === 2) ? lBreak : sBreak;
       curTime = addMinutes(endTime, breakMins);
     }
@@ -134,7 +136,9 @@ const SchoolSettingsModal = ({
       if (pIndex !== -1) {
         newPeriods[pIndex].time = `${curAftTime} - ${endTime}`;
       }
-      curAftTime = addMinutes(endTime, sBreak);
+      // Sau tiết 6 (Tiết 2 chiều) là ra chơi chiều (aftBreak = 20m), các tiết khác cách nhau sBreak (0m)
+      const aftBreakMins = (i === 6) ? aftBreak : sBreak;
+      curAftTime = addMinutes(endTime, aftBreakMins);
     }
 
     setLocalPeriods(newPeriods);
@@ -449,7 +453,7 @@ const SchoolSettingsModal = ({
                     type="text"
                     value={localSchool.scheduler}
                     onChange={(e) => setLocalSchool({ ...localSchool, scheduler: e.target.value })}
-                    placeholder="VD: Châu Đàn"
+                    placeholder="Để trống hoặc nhập họ tên"
                     style={{
                       width: '100%',
                       padding: '10px 14px',
@@ -526,7 +530,7 @@ const SchoolSettingsModal = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                   <Sparkles size={18} color="#4f46e5" />
                   <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#1e293b' }}>
-                    Công Cụ Tự Động Tính Khung Giờ Nhanh (35 phút/tiết chuẩn Bộ GD&ĐT)
+                    Công Cụ Tự Động Tính Khung Giờ Nhanh (40 phút/tiết chuẩn theo biểu trường)
                   </span>
                 </div>
 
@@ -567,7 +571,7 @@ const SchoolSettingsModal = ({
                     <input
                       type="number"
                       min="30"
-                      max="45"
+                      max="60"
                       value={autoGen.periodDuration}
                       onChange={(e) => setAutoGen({ ...autoGen, periodDuration: e.target.value })}
                       style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
@@ -576,14 +580,28 @@ const SchoolSettingsModal = ({
 
                   <div>
                     <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                      Nghỉ giữa tiết 2 & 3
+                      Ra chơi Sáng (sau T2)
                     </label>
                     <input
                       type="number"
                       min="5"
-                      max="30"
+                      max="40"
                       value={autoGen.longBreak}
                       onChange={(e) => setAutoGen({ ...autoGen, longBreak: e.target.value })}
+                      style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                      Ra chơi Chiều (sau T2)
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="40"
+                      value={autoGen.afternoonBreak}
+                      onChange={(e) => setAutoGen({ ...autoGen, afternoonBreak: e.target.value })}
                       style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
                     />
                   </div>
@@ -594,8 +612,8 @@ const SchoolSettingsModal = ({
                     </label>
                     <input
                       type="number"
-                      min="5"
-                      max="15"
+                      min="0"
+                      max="20"
                       value={autoGen.shortBreak}
                       onChange={(e) => setAutoGen({ ...autoGen, shortBreak: e.target.value })}
                       style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
@@ -641,6 +659,13 @@ const SchoolSettingsModal = ({
                     </tr>
                   </thead>
                   <tbody>
+                    {/* Sinh hoạt lớp đầu sáng */}
+                    <tr style={{ background: '#f0fdf4', borderBottom: '1px dashed #bbf7d0' }}>
+                      <td colSpan={5} style={{ padding: '7px 14px', color: '#166534', fontSize: '0.78rem', fontWeight: 700 }}>
+                        🌅 <strong>07:00 - 07:15 (15 phút)</strong>: Sinh hoạt lớp đầu buổi sáng (Tất cả các khối 1 - 5)
+                      </td>
+                    </tr>
+
                     {localPeriods.map((p, idx) => {
                       const isMorning = p.session === 'morning';
                       const duration = calculateDuration(p.time);
@@ -652,30 +677,19 @@ const SchoolSettingsModal = ({
                             background: isMorning ? '#ffffff' : '#fffdfa'
                           }}>
                             {/* Session label */}
-                            {p.id === 1 && (
-                              <td rowSpan={4} style={{
-                                padding: '10px 14px',
+                            <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
+                              <span style={{
+                                background: isMorning ? '#eff6ff' : '#fffbeb',
+                                color: isMorning ? '#1d4ed8' : '#b45309',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
                                 fontWeight: 800,
-                                color: '#1d4ed8',
-                                background: '#eff6ff',
-                                verticalAlign: 'middle',
-                                borderRight: '1px solid #e2e8f0'
+                                display: 'inline-block'
                               }}>
-                                SÁNG
-                              </td>
-                            )}
-                            {p.id === 5 && (
-                              <td rowSpan={3} style={{
-                                padding: '10px 14px',
-                                fontWeight: 800,
-                                color: '#b45309',
-                                background: '#fffbeb',
-                                verticalAlign: 'middle',
-                                borderRight: '1px solid #e2e8f0'
-                              }}>
-                                CHIỀU
-                              </td>
-                            )}
+                                {isMorning ? 'SÁNG' : 'CHIỀU'}
+                              </span>
+                            </td>
 
                             {/* Period Number */}
                             <td style={{ padding: '10px 14px', fontWeight: 800, color: isMorning ? '#2563eb' : '#d97706' }}>
@@ -693,7 +707,7 @@ const SchoolSettingsModal = ({
                                 type="text"
                                 value={p.time}
                                 onChange={(e) => handlePeriodTimeChange(p.id, e.target.value)}
-                                placeholder="07:30 - 08:05"
+                                placeholder="07:15 - 07:55"
                                 style={{
                                   width: '100%',
                                   padding: '6px 10px',
@@ -718,16 +732,50 @@ const SchoolSettingsModal = ({
                                 fontWeight: 700,
                                 color: '#334155'
                               }}>
-                                {duration || '35 phút'}
+                                {duration || '40 phút'}
                               </span>
                             </td>
                           </tr>
 
-                          {/* Lunch Break Divider */}
+                          {/* Ra chơi sáng giữa tiết 2 & tiết 3 */}
+                          {p.id === 2 && (
+                            <tr style={{ background: '#fefce8', borderTop: '1px dashed #fef08a', borderBottom: '1px dashed #fef08a' }}>
+                              <td colSpan={5} style={{ padding: '6px 14px', color: '#854d0e', fontSize: '0.78rem', fontWeight: 700 }}>
+                                ☕ <strong>08:35 - 09:00 (25 phút)</strong>: Nghỉ giữa buổi (Ra chơi)
+                              </td>
+                            </tr>
+                          )}
+
+                          {/* Lunch Break Divider & Tan học sáng */}
                           {p.id === 4 && (
-                            <tr style={{ background: '#f8fafc', borderTop: '2px solid #e2e8f0', borderBottom: '2px solid #e2e8f0' }}>
-                              <td colSpan={4} style={{ padding: '8px 14px', color: '#64748b', fontSize: '0.78rem', fontWeight: 700, textAlign: 'center' }}>
-                                🍱 NGHỈ TRƯA & ĂN BÁN TRÚ: <strong>{localSchool.lunchBreak || '10:30 - 14:00'}</strong>
+                            <>
+                              <tr style={{ background: '#f8fafc', borderTop: '1px dashed #e2e8f0' }}>
+                                <td colSpan={5} style={{ padding: '5px 14px', color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>
+                                  🔔 <strong>10:20 - 10:30 (10 phút)</strong>: Tan học sáng
+                                </td>
+                              </tr>
+                              <tr style={{ background: '#f8fafc', borderTop: '2px solid #e2e8f0', borderBottom: '2px solid #e2e8f0' }}>
+                                <td colSpan={5} style={{ padding: '8px 14px', color: '#64748b', fontSize: '0.78rem', fontWeight: 700, textAlign: 'center' }}>
+                                  🍱 NGHỈ TRƯA & ĂN BÁN TRÚ: <strong>{localSchool.lunchBreak || '10:30 - 14:00'}</strong> (Chuẩn bị cơm, Ăn cơm, Nghỉ ngơi)
+                                </td>
+                              </tr>
+                            </>
+                          )}
+
+                          {/* Ra chơi chiều giữa tiết 6 (tiết 2 chiều) & tiết 7 (tiết 3 chiều) */}
+                          {p.id === 6 && (
+                            <tr style={{ background: '#fefce8', borderTop: '1px dashed #fef08a', borderBottom: '1px dashed #fef08a' }}>
+                              <td colSpan={5} style={{ padding: '6px 14px', color: '#854d0e', fontSize: '0.78rem', fontWeight: 700 }}>
+                                ☕ <strong>15:20 - 15:40 (20 phút)</strong>: Nghỉ giữa buổi chiều (Ra chơi)
+                              </td>
+                            </tr>
+                          )}
+
+                          {/* Tan học chiều sau tiết 7 */}
+                          {p.id === 7 && (
+                            <tr style={{ background: '#f8fafc', borderTop: '1px dashed #e2e8f0' }}>
+                              <td colSpan={5} style={{ padding: '6px 14px', color: '#64748b', fontSize: '0.78rem', fontWeight: 700 }}>
+                                🔔 <strong>16:20 - 16:35 (15 phút)</strong>: Tan học chiều
                               </td>
                             </tr>
                           )}

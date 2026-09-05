@@ -409,14 +409,14 @@ export const RoomTimetableView = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ fontWeight: 800, color: '#1d4ed8', background: '#eff6ff', padding: '1px 5px', borderRadius: '4px' }}>SÁNG:</span>
             <span style={{ color: '#334155' }}>
-              <strong>T1</strong> (07:30 - 08:05) • <strong>T2</strong> (08:15 - 08:50) • <strong>T3</strong> (09:10 - 09:45) • <strong>T4</strong> (09:55 - 10:30)
+              <strong>T1</strong> ({periods?.find(p => p.id === 1)?.time || '07:15 - 07:55'}) • <strong>T2</strong> ({periods?.find(p => p.id === 2)?.time || '07:55 - 08:35'}) • <strong>T3</strong> ({periods?.find(p => p.id === 3)?.time || '09:00 - 09:40'}) • <strong>T4</strong> ({periods?.find(p => p.id === 4)?.time || '09:40 - 10:20'})
             </span>
           </div>
           <div style={{ width: '1px', height: '12px', background: '#cbd5e1' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '1px 5px', borderRadius: '4px' }}>CHIỀU:</span>
             <span style={{ color: '#334155' }}>
-              <strong>T1</strong> (14:00 - 14:35) • <strong>T2</strong> (14:45 - 15:20) • <strong>T3</strong> (15:30 - 16:05)
+              <strong>T1</strong> ({periods?.find(p => p.id === 5)?.time || '14:00 - 14:40'}) • <strong>T2</strong> ({periods?.find(p => p.id === 6)?.time || '14:40 - 15:20'}) • <strong>T3</strong> ({periods?.find(p => p.id === 7)?.time || '15:40 - 16:20'})
             </span>
           </div>
         </div>
@@ -448,7 +448,7 @@ export const RoomTimetableView = ({
               </tr>
             </thead>
             <tbody>
-              {PERIODS.map(period => (
+              {(periods || PERIODS).map(period => (
                 <React.Fragment key={period.id}>
                   <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                     {/* Buổi Sáng / Chiều */}

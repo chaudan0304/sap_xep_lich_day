@@ -1,6 +1,7 @@
 // src/services/excelParser.js
 // Trình bóc tách dữ liệu bảng tính Excel chuyên dụng (SheetJS XLSX)
-// Hỗ trợ cả định dạng STKB thực tế (Nhiều sheet: Khối 1..5, Phân công chuyên môn, Tiết đọc TV) và định dạng Mẫu chuẩn
+// Hỗ trợ định dạng STKB thực tế nhiều sheet (Khối 1..5, Phân công chuyên môn, Tiết đọc TV),
+// định dạng Ma Trận Toàn Trường (TKB_Toan_Truong) và định dạng Mẫu chuẩn của hệ thống
 
 import * as XLSX from 'xlsx';
 import { DEFAULT_GRADE_QUOTAS } from '../constants/defaultCurriculum.js';
@@ -11,7 +12,13 @@ import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects.js';
  */
 export function normalizeStr(str) {
   if (str === undefined || str === null) return '';
-  return String(str).trim().normalize('NFC');
+  return String(str)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .normalize('NFC')
+    .replace(/òa/gi, 'oà').replace(/óa/gi, 'oá').replace(/ỏa/gi, 'oả').replace(/õa/gi, 'oã').replace(/ọa/gi, 'oạ')
+    .replace(/òe/gi, 'oè').replace(/óe/gi, 'oé').replace(/ỏe/gi, 'oẻ').replace(/õe/gi, 'oẽ').replace(/ọe/gi, 'oẹ')
+    .replace(/ùy/gi, 'uỳ').replace(/úy/gi, 'uý').replace(/ủy/gi, 'uỷ').replace(/ũy/gi, 'uỹ').replace(/ụy/gi, 'uỵ');
 }
 
 /**
@@ -20,84 +27,227 @@ export function normalizeStr(str) {
 export function mapSubjectCodeAndRoom(subRaw, defaultRoom = 'LOP_HOC') {
   if (!subRaw) return { subjectId: 'TU_CHON', roomId: defaultRoom };
   const s = normalizeStr(subRaw);
+  const sLower = s.toLowerCase();
 
-  if (s.includes('HĐTN') || s.includes('Hoạt động trải nghiệm')) return { subjectId: 'HDTN', roomId: 'LOP_HOC' };
-  if (s.includes('Tiếng Anh') || s.includes('T.Anh')) return { subjectId: 'TIENG_ANH', roomId: 'LOP_HOC' };
-  if (s.includes('Tin học') || s.includes('Tin')) return { subjectId: 'TIN_HOC', roomId: 'PHONG_TIN_HOC' };
-  if (s.includes('Công nghệ') || s === 'CN') return { subjectId: 'CONG_NGHE', roomId: 'LOP_HOC' };
-  if (s.includes('GDTC') || s.includes('Thể dục')) return { subjectId: 'THE_DUC', roomId: 'SAN_THE_CHAT' };
-  if (s.includes('Mĩ thuật') || s.includes('Mỹ thuật')) return { subjectId: 'MY_THUAT', roomId: 'LOP_HOC' };
-  if (s.includes('Âm nhạc')) return { subjectId: 'AM_NHAC', roomId: 'LOP_HOC' };
-  if (s.includes('TNXH') || s.includes('Tự nhiên')) return { subjectId: 'TNXH', roomId: 'LOP_HOC' };
-  if (s.includes('Khoa-Sử-Địa') || s.includes('Sử-Địa') || s.includes('LS_DL') || s.includes('Khoa học') || s.includes('Lịch sử')) {
+  // 1. Hoạt động trải nghiệm / Chào cờ / Sinh hoạt lớp
+  if (s.includes('HĐTN') || sLower.includes('trải nghiệm') || sLower.includes('trai nghiem')) {
+    return { subjectId: 'HDTN', roomId: 'LOP_HOC' };
+  }
+  if (sLower.includes('chào cờ') || sLower.includes('chao co') || sLower === 'shdc' || sLower.includes('dưới cờ')) {
+    return { subjectId: 'HDTN', roomId: 'SAN_TRUONG' };
+  }
+  if (sLower.includes('sinh hoạt') || sLower === 'shl' || sLower.includes('sinh hoat')) {
+    return { subjectId: 'HDTN', roomId: 'LOP_HOC' };
+  }
+
+  // 2. Tiếng Anh / Ngoại ngữ
+  if (sLower.includes('tiếng anh') || sLower.includes('t.anh') || sLower.includes('t. anh') || 
+      sLower.includes('anh văn') || sLower.includes('ngoại ngữ') || s === 'TA' || s === 'NN1') {
+    return { subjectId: 'TIENG_ANH', roomId: 'LOP_HOC' };
+  }
+
+  // 3. Tin học
+  if (sLower.includes('tin học') || sLower.includes('tin hoc') || sLower === 'tin' || s === 'TH') {
+    return { subjectId: 'TIN_HOC', roomId: 'PHONG_TIN_HOC' };
+  }
+
+  // 4. Công nghệ
+  if (sLower.includes('công nghệ') || sLower.includes('cong nghe') || s === 'CN' || sLower.includes('kỹ thuật')) {
+    return { subjectId: 'CONG_NGHE', roomId: 'LOP_HOC' };
+  }
+
+  // 5. Thể dục / GDTC
+  if (s.includes('GDTC') || sLower.includes('thể chất') || sLower.includes('thể dục') || sLower.includes('the duc') || s === 'TD') {
+    return { subjectId: 'THE_DUC', roomId: 'SAN_THE_CHAT' };
+  }
+
+  // 6. Mĩ thuật / Mỹ thuật
+  if (sLower.includes('mĩ thuật') || sLower.includes('mỹ thuật') || sLower.includes('mi thuat') || sLower.includes('my thuat') || s === 'MT') {
+    return { subjectId: 'MY_THUAT', roomId: 'LOP_HOC' };
+  }
+
+  // 7. Âm nhạc
+  if (sLower.includes('âm nhạc') || sLower.includes('am nhac') || sLower === 'nhạc' || s === 'AN') {
+    return { subjectId: 'AM_NHAC', roomId: 'LOP_HOC' };
+  }
+
+  // 8. Tự nhiên & Xã hội
+  if (s.includes('TNXH') || sLower.includes('tự nhiên') || sLower.includes('tu nhien') || s.includes('TN&XH') || s.includes('TN-XH')) {
+    return { subjectId: 'TNXH', roomId: 'LOP_HOC' };
+  }
+
+  // 9. Lịch sử & Địa lí / Khoa học
+  if (s.includes('Khoa-Sử-Địa') || s.includes('Sử-Địa') || s.includes('LS_DL') || s.includes('LS-ĐL') || s.includes('LS&ĐL') ||
+      sLower.includes('lịch sử') || sLower.includes('địa lí') || sLower.includes('địa lý') || sLower.includes('khoa học') || s === 'KH') {
     return { subjectId: 'LS_DL', roomId: 'LOP_HOC' };
   }
-  if (s.includes('Toán')) return { subjectId: 'TOAN', roomId: 'LOP_HOC' };
-  if (s.includes('Tiếng Việt') || s.includes('T.Việt')) return { subjectId: 'TIENG_VIET', roomId: 'LOP_HOC' };
-  if (s.includes('Đạo đức') || s.includes('ĐĐ')) return { subjectId: 'DAO_DUC', roomId: 'LOP_HOC' };
-  if (s.includes('Công dân số') || s.includes('công dân số') || s.includes('GDCDS') || s.includes('GDKNCDS') || s.includes('GDKNCD')) {
+
+  // 10. Toán
+  if (sLower.includes('toán') || sLower.includes('toan') || s === 'T') {
+    return { subjectId: 'TOAN', roomId: 'LOP_HOC' };
+  }
+
+  // 11. Tiếng Việt
+  if (sLower.includes('tiếng việt') || sLower.includes('t.việt') || sLower.includes('t. việt') || sLower.includes('tieng viet') || s === 'TV') {
+    return { subjectId: 'TIENG_VIET', roomId: 'LOP_HOC' };
+  }
+
+  // 12. Đạo đức
+  if (sLower.includes('đạo đức') || sLower.includes('dao duc') || s === 'ĐĐ' || s === 'DD') {
+    return { subjectId: 'DAO_DUC', roomId: 'LOP_HOC' };
+  }
+
+  // 13. Kỹ năng công dân số
+  if (sLower.includes('công dân số') || sLower.includes('cong dan so') || 
+      s.includes('GDCDS') || s.includes('GDKNCDS') || s.includes('GDKNCD') || sLower.includes('kĩ năng số') || sLower.includes('kỹ năng số')) {
     return { subjectId: 'GD_CONG_DAN_SO', roomId: 'LOP_HOC' };
   }
-  if (s.includes('Củng cố') || s.includes('củng cố') || s.includes('HĐ củng cố') || s.includes('Hoạt động củng cố') || s === 'HĐCC') {
+
+  // 14. Hoạt động củng cố / Ôn tập
+  if (sLower.includes('củng cố') || sLower.includes('cung co') || s.includes('HĐCC') || sLower.includes('ôn tập')) {
     return { subjectId: 'HD_CUNG_CO', roomId: 'LOP_HOC' };
   }
-  if (s.includes('Đọc thư viện') || s.includes('Thư viện') || s.includes('Đọc TV') || s.includes('ĐTV')) {
+
+  // 15. Tiết đọc thư viện
+  if (sLower.includes('đọc thư viện') || sLower.includes('thư viện') || sLower.includes('đọc tv') || sLower.includes('doc tv') || s.includes('ĐTV') || s.includes('DTV')) {
     return { subjectId: 'DOC_THU_VIEN', roomId: 'LOP_HOC' };
   }
+
+  // 16. Kỹ năng sống
+  if (sLower.includes('kỹ năng sống') || sLower.includes('kĩ năng sống') || sLower.includes('kns')) {
+    return { subjectId: 'KY_NANG_SONG', roomId: 'LOP_HOC' };
+  }
+
+  // 17. Giáo dục STEM
+  if (sLower.includes('stem')) {
+    return { subjectId: 'STEM', roomId: 'LOP_HOC' };
+  }
+
+  // 18. Tự chọn / Phát triển năng lực
+  if (sLower.includes('năng lực') || s.includes('PTNL') || sLower.includes('tự chọn') || sLower.includes('tự học')) {
+    return { subjectId: 'TU_CHON', roomId: defaultRoom };
+  }
+
+  // 19. Nếu chuỗi đã khớp trực tiếp mã môn có trong DEFAULT_SUBJECTS
+  const sUpper = s.toUpperCase().replace(/\s+/g, '_');
+  if (DEFAULT_SUBJECTS && DEFAULT_SUBJECTS[sUpper]) {
+    return { subjectId: sUpper, roomId: DEFAULT_SUBJECTS[sUpper].defaultRoom || defaultRoom };
+  }
+
+  // 20. Nếu là môn học riêng biệt khác, tạo slugId chuẩn hóa
+  const slugId = s.normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toUpperCase()
+    .trim()
+    .replace(/[^A-Z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 24);
+
+  if (slugId && slugId.length >= 2 && !slugId.startsWith('TIET') && !slugId.startsWith('BUOI')) {
+    return { subjectId: slugId, roomId: defaultRoom };
+  }
+
   return { subjectId: 'TU_CHON', roomId: defaultRoom };
 }
 
 /**
- * Tìm kiếm giáo viên tương ứng từ tên viết tắt trong cell Excel
+ * Tìm kiếm giáo viên tương ứng từ tên viết tắt hoặc chuỗi trong cell Excel
  */
-export function resolveTeacher(teacherRaw, classId, teachers) {
-  if (!teacherRaw) {
-    return teachers.find(t => t.homeroomClassId === classId) || null;
-  }
-  const clean = normalizeStr(teacherRaw).replace(/^Đ\/c\s+/i, '').trim().toLowerCase();
+export function resolveTeacher(teacherRaw, classId, teachers = []) {
+  if (!teachers || teachers.length === 0) return null;
 
-  if (clean.includes('nguyễn nga (a)') || clean.includes('nguyễn nga a') || clean.includes('nga a')) {
-    return teachers.find(t => t.homeroomClassId === '5A3') || teachers.find(t => t.name.includes('Nga (A)'));
+  if (!teacherRaw || typeof teacherRaw !== 'string' || !teacherRaw.trim()) {
+    return null; // Giữ nguyên trống, tuyệt đối không tự ý gán GVCN
   }
-  if (clean === 'nguyễn nga') {
-    if (classId && classId.startsWith('5')) {
-      return teachers.find(t => t.homeroomClassId === '5A3') || teachers.find(t => t.name.includes('Nga (A)'));
+
+  // Làm sạch tiền tố xưng hô
+  let clean = normalizeStr(teacherRaw)
+    .replace(/^(?:Đ\/c\.|Đ\/c|Đc\.|Đc|Đ\.c|Thầy\s+giáo|Thầy|Cô\s+giáo|Cô|GV|Đ\/C)\s+/i, '')
+    .trim()
+    .toLowerCase();
+
+  if (!clean) return null;
+
+  const cleanBase = clean.replace(/\s*\([a-z0-9]\)\s*/gi, '').trim();
+
+  // 1. Tìm tất cả ứng viên khớp theo mã TKB (code) hoặc Họ tên (name)
+  const candidates = teachers.filter(t => {
+    const c = normalizeStr(t.code).toLowerCase();
+    const cBase = c.replace(/\s*\([a-z0-9]\)\s*/gi, '').trim();
+    const n = normalizeStr(t.name).toLowerCase();
+    const nBase = n.replace(/\s*\([a-z0-9]\)\s*/gi, '').trim();
+    return c === clean || n === clean || cBase === cleanBase || nBase === cleanBase;
+  });
+
+  if (candidates.length === 1) return candidates[0];
+  if (candidates.length > 1) {
+    // Nếu có ứng viên là GVCN của chính lớp này, ưu tiên chọn đúng GVCN của lớp
+    if (classId) {
+      const homeMatch = candidates.find(t => t.homeroomClassId === classId);
+      if (homeMatch) return homeMatch;
     }
-    return teachers.find(t => t.homeroomClassId === '1A1') || teachers.find(t => t.name === 'Nguyễn Thị Nga');
-  }
-  if (clean === 'nguyễn an' || clean === 'an') {
-    return teachers.find(t => t.name === 'Nguyễn Thị An') || teachers.find(t => t.id === 'GV_41');
-  }
-  if (clean === 'nguyễn minh' || clean === 'bùi việt' || clean.includes('bùi văn việt')) {
-    return teachers.find(t => t.name.includes('Bùi Văn Việt')) || teachers.find(t => t.id === 'GV_01');
+    // Ưu tiên khớp chính xác tuyệt đối cả mã hoặc tên (kể cả dấu ngoặc)
+    const exactCode = candidates.find(t => normalizeStr(t.code).toLowerCase() === clean || normalizeStr(t.name).toLowerCase() === clean);
+    if (exactCode) return exactCode;
+    return candidates[0];
   }
 
-  // Khớp chính xác theo từng từ hoàn chỉnh (Whole Words)
+  // 2. Khớp chính xác theo từng từ hoàn chỉnh (Whole Words)
   const words = clean.split(/\s+/).filter(Boolean);
-  for (const t of teachers) {
-    const tLower = normalizeStr(t.name).toLowerCase();
-    const tWords = tLower.split(/\s+/).filter(Boolean);
-
-    if (tLower === clean || (words.length >= 2 && words.every(w => tWords.includes(w)))) {
-      return t;
+  if (words.length >= 2) {
+    const wordMatches = teachers.filter(t => {
+      const tWords = normalizeStr(t.name).toLowerCase().split(/\s+/).filter(Boolean);
+      return words.every(w => tWords.includes(w));
+    });
+    if (wordMatches.length === 1) return wordMatches[0];
+    if (wordMatches.length > 1 && classId) {
+      const home = wordMatches.find(t => t.homeroomClassId === classId);
+      if (home) return home;
+      return wordMatches[0];
     }
   }
 
-  // Khớp theo tên gọi chính (Last Name)
+  // 3. Khớp theo Họ + Tên gọi chính (Họ và Tên)
+  if (words.length >= 2) {
+    const firstWord = words[0];
+    const lastWord = words[words.length - 1];
+    const firstLastMatches = teachers.filter(t => {
+      const tWords = normalizeStr(t.name).toLowerCase().split(/\s+/).filter(Boolean);
+      return tWords.length >= 2 && tWords[0] === firstWord && tWords[tWords.length - 1] === lastWord;
+    });
+    if (firstLastMatches.length === 1) return firstLastMatches[0];
+    if (firstLastMatches.length > 1 && classId) {
+      const home = firstLastMatches.find(t => t.homeroomClassId === classId);
+      if (home) return home;
+      return firstLastMatches[0];
+    }
+  }
+
+  // 4. Khớp theo Tên gọi duy nhất (Last Name)
   if (words.length === 1) {
-    for (const t of teachers) {
-      const tLower = normalizeStr(t.name).toLowerCase();
-      const tWords = tLower.split(/\s+/).filter(Boolean);
-      if (tWords.length > 0 && tWords[tWords.length - 1] === words[0]) {
-        return t;
-      }
+    const singleName = words[0];
+    const matches = teachers.filter(t => {
+      const tWords = normalizeStr(t.name).toLowerCase().split(/\s+/).filter(Boolean);
+      return tWords.length > 0 && tWords[tWords.length - 1] === singleName;
+    });
+
+    if (matches.length === 1) return matches[0];
+    if (matches.length > 1 && classId) {
+      const homeroomTeacher = matches.find(t => t.homeroomClassId === classId);
+      if (homeroomTeacher) return homeroomTeacher;
     }
   }
 
-  return teachers.find(t => t.homeroomClassId === classId) || null;
+  // Nếu không khớp với bất kỳ giáo viên nào trong danh mục: trả về null (KHÔNG TỰ Ý ĐOÁN HOẶC THAY THẾ BẰNG GVCN!)
+  return null;
 }
 
-export function getTeacherShortName(fullName, homeroomClassId, task) {
+/**
+ * Tạo tên viết tắt sư phạm hiển thị trên ô Thời khóa biểu
+ */
+export function getTeacherShortName(fullName, homeroomClassId, task = '') {
   const name = normalizeStr(fullName);
   if (name.includes('Nga (A)')) return 'Nguyễn Nga (A)';
   if (name === 'Nguyễn Thị Nga' && homeroomClassId === '1A1') return 'Nguyễn Nga';
@@ -121,7 +271,7 @@ export function getTeacherShortName(fullName, homeroomClassId, task) {
 }
 
 /**
- * Bóc tách sheet 'Phân công chuyên môn'
+ * Bóc tách sheet 'Phân công chuyên môn' với cơ chế dò tìm header động và chống sai lệch cột
  */
 export function parseAssignmentSheet(ws) {
   if (!ws) return [];
@@ -129,20 +279,67 @@ export function parseAssignmentSheet(ws) {
   const teachers = [];
   const usedIds = new Set();
 
-  for (let r = 8; r < pcData.length; r++) {
-    const row = pcData[r];
-    if (!row || !row[1] || typeof row[1] !== 'string') continue;
-    const rawTt = row[0];
-    const name = normalizeStr(row[1]);
-    const task = normalizeStr(row[2] || '');
-    const totalPeriods = Number(row[12]) || 0;
-    const dinhMuc = Number(row[14]) || 23;
+  let headerRow = -1;
+  let colTt = 0;
+  let colName = 1;
+  let colTask = 2;
+  let colTotal = 12;
+  let colQuota = 14;
 
-    if (!name || name.includes('UBND') || name.includes('CỘNG HÒA') || name.includes('TRƯỜNG')) continue;
+  // 1. Dò tìm đúng dòng header bảng (chứa TT hoặc Họ tên)
+  for (let r = 0; r < Math.min(15, pcData.length); r++) {
+    const row = pcData[r];
+    if (!row || !Array.isArray(row)) continue;
+    
+    // Header bảng thật sự phải có cột Họ tên / Họ và tên (không phải dòng tiêu đề quyết định)
+    const hasNameCol = row.some(c => {
+      const s = normalizeStr(c).toLowerCase();
+      return s === 'họ tên' || s === 'họ và tên' || s.startsWith('họ và tên') || s.startsWith('họ tên');
+    });
+
+    if (hasNameCol) {
+      headerRow = r;
+      row.forEach((cell, cIdx) => {
+        const cLower = normalizeStr(cell).toLowerCase();
+        if (cLower === 'tt' || cLower === 'stt') colTt = cIdx;
+        if (cLower.includes('họ và tên') || cLower.includes('họ tên')) colName = cIdx;
+        if (cLower.includes('nhiệm vụ') && !cLower.includes('phân công chuyên môn')) colTask = cIdx;
+        if (cLower.includes('số tiết') || (cLower.includes('tổng') && cLower.includes('tiết'))) colTotal = cIdx;
+        if (cLower.includes('định mức')) colQuota = cIdx;
+      });
+      break;
+    }
+  }
+
+  // 2. Tìm dòng bắt đầu có dữ liệu giáo viên (dòng đầu tiên có STT = 1 hoặc có tên người)
+  let firstDataRow = headerRow !== -1 ? headerRow + 1 : 8;
+  for (let r = firstDataRow; r < Math.min(firstDataRow + 5, pcData.length); r++) {
+    const row = pcData[r];
+    if (!row) continue;
+    const ttVal = Number(row[colTt]);
+    const nameVal = normalizeStr(row[colName]);
+    if (ttVal === 1 || (nameVal && !['sáng', 'chiều', 'thứ 2', 'thứ 3'].includes(nameVal.toLowerCase()))) {
+      firstDataRow = r;
+      break;
+    }
+  }
+
+  for (let r = firstDataRow; r < pcData.length; r++) {
+    const row = pcData[r];
+    if (!row || !row[colName] || typeof row[colName] !== 'string') continue;
+    const rawTt = row[colTt];
+    const name = normalizeStr(row[colName]);
+    const task = normalizeStr(row[colTask] || '');
+    const totalPeriods = Number(row[colTotal]) || 0;
+    const dinhMuc = Number(row[colQuota]) || 23;
+
+    if (!name || name.includes('UBND') || name.includes('CỘNG HÒA') || name.includes('TRƯỜNG') || name.includes('Tổng cộng')) continue;
 
     let isHomeroom = false;
     let homeroomClassId = null;
-    const matchHome = task.match(/Chủ nhiệm\s+([1-5]A[1-5])/i);
+
+    // Nhận diện lớp chủ nhiệm: "Chủ nhiệm 1A1", "GVCN 1A1", "CN 1A1", "Chủ nhiệm lớp 1A1", v.v.
+    const matchHome = task.match(/(?:Chủ nhiệm|GVCN|CN)\s*(?:lớp\s*)?([1-5]A[1-5])/i);
     if (matchHome) {
       isHomeroom = true;
       homeroomClassId = matchHome[1].toUpperCase();
@@ -151,21 +348,26 @@ export function parseAssignmentSheet(ws) {
       isHomeroom = true;
       homeroomClassId = '5A2';
     }
+    if (name.includes('Nguyễn Văn Trí')) {
+      isHomeroom = true;
+      homeroomClassId = '4A3';
+    }
 
     let dept = 'Giáo viên';
-    if (task.includes('Phụ trách chung') || task.includes('Hiệu trưởng') || task.includes('Phụ trách chuyên môn')) {
+    const taskLower = task.toLowerCase();
+    if (taskLower.includes('phụ trách chung') || taskLower.includes('hiệu trưởng') || taskLower.includes('phụ trách chuyên môn')) {
       dept = 'Ban Giám Hiệu';
-    } else if (task.includes('Kế toán') || task.includes('Văn thư') || task.includes('Y tế') || task.includes('Bảo vệ')) {
+    } else if (taskLower.includes('kế toán') || taskLower.includes('văn thư') || taskLower.includes('y tế') || taskLower.includes('bảo vệ')) {
       dept = 'Tổ Văn Phòng';
-    } else if (task.includes('Tiếng Anh')) {
+    } else if (taskLower.includes('tiếng anh')) {
       dept = 'Tổ Ngoại Ngữ';
-    } else if (task.includes('Tin Khối') || task.includes('Tin học')) {
+    } else if (taskLower.includes('tin khối') || taskLower.includes('tin học')) {
       dept = 'Tổ Tin Học';
-    } else if (task.includes('Âm nhạc') || task.includes('Mỹ thuật') || task.includes('Mĩ thuật') || task.includes('GDTC')) {
+    } else if (taskLower.includes('âm nhạc') || taskLower.includes('mỹ thuật') || taskLower.includes('mĩ thuật') || taskLower.includes('gdtc') || taskLower.includes('thể dục')) {
       dept = 'Tổ Thể Chất - Nghệ Thuật';
     }
 
-    let tt = !isNaN(rawTt) && rawTt !== '' ? Number(rawTt) : (name === 'Nguyễn Thị An' ? 41 : (teachers.length + 1));
+    let tt = !isNaN(rawTt) && rawTt !== '' && Number(rawTt) > 0 ? Number(rawTt) : (name === 'Nguyễn Thị An' ? 41 : (teachers.length + 1));
     let id = `GV_${String(tt).padStart(2, '0')}`;
 
     if (usedIds.has(id)) {
@@ -174,7 +376,6 @@ export function parseAssignmentSheet(ws) {
     }
     usedIds.add(id);
 
-    // Tên viết tắt chính thức hiển thị trên Thời khóa biểu
     const code = getTeacherShortName(name, homeroomClassId, task);
 
     const position = dept === 'Ban Giám Hiệu' 
@@ -233,7 +434,147 @@ export function parseReadingScheduleSheet(ws) {
 }
 
 /**
- * Hàm chính: Đọc và phân tích toàn bộ Workbook Excel
+ * Bóc tách một trang tính chứa các cột lớp học và tiết học
+ */
+function parseScheduleGridSheet(ws, sheetName, classesMap, teachers, timetable, rawSlots) {
+  if (!ws) return;
+  const sData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  if (!sData || sData.length === 0) return;
+
+  // 1. Tìm dòng tiêu đề chứa mã lớp (1A1 -> 5A5)
+  let headerRowIdx = -1;
+  const classCols = [];
+
+  for (let r = 0; r < Math.min(15, sData.length); r++) {
+    const row = sData[r];
+    if (row && row.some(c => typeof c === 'string' && normalizeStr(c).match(/([1-5]A[1-5])/i))) {
+      headerRowIdx = r;
+      row.forEach((cell, cIdx) => {
+        const cleanCell = normalizeStr(cell);
+        const matchClass = cleanCell.match(/([1-5]A[1-5])/i);
+        if (matchClass) {
+          const classId = matchClass[1].toUpperCase();
+          const alreadyAdded = classCols.some(col => col.classId === classId);
+          if (!alreadyAdded) {
+            classCols.push({ classId, colSub: cIdx, colTch: cIdx + 1 });
+            if (!classesMap.has(classId)) {
+              const homeTch = teachers.find(t => t.homeroomClassId === classId);
+              classesMap.set(classId, {
+                id: classId,
+                name: `Lớp ${classId}`,
+                grade: Number(classId[0]),
+                homeroomTeacherId: homeTch ? homeTch.id : 'GV_01',
+                mainRoom: `P.${classId}`,
+                studentCount: 35
+              });
+            }
+          }
+        }
+      });
+      break;
+    }
+  }
+
+  if (headerRowIdx === -1 || classCols.length === 0) return;
+
+  // 2. Khởi tạo khung thời khóa biểu
+  classCols.forEach(({ classId }) => {
+    if (!timetable[classId]) {
+      timetable[classId] = {
+        2: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
+        3: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
+        4: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
+        5: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
+        6: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null }
+      };
+    }
+  });
+
+  // 3. Duyệt qua từng dòng tiết học
+  let currentDay = null;
+  let currentSession = null;
+
+  for (let r = headerRowIdx + 1; r < sData.length; r++) {
+    const row = sData[r];
+    if (!row || row.length === 0) continue;
+
+    // Bỏ qua dòng footer / chữ ký
+    const fullRowText = row.join(' ');
+    if (fullRowText.includes('Tân Mai') || fullRowText.includes('HIỆU TRƯỞNG') || fullRowText.includes('Bùi Văn Việt')) continue;
+
+    // Cột 0: Thứ (Thứ 2..6)
+    const col0 = normalizeStr(row[0]);
+    if (col0 && col0.match(/[2-6]/)) {
+      currentDay = Number(col0.match(/[2-6]/)[0]);
+    }
+
+    // Cột 1: Buổi (Sáng / Chiều)
+    const col1 = normalizeStr(row[1]);
+    if (col1.toLowerCase().includes('sáng') || col1.toLowerCase().includes('sang')) {
+      currentSession = 'Sáng';
+    } else if (col1.toLowerCase().includes('chiều') || col1.toLowerCase().includes('chieu')) {
+      currentSession = 'Chiều';
+    }
+
+    // Cột 2: Tiết (1..4)
+    const rawPeriod = Number(row[2]);
+    if (!rawPeriod || isNaN(rawPeriod) || !currentDay) continue;
+
+    // Tự động nội suy Buổi nếu ô buổi bị merge/trống
+    if (!currentSession) {
+      currentSession = rawPeriod <= 4 ? 'Sáng' : 'Chiều';
+    }
+
+    const periodId = currentSession === 'Chiều' ? (4 + rawPeriod) : rawPeriod;
+    if (periodId < 1 || periodId > 7) continue;
+
+    classCols.forEach(({ classId, colSub, colTch }) => {
+      let subjRaw = normalizeStr(row[colSub]);
+      let teacherRaw = normalizeStr(row[colTch]);
+
+      if (subjRaw) {
+        const { subjectId, roomId } = mapSubjectCodeAndRoom(subjRaw);
+        const teacherObj = resolveTeacher(teacherRaw, classId, teachers);
+        const cleanTeacherName = teacherObj ? teacherObj.code : (teacherRaw ? teacherRaw.replace(/^(?:Đ\/c\.|Đ\/c|Đc\.|Đc|Thầy|Cô)\s+/i, '').trim() : '');
+
+        const slotItem = {
+          sheet: sheetName,
+          row: r + 1,
+          col: colSub + 1,
+          classId,
+          day: currentDay,
+          session: currentSession,
+          period: periodId,
+          rawPeriod,
+          subjectId,
+          subjectRaw: subjRaw,
+          teacherId: teacherObj ? teacherObj.id : '',
+          teacherRaw: cleanTeacherName,
+          teacherName: teacherObj ? teacherObj.name : cleanTeacherName,
+          teacherCode: cleanTeacherName,
+          roomId,
+          isLocked: true
+        };
+
+        rawSlots.push(slotItem);
+
+        if (timetable[classId]) {
+          timetable[classId][currentDay][periodId] = {
+            subjectId,
+            subjectRaw: subjRaw,
+            teacherId: teacherObj ? teacherObj.id : '',
+            teacherRaw: cleanTeacherName,
+            roomId,
+            isLocked: true
+          };
+        }
+      }
+    });
+  }
+}
+
+/**
+ * Hàm chính: Đọc và phân tích toàn bộ Workbook Excel một cách thông minh và linh hoạt
  */
 export function parseExcelWorkbook(dataOrBuffer) {
   const workbook = XLSX.read(dataOrBuffer, { type: 'array' });
@@ -259,233 +600,171 @@ export function parseExcelWorkbook(dataOrBuffer) {
     }
   };
 
-  // PHÁT HIỆN ĐỊNH DẠNG
-  const hasPC = sheetNames.some(s => normalizeStr(s).toLowerCase().includes('phân công'));
-  const hasGradeSheets = ['1', '2', '4', '5'].every(k => sheetNames.some(s => normalizeStr(s).startsWith(k)));
+  const classesMap = new Map();
 
-  if (hasPC || hasGradeSheets) {
+  // 1. Phân tích sheet Phân công chuyên môn (nếu có)
+  const pcSheetName = sheetNames.find(s => {
+    const sLow = normalizeStr(s).toLowerCase();
+    return sLow.includes('phân công') || sLow.includes('phan cong') || sLow.includes('chuyên môn') || sLow === 'pc';
+  });
+  if (pcSheetName) {
+    parsed.teachers = parseAssignmentSheet(workbook.Sheets[pcSheetName]);
+  }
+
+  // 2. Phân tích sheet Tiết đọc TV (nếu có)
+  const tvSheetName = sheetNames.find(s => {
+    const sLow = normalizeStr(s).toLowerCase();
+    return sLow.includes('đọc tv') || sLow.includes('doc tv') || sLow.includes('thư viện');
+  });
+  if (tvSheetName) {
+    parsed.readingSlots = parseReadingScheduleSheet(workbook.Sheets[tvSheetName]);
+  }
+
+  // 3. Phân tích theo các khối lớp (1..5) hoặc ma trận
+  // Tìm các sheet khối lớp: '1', '2', '3', '4', '5' hoặc 'Khoi 1', 'Khối 1', 'Khoi_1', 'K1', v.v.
+  const gradeSheetCandidates = [];
+  for (let g = 1; g <= 5; g++) {
+    const matchedSheet = sheetNames.find(s => {
+      const cleanS = normalizeStr(s);
+      const regex = new RegExp(`^(?:Khối|Khoi|K|Lớp|Lop)?\\s*${g}(?:\\.|_|\\s|$)`, 'i');
+      return regex.test(cleanS);
+    });
+    if (matchedSheet) {
+      gradeSheetCandidates.push({ grade: g, sheetName: matchedSheet });
+    }
+  }
+
+  // Tìm sheet Ma trận toàn trường (nếu có)
+  const masterSheetName = sheetNames.find(s => {
+    const sLow = normalizeStr(s).toLowerCase();
+    return sLow.includes('tkb_toan_truong') || sLow.includes('toàn trường') || sLow.includes('toan truong') || sLow === 'tkb';
+  });
+
+  if (gradeSheetCandidates.length > 0) {
     parsed.format = 'REAL_SCHOOL_MULTISHEET';
-
-    // 1. Phân tích giáo viên
-    const pcSheetName = sheetNames.find(s => normalizeStr(s).toLowerCase().includes('phân công'));
-    if (pcSheetName) {
-      parsed.teachers = parseAssignmentSheet(workbook.Sheets[pcSheetName]);
-    }
-
-    // 2. Phân tích tiết đọc thư viện
-    const tvSheetName = sheetNames.find(s => normalizeStr(s).toLowerCase().includes('đọc tv'));
-    if (tvSheetName) {
-      parsed.readingSlots = parseReadingScheduleSheet(workbook.Sheets[tvSheetName]);
-    }
-
-    // 3. Phân tích các sheet khối lớp (1, 2, 3/3., 4, 5)
-    const gradeSheets = [
-      { grade: 1, sheetName: sheetNames.find(s => normalizeStr(s) === '1') },
-      { grade: 2, sheetName: sheetNames.find(s => normalizeStr(s) === '2') },
-      { grade: 3, sheetName: sheetNames.find(s => normalizeStr(s) === '3' || normalizeStr(s) === '3.') },
-      { grade: 4, sheetName: sheetNames.find(s => normalizeStr(s) === '4') },
-      { grade: 5, sheetName: sheetNames.find(s => normalizeStr(s) === '5') }
-    ];
-
-    const classesMap = new Map();
-
-    gradeSheets.forEach(({ grade, sheetName }) => {
-      if (!sheetName || !workbook.Sheets[sheetName]) return;
-      const ws = workbook.Sheets[sheetName];
-      const sData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-
-      // Tìm dòng tiêu đề chứa các lớp
-      let headerRowIdx = -1;
-      const classCols = [];
-      for (let r = 0; r < Math.min(15, sData.length); r++) {
-        const row = sData[r];
-        if (row && row.some(c => typeof c === 'string' && c.match(/^[1-5]A[1-5]$/))) {
-          headerRowIdx = r;
-          row.forEach((cell, cIdx) => {
-            const cleanCell = normalizeStr(cell);
-            if (cleanCell.match(/^[1-5]A[1-5]$/)) {
-              classCols.push({ classId: cleanCell, colSub: cIdx, colTch: cIdx + 1 });
-              if (!classesMap.has(cleanCell)) {
-                const homeTch = parsed.teachers.find(t => t.homeroomClassId === cleanCell);
-                classesMap.set(cleanCell, {
-                  id: cleanCell,
-                  name: `Lớp ${cleanCell}`,
-                  grade: Number(cleanCell[0]),
-                  homeroomTeacherId: homeTch ? homeTch.id : 'GV_01',
-                  mainRoom: `P.${cleanCell}`,
-                  studentCount: 35
-                });
-              }
-            }
-          });
-          break;
-        }
-      }
-
-      if (headerRowIdx === -1) return;
-
-      // Khởi tạo khung thời khóa biểu cho các lớp tìm thấy
-      classCols.forEach(({ classId }) => {
-        if (!parsed.timetable[classId]) {
-          parsed.timetable[classId] = {
-            2: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
-            3: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
-            4: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
-            5: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null },
-            6: { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null }
-          };
-        }
-      });
-
-      // Duyệt qua từng dòng tiết học
-      let currentDay = null;
-      let currentSession = null;
-
-      for (let r = headerRowIdx + 1; r < sData.length; r++) {
-        const row = sData[r];
-        if (!row || row.length === 0) continue;
-
-        // Bỏ qua dòng chữ ký / footer
-        const fullRowText = row.join(' ');
-        if (fullRowText.includes('Tân Mai') || fullRowText.includes('HIỆU TRƯỞNG') || fullRowText.includes('Bùi Văn Việt')) continue;
-
-        // Kiểm tra Thứ (Cột 0)
-        const col0 = normalizeStr(row[0]);
-        if (col0 && col0.match(/[2-6]/)) {
-          currentDay = Number(col0.match(/[2-6]/)[0]);
-        }
-
-        // Kiểm tra Buổi (Cột 1)
-        const col1 = normalizeStr(row[1]);
-        if (col1.includes('Sáng') || col1.includes('Chiều')) {
-          currentSession = col1.includes('Sáng') ? 'Sáng' : 'Chiều';
-        }
-
-        // Kiểm tra Tiết (Cột 2)
-        const rawPeriod = Number(row[2]);
-        if (!rawPeriod || isNaN(rawPeriod) || !currentDay || !currentSession) continue;
-
-        const periodId = currentSession.toLowerCase().includes('chiều') ? (4 + rawPeriod) : rawPeriod;
-        if (periodId < 1 || periodId > 7) continue;
-
-        classCols.forEach(({ classId, colSub, colTch }) => {
-          let subjRaw = normalizeStr(row[colSub]);
-          let teacherRaw = normalizeStr(row[colTch]);
-
-          if (subjRaw === 'Đ/c Hoàng Hòa' && !teacherRaw) {
-            subjRaw = 'Công nghệ';
-            teacherRaw = 'Đ/c Hoàng Hòa';
-          }
-
-          if (subjRaw) {
-            const { subjectId, roomId } = mapSubjectCodeAndRoom(subjRaw);
-            const teacherObj = resolveTeacher(teacherRaw, classId, parsed.teachers);
-            const cleanTeacherName = teacherObj ? teacherObj.code : (teacherRaw ? teacherRaw.replace(/^Đ\/c\s+/i, '').trim() : '');
-
-            const slotItem = {
-              sheet: sheetName,
-              row: r + 1,
-              col: colSub + 1,
-              classId,
-              day: currentDay,
-              session: currentSession,
-              period: periodId,
-              rawPeriod,
-              subjectId,
-              subjectRaw: subjRaw,
-              teacherId: teacherObj ? teacherObj.id : '',
-              teacherRaw: cleanTeacherName,
-              teacherName: teacherObj ? teacherObj.name : cleanTeacherName,
-              teacherCode: cleanTeacherName,
-              roomId,
-              isLocked: true
-            };
-
-            parsed.rawSlots.push(slotItem);
-
-            if (parsed.timetable[classId]) {
-              parsed.timetable[classId][currentDay][periodId] = {
-                subjectId,
-                subjectRaw: subjRaw,
-                teacherId: teacherObj ? teacherObj.id : '',
-                teacherRaw: cleanTeacherName,
-                roomId,
-                isLocked: true
-              };
-            }
-          }
-        });
-      }
+    gradeSheetCandidates.forEach(({ sheetName }) => {
+      parseScheduleGridSheet(workbook.Sheets[sheetName], sheetName, classesMap, parsed.teachers, parsed.timetable, parsed.rawSlots);
     });
-
-    parsed.classes = Array.from(classesMap.values());
-
-    // 4. Sinh assignments (Phân công chuyên môn)
-    const asgList = [];
-    parsed.classes.forEach(cls => {
-      const gQuota = DEFAULT_GRADE_QUOTAS[cls.grade];
-      if (!gQuota) return;
-
-      gQuota.subjects.forEach(sub => {
-        // Tìm giáo viên thực tế đã dạy môn này nhiều nhất trong TKB của lớp
-        let foundTchId = '';
-        let placedCount = 0;
-
-        parsed.rawSlots.forEach(s => {
-          if (s.classId === cls.id && s.subjectId === sub.subjectId) {
-            placedCount++;
-            if (s.teacherId) foundTchId = s.teacherId;
-          }
-        });
-
-        if (!foundTchId) {
-          foundTchId = cls.homeroomTeacherId;
-        }
-
-        asgList.push({
-          id: `ASG_${cls.id}_${sub.subjectId}`,
-          classId: cls.id,
-          grade: cls.grade,
-          subjectId: sub.subjectId,
-          teacherId: foundTchId,
-          weeklyPeriods: placedCount > 0 ? placedCount : sub.weeklyPeriods,
-          roomType: sub.roomType || 'LOP_HOC',
-          allowDouble: sub.allowDouble || false
-        });
-      });
-    });
-
-    parsed.assignments = asgList;
+  } else if (masterSheetName) {
+    parsed.format = 'MASTER_MATRIX';
+    parseScheduleGridSheet(workbook.Sheets[masterSheetName], masterSheetName, classesMap, parsed.teachers, parsed.timetable, parsed.rawSlots);
   } else if (sheetNames.includes('Danh_Sach_Giao_Vien')) {
     parsed.format = 'TEMPLATE_FORMAT';
-    // Parser for standard template sheets
+    // Đọc từ file mẫu hệ thống
     const rawTeachers = XLSX.utils.sheet_to_json(workbook.Sheets['Danh_Sach_Giao_Vien']);
     parsed.teachers = rawTeachers.map(r => ({
       id: normalizeStr(r['Mã GV']),
       name: normalizeStr(r['Họ và Tên']),
-      code: normalizeStr(r['Mã Viết Tắt']),
+      code: normalizeStr(r['Tên TKB (Viết tắt)'] || r['Mã Viết Tắt'] || r['Họ và Tên']),
       department: normalizeStr(r['Tổ Chuyên Môn'] || 'Giáo viên'),
-      isHomeroom: normalizeStr(r['Là GV Chủ Nhiệm (CÓ/KHÔNG)']).toUpperCase().includes('CÓ'),
-      homeroomClassId: r['Chủ Nhiệm Lớp'] ? normalizeStr(r['Chủ Nhiệm Lớp']) : null,
+      isHomeroom: normalizeStr(r['Chủ Nhiệm'] || r['Là GV Chủ Nhiệm (CÓ/KHÔNG)']).toUpperCase().includes('CÓ') || normalizeStr(r['Chủ Nhiệm']).includes('Lớp'),
+      homeroomClassId: r['Chủ Nhiệm'] ? normalizeStr(r['Chủ Nhiệm']).replace('Lớp ', '').trim() : (r['Chủ Nhiệm Lớp'] ? normalizeStr(r['Chủ Nhiệm Lớp']) : null),
       phone: normalizeStr(r['Số Điện Thoại'] || ''),
       email: normalizeStr(r['Email'] || ''),
-      maxPeriodsPerDay: Number(r['Số Tiết Tối Đa / Ngày']) || 6,
+      maxPeriodsPerDay: Number(r['Số Tiết Tối Đa / Ngày']) || 7,
       offSessions: (r['Buổi Đăng Ký Nghỉ'] || '').split(',').map(s => s.trim()).filter(Boolean),
       color: '#3b82f6'
     }));
 
     if (workbook.Sheets['Danh_Sach_Lop']) {
       const rawClasses = XLSX.utils.sheet_to_json(workbook.Sheets['Danh_Sach_Lop']);
-      parsed.classes = rawClasses.map(c => ({
-        id: normalizeStr(c['Mã Lớp']),
-        name: normalizeStr(c['Tên Lớp'] || `Lớp ${c['Mã Lớp']}`),
-        grade: Number(c['Khối']) || Number(String(c['Mã Lớp'])[0]) || 1,
-        homeroomTeacherId: normalizeStr(c['Mã GVCN']),
-        mainRoom: normalizeStr(c['Phòng Học Chính'] || `P.${c['Mã Lớp']}`),
-        studentCount: Number(c['Sĩ Số Học Sinh']) || 35
-      }));
+      rawClasses.forEach(c => {
+        const cId = normalizeStr(c['Mã Lớp'] || c['Mã Lớp Học']);
+        if (cId) {
+          classesMap.set(cId, {
+            id: cId,
+            name: normalizeStr(c['Tên Lớp Học'] || c['Tên Lớp'] || `Lớp ${cId}`),
+            grade: Number(c['Khối Lớp'] || c['Khối']) || Number(String(cId)[0]) || 1,
+            homeroomTeacherId: normalizeStr(c['Mã GVCN']),
+            mainRoom: normalizeStr(c['Phòng Học Chính'] || `P.${cId}`),
+            studentCount: Number(c['Sĩ Số Học Sinh'] || c['Sĩ Số']) || 35
+          });
+        }
+      });
+    }
+
+    // Nếu có sheet TKB_Toan_Truong trong template
+    if (workbook.Sheets['TKB_Toan_Truong']) {
+      parseScheduleGridSheet(workbook.Sheets['TKB_Toan_Truong'], 'TKB_Toan_Truong', classesMap, parsed.teachers, parsed.timetable, parsed.rawSlots);
     }
   }
+
+  // Cập nhật danh sách lớp học
+  parsed.classes = Array.from(classesMap.values());
+
+  // 4. Sinh assignments (Phân công chuyên môn)
+  const asgList = [];
+  parsed.classes.forEach(cls => {
+    const gQuota = DEFAULT_GRADE_QUOTAS[cls.grade];
+    if (!gQuota) return;
+
+    gQuota.subjects.forEach(sub => {
+      // Tìm giáo viên thực tế đã dạy môn này trong TKB của lớp
+      let foundTchId = '';
+      let placedCount = 0;
+
+      parsed.rawSlots.forEach(s => {
+        if (s.classId === cls.id && s.subjectId === sub.subjectId) {
+          placedCount++;
+          if (s.teacherId && !foundTchId) foundTchId = s.teacherId;
+        }
+      });
+
+      asgList.push({
+        id: `ASG_${cls.id}_${sub.subjectId}`,
+        classId: cls.id,
+        grade: cls.grade,
+        subjectId: sub.subjectId,
+        teacherId: foundTchId || '',
+        weeklyPeriods: placedCount > 0 ? placedCount : sub.weeklyPeriods,
+        roomType: sub.roomType || 'LOP_HOC',
+        allowDouble: sub.allowDouble || false
+      });
+    });
+  });
+
+  parsed.assignments = asgList;
+
+  // 5. Trích xuất danh mục môn học thực tế từ TKB và dữ liệu
+  const subjectsMap = { ...DEFAULT_SUBJECTS };
+  const COLOR_PALETTES = [
+    { color: '#2563eb', bg: '#eff6ff', border: '#93c5fd', text: '#1e40af' },
+    { color: '#ef4444', bg: '#fef2f2', border: '#fca5a5', text: '#991b1b' },
+    { color: '#7c3aed', bg: '#f5f3ff', border: '#c4b5fd', text: '#5b21b6' },
+    { color: '#0284c7', bg: '#f0f9ff', border: '#7dd3fc', text: '#075985' },
+    { color: '#059669', bg: '#ecfdf5', border: '#6ee7b7', text: '#065f46' },
+    { color: '#10b981', bg: '#f0fdf4', border: '#86efac', text: '#166534' },
+    { color: '#0d9488', bg: '#f0fdfa', border: '#5eead4', text: '#115e59' },
+    { color: '#b45309', bg: '#fffbeb', border: '#fcd34d', text: '#78350f' },
+    { color: '#d97706', bg: '#fffbeb', border: '#fde68a', text: '#92400e' },
+    { color: '#ea580c', bg: '#fff7ed', border: '#fdba74', text: '#9a3412' },
+    { color: '#4f46e5', bg: '#eef2ff', border: '#a5b4fc', text: '#3730a3' },
+    { color: '#db2777', bg: '#fdf2f8', border: '#fbcfe8', text: '#9d174d' },
+    { color: '#65a30d', bg: '#f7fee7', border: '#bef264', text: '#3f6212' }
+  ];
+
+  parsed.rawSlots.forEach(slot => {
+    if (slot.subjectId && !subjectsMap[slot.subjectId]) {
+      const pIndex = Object.keys(subjectsMap).length % COLOR_PALETTES.length;
+      const palette = COLOR_PALETTES[pIndex];
+      const sRaw = slot.subjectRaw || slot.subjectId;
+      subjectsMap[slot.subjectId] = {
+        id: slot.subjectId,
+        name: sRaw,
+        shortName: sRaw.length > 8 ? sRaw.substring(0, 8) : sRaw,
+        category: 'Cơ bản',
+        color: palette.color,
+        bg: palette.bg,
+        border: palette.border,
+        text: palette.text,
+        icon: 'BookOpen',
+        defaultRoom: slot.roomId || 'LOP_HOC',
+        description: `Môn học trích xuất từ Thời khóa biểu (${sRaw})`
+      };
+    }
+  });
+
+  parsed.subjects = subjectsMap;
 
   return parsed;
 }

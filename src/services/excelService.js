@@ -7,6 +7,7 @@ import ExcelJS from 'exceljs';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects.js';
 import { DAYS_OF_WEEK, PERIODS, DEFAULT_GRADE_QUOTAS } from '../constants/defaultCurriculum.js';
 import { SAMPLE_ROOMS, SAMPLE_CLASSES, SAMPLE_TEACHERS } from '../data/sampleData.js';
+import { QUYNH_LOC_DATA } from '../data/quynhLocSchoolData.js';
 
 import { parseExcelWorkbook, mapSubjectCodeAndRoom, resolveTeacher, getTeacherShortName } from './excelParser.js';
 import { validateParsedExcelData } from './excelValidator.js';
@@ -93,35 +94,377 @@ const saveExcelJSWorkbook = async (workbook, filename) => {
 };
 
 // ==========================================
-// 1. TẢI FILE MẪU CHUẨN ĐỊNH MỨC (.xlsx)
+// Helper hàm vẽ ma trận TKB chung
+// ==========================================
+const renderMatrixHelper = (ws, sheetClasses, titleSuffix = '', timetable = {}, teacherMap = new Map(), _subjects = DEFAULT_SUBJECTS, schoolInfo = {}) => {
+  const sName = schoolInfo.name || 'Trường Tiểu Học Quỳnh Lộc';
+  const sYear = schoolInfo.year || 'Năm học 2026 - 2027';
+  const totalCols = 3 + (sheetClasses.length * 2);
+
+  // Cấu hình cột
+  const cols = [
+    { key: 'day', width: 11 },
+    { key: 'session', width: 11 },
+    { key: 'period', width: 11 }
+  ];
+  sheetClasses.forEach(c => {
+    cols.push({ key: `${c.id}_sub`, width: 20 }, { key: `${c.id}_tch`, width: 17 });
+  });
+  ws.columns = cols;
+
+  // Row 1: Tên đơn vị
+  ws.mergeCells(1, 1, 1, totalCols);
+  const r1 = ws.getCell(1, 1);
+  const sDistrict = (schoolInfo.district || 'UBND Phường Tân Mai').toUpperCase();
+  r1.value = `${sDistrict} — ${sName.toUpperCase()}`;
+  r1.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF475569' } };
+  r1.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws.getRow(1).height = 22;
+
+  // Row 2: Tiêu đề lớn
+  ws.mergeCells(2, 1, 2, totalCols);
+  const r2 = ws.getCell(2, 1);
+  r2.value = `THỜI KHÓA BIỂU TOÀN TRƯỜNG ${titleSuffix ? `— ${titleSuffix.toUpperCase()}` : ''}`;
+  r2.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FF1E3A8A' } };
+  r2.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws.getRow(2).height = 32;
+
+  // Row 3: Năm học
+  ws.mergeCells(3, 1, 3, totalCols);
+  const r3 = ws.getCell(3, 1);
+  r3.value = `${sYear.toUpperCase()} — (Áp dụng chính thức từ Tuần 01)`;
+  r3.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF64748B' } };
+  r3.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws.getRow(3).height = 20;
+
+  // Row 4: Khoảng trống
+  ws.getRow(4).height = 8;
+
+  // Row 5: Header bảng
+  const headerRowIdx = 5;
+  ws.getRow(headerRowIdx).height = 30;
+  ws.getCell(headerRowIdx, 1).value = 'Thứ';
+  ws.getCell(headerRowIdx, 2).value = 'Buổi';
+  ws.getCell(headerRowIdx, 3).value = 'Tiết';
+
+  sheetClasses.forEach((c, idx) => {
+    const colSubIdx = 4 + (idx * 2);
+    const colTchIdx = colSubIdx + 1;
+    ws.getCell(headerRowIdx, colSubIdx).value = `${c.name}\n(Môn học)`;
+    ws.getCell(headerRowIdx, colTchIdx).value = `${c.name}\n(Giáo viên)`;
+  });
+
+  for (let col = 1; col <= totalCols; col++) {
+    const cell = ws.getCell(headerRowIdx, col);
+    cell.fill = FILL_NAVY_HEADER;
+    cell.font = { name: 'Arial', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    cell.border = BORDER_HEADER;
+  }
+
+  // Rows dữ liệu (Monday to Friday, Morning & Afternoon)
+  let currentRowIdx = 6;
+  const days = [
+    { id: 2, name: 'Thứ Hai' },
+    { id: 3, name: 'Thứ Ba' },
+    { id: 4, name: 'Thứ Tư' },
+    { id: 5, name: 'Thứ Năm' },
+    { id: 6, name: 'Thứ Sáu' }
+  ];
+
+  days.forEach(d => {
+    const dayStartRow = currentRowIdx;
+
+    // Sáng (Tiết 1..4)
+    const morningStartRow = currentRowIdx;
+    for (let p = 1; p <= 4; p++) {
+      const row = ws.getRow(currentRowIdx);
+      row.height = 26;
+      row.getCell(1).value = d.name;
+      row.getCell(2).value = 'Sáng';
+      row.getCell(3).value = `Tiết ${p}`;
+
+      sheetClasses.forEach((c, idx) => {
+        const colSubIdx = 4 + (idx * 2);
+        const colTchIdx = colSubIdx + 1;
+        const slot = timetable[c.id]?.[d.id]?.[p];
+
+        if (slot && slot.subjectId) {
+          const subName = _subjects[slot.subjectId]?.name || slot.subjectRaw || slot.subjectId;
+          const tch = teacherMap.get(slot.teacherId);
+          const tCode = slot.teacherRaw || (tch ? tch.code : '');
+
+          row.getCell(colSubIdx).value = subName;
+          row.getCell(colTchIdx).value = tCode;
+        } else {
+          row.getCell(colSubIdx).value = '-';
+          row.getCell(colTchIdx).value = '';
+        }
+      });
+
+      // Áp dụng border và zebra
+      for (let col = 1; col <= totalCols; col++) {
+        const cell = row.getCell(col);
+        cell.border = BORDER_THIN;
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.font = { name: 'Arial', size: 10, color: { argb: 'FF0F172A' } };
+        if (col >= 4 && col % 2 === 0) {
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF1E3A8A' } };
+        }
+        if (p % 2 === 0) {
+          cell.fill = FILL_ZEBRA;
+        }
+      }
+
+      currentRowIdx++;
+    }
+    const morningEndRow = currentRowIdx - 1;
+
+    // Chiều (Tiết 5..7)
+    const afternoonStartRow = currentRowIdx;
+    for (let p = 5; p <= 7; p++) {
+      const row = ws.getRow(currentRowIdx);
+      row.height = 26;
+      row.getCell(1).value = d.name;
+      row.getCell(2).value = 'Chiều';
+      row.getCell(3).value = `Tiết ${p - 4}`;
+
+      sheetClasses.forEach((c, idx) => {
+        const colSubIdx = 4 + (idx * 2);
+        const colTchIdx = colSubIdx + 1;
+        const slot = timetable[c.id]?.[d.id]?.[p];
+
+        if (slot && slot.subjectId) {
+          const subName = _subjects[slot.subjectId]?.name || slot.subjectRaw || slot.subjectId;
+          const tch = teacherMap.get(slot.teacherId);
+          const tCode = slot.teacherRaw || (tch ? tch.code : '');
+
+          row.getCell(colSubIdx).value = subName;
+          row.getCell(colTchIdx).value = tCode;
+        } else {
+          row.getCell(colSubIdx).value = '-';
+          row.getCell(colTchIdx).value = '';
+        }
+      });
+
+      for (let col = 1; col <= totalCols; col++) {
+        const cell = row.getCell(col);
+        cell.border = BORDER_THIN;
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.font = { name: 'Arial', size: 10, color: { argb: 'FF0F172A' } };
+        if (col >= 4 && col % 2 === 0) {
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF1E3A8A' } };
+        }
+        if (p % 2 === 0) {
+          cell.fill = FILL_ZEBRA;
+        }
+      }
+
+      currentRowIdx++;
+    }
+    const afternoonEndRow = currentRowIdx - 1;
+
+    // Merge Thứ
+    ws.mergeCells(dayStartRow, 1, afternoonEndRow, 1);
+    const dayCell = ws.getCell(dayStartRow, 1);
+    dayCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    dayCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1E3A8A' } };
+    dayCell.fill = FILL_MORNING;
+
+    // Merge Buổi Sáng
+    ws.mergeCells(morningStartRow, 2, morningEndRow, 2);
+    const mCell = ws.getCell(morningStartRow, 2);
+    mCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    mCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF3730A3' } };
+
+    // Merge Buổi Chiều
+    ws.mergeCells(afternoonStartRow, 2, afternoonEndRow, 2);
+    const aCell = ws.getCell(afternoonStartRow, 2);
+    aCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    aCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF9A3412' } };
+    aCell.fill = FILL_AFTERNOON;
+  });
+
+  // Footer Ký tên
+  const sigStart = currentRowIdx + 2;
+  ws.mergeCells(sigStart, totalCols - 3, sigStart, totalCols);
+  const dateCell = ws.getCell(sigStart, totalCols - 3);
+  dateCell.value = 'Tân Mai, ngày 05 tháng 09 năm 2026';
+  dateCell.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF475569' } };
+  dateCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  const sigTitleRow = sigStart + 1;
+  ws.getRow(sigTitleRow).height = 24;
+  ws.mergeCells(sigTitleRow, 2, sigTitleRow, 4);
+  const s1 = ws.getCell(sigTitleRow, 2);
+  s1.value = 'NGƯỜI LẬP BIỂU';
+  s1.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+  s1.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  ws.mergeCells(sigTitleRow, totalCols - 3, sigTitleRow, totalCols);
+  const s2 = ws.getCell(sigTitleRow, totalCols - 3);
+  s2.value = 'HIỆU TRƯỞNG';
+  s2.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+  s2.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  const sigNameRow = sigStart + 5;
+  ws.getRow(sigNameRow).height = 24;
+  ws.mergeCells(sigNameRow, totalCols - 3, sigNameRow, totalCols);
+  const nameCell = ws.getCell(sigNameRow, totalCols - 3);
+  nameCell.value = schoolInfo.principal || 'Bùi Văn Việt';
+  nameCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+  nameCell.alignment = { vertical: 'middle', horizontal: 'center' };
+};
+
+// ==========================================
+// 1. TẢI FILE MẪU CHUẨN ĐỊNH MỨC & DỮ LIỆU (.xlsx)
 // ==========================================
 export const downloadExcelTemplate = async () => {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'EduTimetable Tiểu Học';
 
-  // Sheet 1: Dinh_Muc_Theo_Khoi
+  const teachers = QUYNH_LOC_DATA.teachers || [];
+  const classes = QUYNH_LOC_DATA.classes || [];
+  const timetable = QUYNH_LOC_DATA.timetable || {};
+  const assignments = QUYNH_LOC_DATA.assignments || [];
+  const gradeQuotas = QUYNH_LOC_DATA.gradeQuotas || DEFAULT_GRADE_QUOTAS;
+  const teacherMap = new Map(teachers.map(t => [t.id, t]));
+  const schoolInfo = {
+    name: QUYNH_LOC_DATA.schoolName || 'Trường TH Quỳnh Lộc',
+    year: QUYNH_LOC_DATA.schoolYear || 'Năm học 2026 - 2027',
+    district: QUYNH_LOC_DATA.subdistrict || 'UBND Phường Tân Mai',
+    principal: 'Bùi Văn Việt'
+  };
+
+  // Sheet 1: Huong_Dan_Su_Dung
+  const wsGuide = wb.addWorksheet('Huong_Dan_Su_Dung');
+  wsGuide.columns = [
+    { header: 'Mục / Trang Tính', key: 'section', width: 28 },
+    { header: 'Nội Dung Hướng Dẫn & Quy Định Nhập Chuẩn CTGDPT 2018', key: 'content', width: 85 }
+  ];
+  wsGuide.getRow(1).height = 32;
+  wsGuide.getRow(1).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+  wsGuide.getRow(1).fill = FILL_NAVY_HEADER;
+  wsGuide.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+  const guideItems = [
+    { section: '1. Danh_Sach_Giao_Vien', content: 'Khai báo danh sách cán bộ giáo viên, mã GV (GV_01, GV_02...), họ tên, tên viết tắt hiển thị trên TKB, chức vụ, lớp chủ nhiệm, tổ chuyên môn và định mức số tiết dạy/tuần.' },
+    { section: '2. Danh_Sach_Lop', content: 'Khai báo cơ cấu lớp học toàn trường (1A1 -> 5A5), chọn đúng khối lớp (1 đến 5), giáo viên chủ nhiệm, sĩ số học sinh và phòng học chính.' },
+    { section: '3. Dinh_Muc_Theo_Khoi', content: 'Khung định mức số tiết các môn học của Khối 1 đến Khối 5 theo Chuẩn Chương trình GDPT 2018 (Toán, Tiếng Việt, Tiếng Anh, TNXH, LS-DL, Tin học, GDTC, Âm nhạc, Mĩ thuật...).' },
+    { section: '4. Phan_Cong_Chuyen_Mon', content: 'Chỉ định giáo viên phụ trách và phòng bộ môn cho từng môn học của từng lớp học trong trường.' },
+    { section: '5. TKB_Toan_Truong & Khoi_1..5', content: 'Bảng ma trận thời khóa biểu mẫu hoàn chỉnh 100%. Bạn có thể chỉnh sửa trực tiếp trên file Excel này hoặc nạp vào phần mềm để xếp lịch và kiểm tra trùng giờ tự động.' }
+  ];
+
+  guideItems.forEach(item => {
+    const row = wsGuide.addRow(item);
+    row.height = 32;
+    row.alignment = { vertical: 'middle', wrapText: true };
+    row.getCell('section').alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+    row.getCell('section').font = { name: 'Arial', size: 10.5, bold: true, color: { argb: 'FF1E3A8A' } };
+    row.getCell('content').font = { name: 'Arial', size: 10, color: { argb: 'FF334155' } };
+    row.eachCell(c => { c.border = BORDER_THIN; });
+  });
+
+  // Sheet 2: Danh_Sach_Giao_Vien
+  const wsTeacher = wb.addWorksheet('Danh_Sach_Giao_Vien');
+  wsTeacher.columns = [
+    { header: 'STT', key: 'tt', width: 8 },
+    { header: 'Mã GV', key: 'id', width: 12 },
+    { header: 'Họ và Tên', key: 'name', width: 26 },
+    { header: 'Tên TKB (Viết tắt)', key: 'code', width: 18 },
+    { header: 'Chức Vụ / Vị Trí', key: 'position', width: 20 },
+    { header: 'Chủ Nhiệm', key: 'homeroom', width: 14 },
+    { header: 'Tổ Chuyên Môn', key: 'department', width: 22 },
+    { header: 'Định Mức (Tiết/Tuần)', key: 'dinhMuc', width: 22 },
+    { header: 'Buổi Đăng Ký Nghỉ', key: 'off', width: 22 },
+    { header: 'Ghi Chú', key: 'note', width: 35 }
+  ];
+  wsTeacher.getRow(1).height = 30;
+  wsTeacher.getRow(1).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+  wsTeacher.getRow(1).fill = FILL_NAVY_HEADER;
+  wsTeacher.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+  teachers.forEach((t, idx) => {
+    const row = wsTeacher.addRow({
+      tt: t.tt || idx + 1,
+      id: t.id,
+      name: t.name,
+      code: t.code || t.name,
+      position: t.position || 'Giáo Viên',
+      homeroom: t.isHomeroom && t.homeroomClassId ? `Lớp ${t.homeroomClassId}` : 'Không',
+      department: t.department || 'Giáo viên',
+      dinhMuc: t.dinhMuc || 23,
+      off: (t.offSessions || []).join(', ') || 'Không',
+      note: t.note || t.task || ''
+    });
+    row.height = 24;
+    row.alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell('name').alignment = { vertical: 'middle', horizontal: 'left' };
+    row.getCell('position').alignment = { vertical: 'middle', horizontal: 'left' };
+    row.getCell('department').alignment = { vertical: 'middle', horizontal: 'left' };
+    row.getCell('note').alignment = { vertical: 'middle', horizontal: 'left' };
+    row.eachCell(c => { c.border = BORDER_THIN; });
+  });
+
+  // Sheet 3: Danh_Sach_Lop
+  const wsClass = wb.addWorksheet('Danh_Sach_Lop');
+  wsClass.columns = [
+    { header: 'STT', key: 'stt', width: 8 },
+    { header: 'Mã Lớp', key: 'id', width: 14 },
+    { header: 'Khối Lớp', key: 'grade', width: 12 },
+    { header: 'Tên Lớp Học', key: 'name', width: 20 },
+    { header: 'Mã GVCN', key: 'gvcnId', width: 14 },
+    { header: 'Họ Tên GVCN', key: 'gvcnName', width: 26 },
+    { header: 'Sĩ Số Học Sinh', key: 'students', width: 16 },
+    { header: 'Phòng Học Chính', key: 'room', width: 18 }
+  ];
+  wsClass.getRow(1).height = 30;
+  wsClass.getRow(1).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+  wsClass.getRow(1).fill = FILL_NAVY_HEADER;
+  wsClass.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+  classes.forEach((c, idx) => {
+    const tch = teacherMap.get(c.homeroomTeacherId);
+    const row = wsClass.addRow({
+      stt: idx + 1,
+      id: c.id,
+      grade: `Khối ${c.grade}`,
+      name: c.name || `Lớp ${c.id}`,
+      gvcnId: c.homeroomTeacherId || '',
+      gvcnName: tch ? tch.name : '',
+      students: c.studentCount || 35,
+      room: c.mainRoom || `Phòng ${c.id}`
+    });
+    row.height = 24;
+    row.alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell('name').alignment = { vertical: 'middle', horizontal: 'left' };
+    row.getCell('gvcnName').alignment = { vertical: 'middle', horizontal: 'left' };
+    row.eachCell(c => { c.border = BORDER_THIN; });
+  });
+
+  // Sheet 4: Dinh_Muc_Theo_Khoi
   const wsQuota = wb.addWorksheet('Dinh_Muc_Theo_Khoi');
   wsQuota.columns = [
-    { header: 'Khối', key: 'grade', width: 14 },
+    { header: 'Khối Lớp', key: 'grade', width: 14 },
     { header: 'Mã Môn', key: 'subjectId', width: 18 },
-    { header: 'Tên Môn Học', key: 'subjectName', width: 28 },
+    { header: 'Tên Môn Học & HĐGD', key: 'subjectName', width: 30 },
     { header: 'Số Tiết / Tuần', key: 'weeklyPeriods', width: 18 },
     { header: 'Sáng Tối Đa', key: 'maxMorning', width: 15 },
     { header: 'Chiều Tối Đa', key: 'maxAfternoon', width: 15 },
-    { header: 'Phòng Chức Năng', key: 'roomType', width: 22 }
+    { header: 'Phòng Bộ Môn', key: 'roomType', width: 24 }
   ];
-
-  wsQuota.getRow(1).height = 28;
+  wsQuota.getRow(1).height = 30;
   wsQuota.getRow(1).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
   wsQuota.getRow(1).fill = FILL_NAVY_HEADER;
   wsQuota.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
-  Object.values(DEFAULT_GRADE_QUOTAS).forEach(g => {
-    g.subjects.forEach(s => {
+  Object.values(gradeQuotas).forEach(g => {
+    (g.subjects || []).forEach(s => {
+      const subInfo = DEFAULT_SUBJECTS[s.subjectId] || {};
       const row = wsQuota.addRow({
         grade: `Khối ${g.grade}`,
         subjectId: s.subjectId,
-        subjectName: DEFAULT_SUBJECTS[s.subjectId]?.name || s.subjectId,
+        subjectName: subInfo.name || s.subjectId,
         weeklyPeriods: s.weeklyPeriods,
         maxMorning: s.maxMorning,
         maxAfternoon: s.maxAfternoon,
@@ -134,41 +477,58 @@ export const downloadExcelTemplate = async () => {
     });
   });
 
-  // Sheet 2: Danh_Sach_Giao_Vien
-  const wsTeacher = wb.addWorksheet('Danh_Sach_Giao_Vien');
-  wsTeacher.columns = [
-    { header: 'Mã GV', key: 'id', width: 12 },
-    { header: 'Họ và Tên', key: 'name', width: 26 },
-    { header: 'Mã Viết Tắt (TKB)', key: 'code', width: 18 },
-    { header: 'Chủ Nhiệm', key: 'homeroom', width: 16 },
-    { header: 'Tổ Chuyên Môn', key: 'department', width: 24 },
-    { header: 'Định Mức (Tiết/Tuần)', key: 'dinhMuc', width: 22 },
-    { header: 'Buổi Đăng Ký Nghỉ', key: 'off', width: 22 }
+  // Sheet 5: Phan_Cong_Chuyen_Mon
+  const wsAsg = wb.addWorksheet('Phan_Cong_Chuyen_Mon');
+  wsAsg.columns = [
+    { header: 'STT', key: 'stt', width: 8 },
+    { header: 'Lớp', key: 'classId', width: 12 },
+    { header: 'Khối', key: 'grade', width: 10 },
+    { header: 'Tên Môn Học', key: 'subjectName', width: 26 },
+    { header: 'Mã Môn', key: 'subjectId', width: 16 },
+    { header: 'Mã GV', key: 'teacherId', width: 12 },
+    { header: 'Giáo Viên Phụ Trách', key: 'teacherName', width: 24 },
+    { header: 'Số Tiết / Tuần', key: 'weeklyPeriods', width: 16 },
+    { header: 'Phòng Học', key: 'roomId', width: 18 }
   ];
+  wsAsg.getRow(1).height = 30;
+  wsAsg.getRow(1).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+  wsAsg.getRow(1).fill = FILL_NAVY_HEADER;
+  wsAsg.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
-  wsTeacher.getRow(1).height = 28;
-  wsTeacher.getRow(1).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-  wsTeacher.getRow(1).fill = FILL_NAVY_HEADER;
-  wsTeacher.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
-
-  SAMPLE_TEACHERS.forEach(t => {
-    const row = wsTeacher.addRow({
-      id: t.id,
-      name: t.name,
-      code: t.code || getTeacherShortName(t.name, t.homeroomClassId, t.task),
-      homeroom: t.isHomeroom ? `Lớp ${t.homeroomClassId}` : 'Không',
-      department: t.department || 'Giáo viên',
-      dinhMuc: t.dinhMuc || 23,
-      off: (t.offSessions || []).join(', ') || 'Không'
+  assignments.forEach((asg, idx) => {
+    const tch = teacherMap.get(asg.teacherId);
+    const sub = DEFAULT_SUBJECTS[asg.subjectId] || {};
+    const row = wsAsg.addRow({
+      stt: idx + 1,
+      classId: asg.classId,
+      grade: asg.grade ? `Khối ${asg.grade}` : '',
+      subjectName: sub.name || asg.subjectId,
+      subjectId: asg.subjectId,
+      teacherId: asg.teacherId || '',
+      teacherName: tch ? tch.name : '',
+      weeklyPeriods: asg.weeklyPeriods || 1,
+      roomId: asg.roomId || 'LOP_HOC'
     });
     row.height = 22;
     row.alignment = { vertical: 'middle', horizontal: 'center' };
-    row.getCell('name').alignment = { vertical: 'middle', horizontal: 'left' };
-    row.getCell('department').alignment = { vertical: 'middle', horizontal: 'left' };
+    row.getCell('subjectName').alignment = { vertical: 'middle', horizontal: 'left' };
+    row.getCell('teacherName').alignment = { vertical: 'middle', horizontal: 'left' };
     row.eachCell(c => { c.border = BORDER_THIN; });
   });
 
-  await saveExcelJSWorkbook(wb, 'Mau_Thoi_Khoa_Bieu_Chuan_Tieu_Hoc.xlsx');
+  // Sheet 6: TKB_Toan_Truong & Sheets Khối 1..5
+  const wsMaster = wb.addWorksheet('TKB_Toan_Truong');
+  renderMatrixHelper(wsMaster, classes, `Toàn Trường (${classes.length} Lớp)`, timetable, teacherMap, DEFAULT_SUBJECTS, schoolInfo);
+
+  for (let g = 1; g <= 5; g++) {
+    const gradeClasses = classes.filter(c => c.grade === g);
+    if (gradeClasses.length > 0) {
+      const wsGrade = wb.addWorksheet(`Khoi_${g}`);
+      renderMatrixHelper(wsGrade, gradeClasses, `Khối ${g}`, timetable, teacherMap, DEFAULT_SUBJECTS, schoolInfo);
+    }
+  }
+
+  await saveExcelJSWorkbook(wb, 'File_Mau_Thoi_Khoa_Bieu_Chuan_Quynh_Loc.xlsx');
 };
 
 // ==========================================
@@ -214,232 +574,10 @@ export const importExcelData = async (file) => {
 // ==========================================
 export const exportMasterTimetable = async (timetable, classes = [], teachers = [], subjects = {}, schoolInfo = {}) => {
   const _subjects = subjects || DEFAULT_SUBJECTS;
-  const sName = schoolInfo.name || 'Trường Tiểu Học Quỳnh Lộc';
-  const sYear = schoolInfo.year || 'Năm học 2026 - 2027';
   const teacherMap = new Map((teachers || []).map(t => [t.id, t]));
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'EduTimetable Tiểu Học';
-
-  // Helper hàm vẽ ma trận
-  const renderMatrixSheet = (ws, sheetClasses, titleSuffix = '') => {
-    const totalCols = 3 + (sheetClasses.length * 2);
-
-    // Cấu hình cột
-    const cols = [
-      { key: 'day', width: 11 },
-      { key: 'session', width: 11 },
-      { key: 'period', width: 11 }
-    ];
-    sheetClasses.forEach(c => {
-      cols.push({ key: `${c.id}_sub`, width: 20 }, { key: `${c.id}_tch`, width: 17 });
-    });
-    ws.columns = cols;
-
-    // Row 1: Tên đơn vị
-    ws.mergeCells(1, 1, 1, totalCols);
-    const r1 = ws.getCell(1, 1);
-    const sDistrict = (schoolInfo.district || 'UBND Phường Tân Mai').toUpperCase();
-    r1.value = `${sDistrict} — ${sName.toUpperCase()}`;
-    r1.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF475569' } };
-    r1.alignment = { vertical: 'middle', horizontal: 'center' };
-    ws.getRow(1).height = 22;
-
-    // Row 2: Tiêu đề lớn
-    ws.mergeCells(2, 1, 2, totalCols);
-    const r2 = ws.getCell(2, 1);
-    r2.value = `THỜI KHÓA BIỂU TOÀN TRƯỜNG ${titleSuffix ? `— ${titleSuffix.toUpperCase()}` : ''}`;
-    r2.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FF1E3A8A' } };
-    r2.alignment = { vertical: 'middle', horizontal: 'center' };
-    ws.getRow(2).height = 32;
-
-    // Row 3: Năm học
-    ws.mergeCells(3, 1, 3, totalCols);
-    const r3 = ws.getCell(3, 1);
-    r3.value = `${sYear.toUpperCase()} — (Áp dụng chính thức từ Tuần 01)`;
-    r3.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF64748B' } };
-    r3.alignment = { vertical: 'middle', horizontal: 'center' };
-    ws.getRow(3).height = 20;
-
-    // Row 4: Khoảng trống
-    ws.getRow(4).height = 8;
-
-    // Row 5: Header bảng
-    const headerRowIdx = 5;
-    ws.getRow(headerRowIdx).height = 30;
-    ws.getCell(headerRowIdx, 1).value = 'Thứ';
-    ws.getCell(headerRowIdx, 2).value = 'Buổi';
-    ws.getCell(headerRowIdx, 3).value = 'Tiết';
-
-    sheetClasses.forEach((c, idx) => {
-      const colSubIdx = 4 + (idx * 2);
-      const colTchIdx = colSubIdx + 1;
-      ws.getCell(headerRowIdx, colSubIdx).value = `${c.name}\n(Môn học)`;
-      ws.getCell(headerRowIdx, colTchIdx).value = `${c.name}\n(Giáo viên)`;
-    });
-
-    for (let col = 1; col <= totalCols; col++) {
-      const cell = ws.getCell(headerRowIdx, col);
-      cell.fill = FILL_NAVY_HEADER;
-      cell.font = { name: 'Arial', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-      cell.border = BORDER_HEADER;
-    }
-
-    // Rows dữ liệu (Monday to Friday, Morning & Afternoon)
-    let currentRowIdx = 6;
-    const days = [
-      { id: 2, name: 'Thứ Hai' },
-      { id: 3, name: 'Thứ Ba' },
-      { id: 4, name: 'Thứ Tư' },
-      { id: 5, name: 'Thứ Năm' },
-      { id: 6, name: 'Thứ Sáu' }
-    ];
-
-    days.forEach(d => {
-      const dayStartRow = currentRowIdx;
-
-      // Sáng (Tiết 1..4)
-      const morningStartRow = currentRowIdx;
-      for (let p = 1; p <= 4; p++) {
-        const row = ws.getRow(currentRowIdx);
-        row.height = 26;
-        row.getCell(1).value = d.name;
-        row.getCell(2).value = 'Sáng';
-        row.getCell(3).value = `Tiết ${p}`;
-
-        sheetClasses.forEach((c, idx) => {
-          const colSubIdx = 4 + (idx * 2);
-          const colTchIdx = colSubIdx + 1;
-          const slot = timetable[c.id]?.[d.id]?.[p];
-
-          if (slot && slot.subjectId) {
-            const subName = _subjects[slot.subjectId]?.name || slot.subjectRaw || slot.subjectId;
-            const tch = teacherMap.get(slot.teacherId);
-            const tCode = slot.teacherRaw || (tch ? tch.code : '');
-
-            row.getCell(colSubIdx).value = subName;
-            row.getCell(colTchIdx).value = tCode;
-          } else {
-            row.getCell(colSubIdx).value = '-';
-            row.getCell(colTchIdx).value = '';
-          }
-        });
-
-        // Áp dụng border và zebra
-        for (let col = 1; col <= totalCols; col++) {
-          const cell = row.getCell(col);
-          cell.border = BORDER_THIN;
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
-          cell.font = { name: 'Arial', size: 10, color: { argb: 'FF0F172A' } };
-          if (col >= 4 && col % 2 === 0) {
-            cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF1E3A8A' } };
-          }
-          if (p % 2 === 0) {
-            cell.fill = FILL_ZEBRA;
-          }
-        }
-
-        currentRowIdx++;
-      }
-      const morningEndRow = currentRowIdx - 1;
-
-      // Chiều (Tiết 5..7)
-      const afternoonStartRow = currentRowIdx;
-      for (let p = 5; p <= 7; p++) {
-        const row = ws.getRow(currentRowIdx);
-        row.height = 26;
-        row.getCell(1).value = d.name;
-        row.getCell(2).value = 'Chiều';
-        row.getCell(3).value = `Tiết ${p - 4}`;
-
-        sheetClasses.forEach((c, idx) => {
-          const colSubIdx = 4 + (idx * 2);
-          const colTchIdx = colSubIdx + 1;
-          const slot = timetable[c.id]?.[d.id]?.[p];
-
-          if (slot && slot.subjectId) {
-            const subName = _subjects[slot.subjectId]?.name || slot.subjectRaw || slot.subjectId;
-            const tch = teacherMap.get(slot.teacherId);
-            const tCode = slot.teacherRaw || (tch ? tch.code : '');
-
-            row.getCell(colSubIdx).value = subName;
-            row.getCell(colTchIdx).value = tCode;
-          } else {
-            row.getCell(colSubIdx).value = '-';
-            row.getCell(colTchIdx).value = '';
-          }
-        });
-
-        for (let col = 1; col <= totalCols; col++) {
-          const cell = row.getCell(col);
-          cell.border = BORDER_THIN;
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
-          cell.font = { name: 'Arial', size: 10, color: { argb: 'FF0F172A' } };
-          if (col >= 4 && col % 2 === 0) {
-            cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF1E3A8A' } };
-          }
-          if (p % 2 === 1) {
-            cell.fill = FILL_ZEBRA;
-          }
-        }
-
-        currentRowIdx++;
-      }
-      const afternoonEndRow = currentRowIdx - 1;
-      const dayEndRow = currentRowIdx - 1;
-
-      // Merge cột Thứ
-      ws.mergeCells(dayStartRow, 1, dayEndRow, 1);
-      const dayCell = ws.getCell(dayStartRow, 1);
-      dayCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1E293B' } };
-      dayCell.alignment = { vertical: 'middle', horizontal: 'center' };
-
-      // Merge cột Buổi Sáng & Chiều
-      ws.mergeCells(morningStartRow, 2, morningEndRow, 2);
-      const mCell = ws.getCell(morningStartRow, 2);
-      mCell.fill = FILL_MORNING;
-      mCell.font = { name: 'Arial', size: 10.5, bold: true, color: { argb: 'FF1E40AF' } };
-      mCell.alignment = { vertical: 'middle', horizontal: 'center' };
-
-      ws.mergeCells(afternoonStartRow, 2, afternoonEndRow, 2);
-      const aCell = ws.getCell(afternoonStartRow, 2);
-      aCell.fill = FILL_AFTERNOON;
-      aCell.font = { name: 'Arial', size: 10.5, bold: true, color: { argb: 'FFC2410C' } };
-      aCell.alignment = { vertical: 'middle', horizontal: 'center' };
-    });
-
-    // Chân trang ký tên
-    const sigStart = currentRowIdx + 1;
-    ws.getRow(sigStart).height = 20;
-    ws.mergeCells(sigStart, totalCols - 3, sigStart, totalCols);
-    const dateCell = ws.getCell(sigStart, totalCols - 3);
-    dateCell.value = 'Tân Mai, ngày 05 tháng 09 năm 2026';
-    dateCell.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF475569' } };
-    dateCell.alignment = { vertical: 'middle', horizontal: 'center' };
-
-    const sigTitleRow = sigStart + 1;
-    ws.getRow(sigTitleRow).height = 24;
-    ws.mergeCells(sigTitleRow, 2, sigTitleRow, 4);
-    const s1 = ws.getCell(sigTitleRow, 2);
-    s1.value = 'NGƯỜI LẬP BIỂU';
-    s1.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
-    s1.alignment = { vertical: 'middle', horizontal: 'center' };
-
-    ws.mergeCells(sigTitleRow, totalCols - 3, sigTitleRow, totalCols);
-    const s2 = ws.getCell(sigTitleRow, totalCols - 3);
-    s2.value = 'HIỆU TRƯỞNG';
-    s2.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
-    s2.alignment = { vertical: 'middle', horizontal: 'center' };
-
-    const sigNameRow = sigStart + 5;
-    ws.getRow(sigNameRow).height = 24;
-    ws.mergeCells(sigNameRow, totalCols - 3, sigNameRow, totalCols);
-    const nameCell = ws.getCell(sigNameRow, totalCols - 3);
-    nameCell.value = schoolInfo.principal || 'Bùi Văn Việt';
-    nameCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
-    nameCell.alignment = { vertical: 'middle', horizontal: 'center' };
-  };
 
   // 1. Sheet Ma Trận Toàn Trường
   const wsMaster = wb.addWorksheet('TKB_Toan_Truong');
@@ -552,10 +690,10 @@ export const exportClassTimetables = async (timetable, classes = [], teachers = 
 
     // Buổi Sáng: Tiết 1..4 (Rows 7..10)
     const morningPeriods = [
-      { id: 1, name: 'Tiết 1', time: '07:30 - 08:05' },
-      { id: 2, name: 'Tiết 2', time: '08:15 - 08:50' },
-      { id: 3, name: 'Tiết 3', time: '09:10 - 09:45' },
-      { id: 4, name: 'Tiết 4', time: '09:55 - 10:30' }
+      { id: 1, name: 'Tiết 1', time: '07:15 - 07:55' },
+      { id: 2, name: 'Tiết 2', time: '07:55 - 08:35' },
+      { id: 3, name: 'Tiết 3', time: '09:00 - 09:40' },
+      { id: 4, name: 'Tiết 4', time: '09:40 - 10:20' }
     ];
 
     morningPeriods.forEach((p, idx) => {
@@ -618,9 +756,9 @@ export const exportClassTimetables = async (timetable, classes = [], teachers = 
 
     // Buổi Chiều: Tiết 5..7 (Rows 12..14)
     const afternoonPeriods = [
-      { id: 5, name: 'Tiết 1', time: '14:00 - 14:35' },
-      { id: 6, name: 'Tiết 2', time: '14:45 - 15:20' },
-      { id: 7, name: 'Tiết 3', time: '15:30 - 16:05' }
+      { id: 5, name: 'Tiết 1', time: '14:00 - 14:40' },
+      { id: 6, name: 'Tiết 2', time: '14:40 - 15:20' },
+      { id: 7, name: 'Tiết 3', time: '15:40 - 16:20' }
     ];
 
     afternoonPeriods.forEach((p, idx) => {
@@ -846,7 +984,10 @@ export const exportTeacherTimetables = async (timetable, teachers = [], classes 
 
     ws.mergeCells('D4:F4');
     const r4_2 = ws.getCell('D4');
-    r4_2.value = `🏢 Tổ: ${teacher.department} | ${teacher.task || teacher.position}`;
+    const pos = (teacher.position || '').trim();
+    const isGenericPos = !pos || pos.toLowerCase().includes('bộ môn') || pos.toLowerCase() === 'giáo viên';
+    const posText = !isGenericPos ? ` | ${teacher.task || pos}` : '';
+    r4_2.value = `🏢 Tổ: ${teacher.department}${posText}`;
     r4_2.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1E293B' } };
     r4_2.alignment = { vertical: 'middle', horizontal: 'center' };
 
@@ -874,10 +1015,10 @@ export const exportTeacherTimetables = async (timetable, teachers = [], classes 
 
     // Sáng
     const morningPeriods = [
-      { id: 1, name: 'Tiết 1', time: '07:30 - 08:05' },
-      { id: 2, name: 'Tiết 2', time: '08:15 - 08:50' },
-      { id: 3, name: 'Tiết 3', time: '09:10 - 09:45' },
-      { id: 4, name: 'Tiết 4', time: '09:55 - 10:30' }
+      { id: 1, name: 'Tiết 1', time: '07:15 - 07:55' },
+      { id: 2, name: 'Tiết 2', time: '07:55 - 08:35' },
+      { id: 3, name: 'Tiết 3', time: '09:00 - 09:40' },
+      { id: 4, name: 'Tiết 4', time: '09:40 - 10:20' }
     ];
 
     morningPeriods.forEach((p, idx) => {
@@ -936,9 +1077,9 @@ export const exportTeacherTimetables = async (timetable, teachers = [], classes 
 
     // Chiều
     const afternoonPeriods = [
-      { id: 5, name: 'Tiết 1', time: '14:00 - 14:35' },
-      { id: 6, name: 'Tiết 2', time: '14:45 - 15:20' },
-      { id: 7, name: 'Tiết 3', time: '15:30 - 16:05' }
+      { id: 5, name: 'Tiết 1', time: '14:00 - 14:40' },
+      { id: 6, name: 'Tiết 2', time: '14:40 - 15:20' },
+      { id: 7, name: 'Tiết 3', time: '15:40 - 16:20' }
     ];
 
     afternoonPeriods.forEach((p, idx) => {

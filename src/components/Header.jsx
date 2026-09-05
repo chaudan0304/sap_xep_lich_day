@@ -38,10 +38,12 @@ export const Header = ({
   onClearTimetable,
   onExportBackupJson,
   onImportBackupJson,
-  onOpenConflictModal,
   conflicts = [],
   isAutoScheduling = false,
-  schoolInfo = { name: 'Trường TH Quỳnh Lộc', year: 'Năm học 2026 - 2027' }
+  schoolInfo = { name: 'Trường TH Quỳnh Lộc', year: 'Năm học 2026 - 2027' },
+  onOpenConflictModal,
+  onOpenImportReport,
+  importReportCount = 0
 }) => {
   const jsonFileInputRef = React.useRef(null);
 
@@ -403,6 +405,34 @@ export const Header = ({
               </>
             )}
           </button>
+
+          {/* Group 2b: Import Report Button (khi có báo cáo đối soát nạp Excel) */}
+          {importReportCount > 0 && onOpenImportReport && (
+            <button
+              onClick={onOpenImportReport}
+              title="Bấm để xem lại báo cáo lỗi/cảnh báo sau khi nạp file Excel"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '9px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                background: 'rgba(245, 158, 11, 0.25)',
+                border: '1px solid rgba(245, 158, 11, 0.5)',
+                color: '#fde68a',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <FileSpreadsheet size={14} />
+              <span>Báo Cáo Nạp ({importReportCount})</span>
+            </button>
+          )}
 
           {/* Group 3: Core Scheduling Actions (Auto Schedule + Clear Timetable in One Segment) */}
           <div style={{

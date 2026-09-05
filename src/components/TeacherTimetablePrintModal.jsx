@@ -1,61 +1,124 @@
-// src/components/ClassTimetablePrintModal.jsx
+// src/components/TeacherTimetablePrintModal.jsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { toPng, toBlob } from 'html-to-image';
 import {
   Printer,
-  Download,
   FileSpreadsheet,
   X,
-  Check,
   ChevronLeft,
   ChevronRight,
   Sliders,
-  Settings,
-  Eye,
   Layers,
   School,
-  User,
-  Calendar,
-  Sparkles,
   Info,
   Search,
-  CheckSquare,
-  Square,
   ZoomIn,
   ZoomOut,
-  Maximize2,
   Image as ImageIcon,
   Copy,
   CheckCircle2
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
-import { exportClassTimetables } from '../services/excelService';
+import { exportTeacherTimetables } from '../services/excelService';
 import { triggerAppPrint } from '../services/printService';
 
-export const ClassTimetablePrintModal = ({
+export const TEACHER_GROUPS = [
+  'Tổ 1, 2, 3',
+  'Tổ 4, 5',
+  'Giáo viên bộ môn'
+];
+
+export const getTeacherDepartment = (teacher) => {
+  if (!teacher) return 'Giáo viên bộ môn';
+
+  const d = (teacher.department || '').trim();
+  if (d === 'Tổ 1, 2, 3' || d === 'Tổ 4, 5' || d === 'Giáo viên bộ môn') {
+    return d;
+  }
+
+  // Phân loại qua lớp chủ nhiệm
+  if (teacher.isHomeroom && teacher.homeroomClassId) {
+    const match = String(teacher.homeroomClassId).match(/([1-5])/);
+    if (match) {
+      const g = parseInt(match[1], 10);
+      return g <= 3 ? 'Tổ 1, 2, 3' : 'Tổ 4, 5';
+    }
+  }
+
+  // Phân loại BGH nếu có
+  const pos = (teacher.position || '').toLowerCase();
+  const task = (teacher.task || '').toLowerCase();
+  if (pos.includes('hiệu trưởng') || task.includes('hiệu trưởng') || pos.includes('bgh')) {
+    if (task.includes('4-5') || pos.includes('4-5')) return 'Tổ 4, 5';
+    if (task.includes('1,2,3') || pos.includes('1,2,3')) return 'Tổ 1, 2, 3';
+  }
+
+  return 'Giáo viên bộ môn';
+};
+
+export const getTeacherPositionTitle = (teacher) => {
+  if (!teacher) return '';
+  const pos = (teacher.position || '').trim();
+  const task = (teacher.task || '').trim();
+
+  // 1. Chức vụ quản lý BGH
+  if (pos.toLowerCase().includes('hiệu trưởng') || pos.toLowerCase().includes('ht')) return pos;
+  
+  // 2. Chức vụ công tác Đội / Đoàn
+  if (pos.toLowerCase().includes('tổng phụ trách') || pos.toLowerCase().includes('tpt')) return pos;
+  if (task.toLowerCase().includes('tổng phụ trách') || task.toLowerCase().includes('tpt')) return 'Tổng Phụ Trách Đội';
+  
+  // 3. Chức vụ tổ trưởng / tổ phó
+  if (pos.toLowerCase().includes('tổ trưởng') || pos.toLowerCase().includes('tổ phó')) return pos;
+  
+  // 4. Khối văn phòng nếu có
+  if (pos.toLowerCase().includes('kế toán') || pos.toLowerCase().includes('văn thư') || pos.toLowerCase().includes('thủ quỹ')) return pos;
+
+  // 5. Giáo viên chủ nhiệm
+  if (teacher.isHomeroom && teacher.homeroomClassId) {
+    const clsName = String(teacher.homeroomClassId).replace(/^Lớp\s+/i, '');
+    return `GVCN Lớp ${clsName}`;
+  }
+
+  // 6. Nếu vị trí chỉ là các từ chung chung như "GV Bộ Môn", "Giáo Viên", "GV", "Bộ Môn" -> Bỏ trống để tránh lặp với Tổ chuyên môn
+  const lowerPos = pos.toLowerCase();
+  if (
+    !lowerPos ||
+    lowerPos.includes('bộ môn') ||
+    lowerPos === 'giáo viên' ||
+    lowerPos === 'gv'
+  ) {
+    return '';
+  }
+
+  return pos;
+};
+
+export const TeacherTimetablePrintModal = ({
   isOpen,
   onClose,
-  classes = [],
   teachers = [],
+  classes = [],
   timetable = {},
   subjects = DEFAULT_SUBJECTS,
   periods = DEFAULT_PERIODS,
   schoolInfo = {},
-  initialClassId = null
+  assignments = [],
+  initialTeacherId = null
 }) => {
-  // 1. In Scope: 'current' | 'all' | 'grade' | 'custom'
-  const [printScope, setPrintScope] = useState('current');
-  const [selectedGrade, setSelectedGrade] = useState(1);
-  const [selectedClassIds, setSelectedClassIds] = useState(() => {
-    return initialClassId ? [initialClassId] : (classes[0] ? [classes[0].id] : []);
+  // 1. In Scope: 'current' | 'all' | 'department' | 'custom'
+  const [printScope, setPrintScope] = useState(() => initialTeacherId ? 'current' : 'all');
+  const [selectedDepartment, setSelectedDepartment] = useState('ALL');
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState(() => {
+    return initialTeacherId ? [initialTeacherId] : (teachers[0] ? [teachers[0].id] : []);
   });
-  const [classSearch, setClassSearch] = useState('');
+  const [teacherSearch, setTeacherSearch] = useState('');
 
   // 2. Preview navigation state
   const [previewIndex, setPreviewIndex] = useState(0);
-  const [previewZoom, setPreviewZoom] = useState(100); // 85 | 100 | 115
+  const [previewZoom, setPreviewZoom] = useState(100); // 75 | 90 | 100 | 115
 
   // 3. Print Meta Config (editable for print)
   const [printMeta, setPrintMeta] = useState({
@@ -73,9 +136,10 @@ export const ClassTimetablePrintModal = ({
   const [displayOptions, setDisplayOptions] = useState({
     showHeader: true,
     showSignatures: true,
-    teacherDisplay: 'code', // 'code' | 'name' | 'none'
+    signatureType: 'teacher_principal', // 'teacher_principal' | 'scheduler_principal'
+    showPosition: true,
+    showTeacherMeta: true,
     showRoom: true,
-    showClassMeta: true,
     showPeriodTime: true,
     showLunchBreak: true,
     fontScale: 'normal' // 'compact' | 'normal' | 'large'
@@ -94,9 +158,97 @@ export const ClassTimetablePrintModal = ({
     setTimeout(() => setToastMessage(''), 3500);
   };
 
-  // Xuất file ảnh PNG độ nét cao (2.5x) để gửi qua Zalo
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  // Sync initialTeacherId if changed
+  useEffect(() => {
+    if (initialTeacherId) {
+      setSelectedTeacherIds([initialTeacherId]);
+      setPrintScope('current');
+    }
+  }, [initialTeacherId]);
+
+  // Calculate stats for teachers (scheduled slots)
+  const teacherStats = useMemo(() => {
+    const stats = {};
+    teachers.forEach(t => {
+      let scheduled = 0;
+      classes.forEach(c => {
+        for (let d = 2; d <= 6; d++) {
+          for (let p = 1; p <= 7; p++) {
+            if (timetable[c.id]?.[d]?.[p]?.teacherId === t.id) {
+              scheduled++;
+            }
+          }
+        }
+      });
+      stats[t.id] = { scheduled };
+    });
+    return stats;
+  }, [teachers, classes, timetable]);
+
+  // Determine target teachers based on scope
+  const targetTeachers = useMemo(() => {
+    if (printScope === 'current') {
+      const curId = selectedTeacherIds[0] || initialTeacherId || teachers[0]?.id;
+      const t = teachers.find(item => item.id === curId) || teachers[0];
+      return t ? [t] : [];
+    }
+    if (printScope === 'all') {
+      return [...teachers];
+    }
+    if (printScope === 'department') {
+      if (selectedDepartment === 'ALL') return [...teachers];
+      return teachers.filter(t => getTeacherDepartment(t) === selectedDepartment);
+    }
+    if (printScope === 'custom') {
+      return teachers.filter(t => selectedTeacherIds.includes(t.id));
+    }
+    return teachers;
+  }, [printScope, selectedDepartment, selectedTeacherIds, teachers, initialTeacherId]);
+
+  // Keep preview index in bounds
+  useEffect(() => {
+    if (previewIndex >= targetTeachers.length) {
+      setPreviewIndex(Math.max(0, targetTeachers.length - 1));
+    }
+  }, [targetTeachers.length, previewIndex]);
+
+  const currentPreviewTeacher = targetTeachers[previewIndex] || targetTeachers[0] || teachers[0];
+
+  // Quick teacher toggles for custom scope
+  const handleToggleTeacher = (teacherId) => {
+    setSelectedTeacherIds(prev => {
+      if (prev.includes(teacherId)) {
+        if (prev.length === 1) return prev; // Keep at least 1
+        return prev.filter(id => id !== teacherId);
+      } else {
+        return [...prev, teacherId];
+      }
+    });
+  };
+
+  const handleSelectAllCustom = () => {
+    setSelectedTeacherIds(teachers.map(t => t.id));
+  };
+
+  const handleDeselectAllCustom = () => {
+    if (teachers[0]) setSelectedTeacherIds([teachers[0].id]);
+  };
+
+  // Xuất file ảnh PNG nét cao (2.5x) để gửi qua Zalo
   const handleExportZaloImage = async () => {
-    if (!previewSheetRef.current || !currentPreviewClass) return;
+    if (!previewSheetRef.current || !currentPreviewTeacher) return;
     try {
       setIsExportingImage(true);
       const dataUrl = await toPng(previewSheetRef.current, {
@@ -105,11 +257,11 @@ export const ClassTimetablePrintModal = ({
         backgroundColor: '#ffffff'
       });
       const link = document.createElement('a');
-      const safeName = (currentPreviewClass.name || 'Lop').replace(/\s+/g, '_');
-      link.download = `TKB_${safeName}_Zalo.png`;
+      const safeName = (currentPreviewTeacher.name || 'GiaoVien').replace(/\s+/g, '_');
+      link.download = `TKB_GV_${safeName}_Zalo.png`;
       link.href = dataUrl;
       link.click();
-      showToast(`Đã tải ảnh TKB ${currentPreviewClass.name} nét cao cho Zalo!`);
+      showToast(`Đã tải ảnh TKB Thầy/Cô ${currentPreviewTeacher.name} nét cao cho Zalo!`);
     } catch (err) {
       console.error('Lỗi xuất ảnh:', err);
       alert('Không thể tạo file ảnh. Vui lòng thử lại!');
@@ -120,7 +272,7 @@ export const ClassTimetablePrintModal = ({
 
   // Sao chép ảnh trực tiếp vào Clipboard (nhấn Ctrl+V dán ngay vào Zalo chat)
   const handleCopyZaloImage = async () => {
-    if (!previewSheetRef.current || !currentPreviewClass) return;
+    if (!previewSheetRef.current || !currentPreviewTeacher) return;
     try {
       setIsCopyingImage(true);
       const blob = await toBlob(previewSheetRef.current, {
@@ -134,7 +286,7 @@ export const ClassTimetablePrintModal = ({
         await navigator.clipboard.write([
           new ClipboardItem({ 'image/png': blob })
         ]);
-        showToast(`Đã sao chép ảnh TKB ${currentPreviewClass.name}! Nhấn Ctrl+V để dán vào Zalo.`);
+        showToast(`Đã sao chép ảnh TKB ${currentPreviewTeacher.name}! Nhấn Ctrl+V để dán vào Zalo.`);
       } else {
         handleExportZaloImage();
       }
@@ -144,72 +296,6 @@ export const ClassTimetablePrintModal = ({
     } finally {
       setIsCopyingImage(false);
     }
-  };
-
-  const teacherMap = useMemo(() => new Map((teachers || []).map(t => [t.id, t])), [teachers]);
-  const classMap = useMemo(() => new Map((classes || []).map(c => [c.id, c])), [classes]);
-
-  // Extract available grades from classes
-  const availableGrades = useMemo(() => {
-    const gradeSet = new Set();
-    classes.forEach(c => {
-      if (c.grade) gradeSet.add(c.grade);
-      else {
-        const match = c.name?.match(/(\d+)/);
-        if (match) gradeSet.add(parseInt(match[1], 10));
-      }
-    });
-    return Array.from(gradeSet).sort((a, b) => a - b);
-  }, [classes]);
-
-  // Determine target classes based on scope
-  const targetClasses = useMemo(() => {
-    if (printScope === 'current') {
-      const cls = classes.find(c => c.id === (initialClassId || selectedClassIds[0])) || classes[0];
-      return cls ? [cls] : [];
-    }
-    if (printScope === 'all') {
-      return [...classes];
-    }
-    if (printScope === 'grade') {
-      return classes.filter(c => {
-        const g = c.grade || (c.name?.match(/(\d+)/) ? parseInt(c.name.match(/(\d+)/)[1], 10) : null);
-        return g === selectedGrade;
-      });
-    }
-    if (printScope === 'custom') {
-      return classes.filter(c => selectedClassIds.includes(c.id));
-    }
-    return classes;
-  }, [printScope, selectedGrade, selectedClassIds, classes, initialClassId]);
-
-  // Keep preview index in bounds
-  useEffect(() => {
-    if (previewIndex >= targetClasses.length) {
-      setPreviewIndex(Math.max(0, targetClasses.length - 1));
-    }
-  }, [targetClasses.length, previewIndex]);
-
-  const currentPreviewClass = targetClasses[previewIndex] || targetClasses[0] || classes[0];
-
-  // Quick class toggles for custom scope
-  const handleToggleClass = (classId) => {
-    setSelectedClassIds(prev => {
-      if (prev.includes(classId)) {
-        if (prev.length === 1) return prev; // Keep at least 1
-        return prev.filter(id => id !== classId);
-      } else {
-        return [...prev, classId];
-      }
-    });
-  };
-
-  const handleSelectAllCustom = () => {
-    setSelectedClassIds(classes.map(c => c.id));
-  };
-
-  const handleDeselectAllCustom = () => {
-    if (classes[0]) setSelectedClassIds([classes[0].id]);
   };
 
   const handlePrint = async () => {
@@ -224,13 +310,13 @@ export const ClassTimetablePrintModal = ({
   };
 
   const handleExportExcel = async () => {
-    if (!targetClasses || targetClasses.length === 0) return;
+    if (!targetTeachers || targetTeachers.length === 0) return;
     try {
       setIsExportingExcel(true);
-      await exportClassTimetables(
+      await exportTeacherTimetables(
         timetable,
-        targetClasses,
-        teachers,
+        targetTeachers,
+        classes,
         subjects,
         {
           name: printMeta.schoolName,
@@ -243,22 +329,53 @@ export const ClassTimetablePrintModal = ({
       );
     } catch (err) {
       console.error('Lỗi xuất Excel:', err);
-      alert('Đã xảy ra lỗi khi xuất Excel thời khóa biểu.');
+      alert('Đã xảy ra lỗi khi xuất Excel lịch giảng dạy giáo viên.');
     } finally {
       setIsExportingExcel(false);
     }
   };
 
-  // Helper to render an individual A4 Printable Class Sheet
-  const renderClassSheet = (cls, isPreview = false) => {
-    if (!cls) return null;
-    const homeroom = teacherMap.get(cls.homeroomTeacherId);
-    const homeroomName = homeroom ? (homeroom.name + (homeroom.code ? ` (${homeroom.code})` : '')) : 'Chưa phân công';
+  // Helper to render an individual A4 Printable Teacher Sheet
+  const renderTeacherSheet = (t, isPreview = false) => {
+    if (!t) return null;
+
+    // Get list of classes taught by this teacher
+    const taughtClasses = (() => {
+      const nameSet = new Set();
+      if (t.isHomeroom && t.homeroomClassId) {
+        const c = classes.find(item => item.id === t.homeroomClassId || item.name === t.homeroomClassId);
+        nameSet.add(c ? c.name : t.homeroomClassId);
+      }
+      (assignments || []).forEach(a => {
+        if (a.teacherId === t.id && a.classId) {
+          const c = classes.find(item => item.id === a.classId || item.name === a.classId);
+          nameSet.add(c ? c.name : a.classId);
+        }
+      });
+      if (Array.isArray(t.subjectAssignments)) {
+        t.subjectAssignments.forEach(cfg => {
+          (cfg.classIds || []).forEach(cid => {
+            const c = classes.find(item => item.id === cid || item.name === cid);
+            nameSet.add(c ? c.name : cid);
+          });
+        });
+      }
+      classes.forEach(cls => {
+        for (let dayId = 2; dayId <= 6; dayId++) {
+          for (let pId = 1; pId <= 7; pId++) {
+            if (timetable[cls.id]?.[dayId]?.[pId]?.teacherId === t.id) {
+              nameSet.add(cls.name);
+            }
+          }
+        }
+      });
+      return Array.from(nameSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    })();
 
     const getFontSizeTable = () => {
-      if (displayOptions.fontScale === 'compact') return { table: '8pt', header: '8pt', sub: '7.5pt', teacher: '7pt' };
-      if (displayOptions.fontScale === 'large') return { table: '9.5pt', header: '9.5pt', sub: '9.5pt', teacher: '8.5pt' };
-      return { table: '8.5pt', header: '9pt', sub: '8.5pt', teacher: '7.5pt' };
+      if (displayOptions.fontScale === 'compact') return { table: '8pt', header: '8pt', sub: '7.5pt', cls: '7.5pt' };
+      if (displayOptions.fontScale === 'large') return { table: '9.5pt', header: '9.5pt', sub: '9.5pt', cls: '8.5pt' };
+      return { table: '8.5pt', header: '9pt', sub: '8.5pt', cls: '8pt' };
     };
     const fSizes = getFontSizeTable();
 
@@ -276,7 +393,7 @@ export const ClassTimetablePrintModal = ({
           boxSizing: 'border-box'
         }}
       >
-        {/* National / School Header */}
+        {/* 1. National / School Header */}
         {displayOptions.showHeader && (
           <div style={{
             display: 'flex',
@@ -303,7 +420,7 @@ export const ClassTimetablePrintModal = ({
           </div>
         )}
 
-        {/* Timetable Title */}
+        {/* 2. Timetable Title & Teacher Profile */}
         <div style={{ textAlign: 'center', margin: '8px 0 10px 0' }}>
           <h1 style={{
             fontSize: '15pt',
@@ -312,30 +429,57 @@ export const ClassTimetablePrintModal = ({
             textTransform: 'uppercase',
             letterSpacing: '0.5px'
           }}>
-            THỜI KHÓA BIỂU {cls.name?.startsWith('Lớp ') ? cls.name.toUpperCase() : `LỚP ${(cls.name || '').toUpperCase()}`}
+            LỊCH GIẢNG DẠY CÁ NHÂN
           </h1>
-          <div style={{ fontSize: '9pt', fontStyle: 'italic', marginTop: '3px' }}>
-            {printMeta.effectiveDate} • {printMeta.year}
+          <div style={{ fontSize: '12pt', fontWeight: 800, marginTop: '3px', color: '#000' }}>
+            Giáo viên: {t.name} {t.code ? `(${t.code})` : (t.id ? `(${t.id})` : '')}
           </div>
-          {displayOptions.showClassMeta && (
+          {(() => {
+            const deptName = getTeacherDepartment(t);
+            const posTitle = displayOptions.showPosition ? getTeacherPositionTitle(t) : '';
+            // Chỉ hiển thị Chức vụ khi có chức vụ thực tế và không trùng lặp từ với Tổ
+            const shouldShowPos = Boolean(
+              posTitle &&
+              !posTitle.toLowerCase().includes('bộ môn') &&
+              posTitle.toLowerCase() !== 'giáo viên' &&
+              posTitle.toLowerCase() !== deptName.toLowerCase()
+            );
+
+            const metaParts = [
+              shouldShowPos ? `Chức vụ: ${posTitle}` : null,
+              deptName,
+              printMeta.effectiveDate,
+              printMeta.year
+            ].filter(Boolean);
+
+            return (
+              <div style={{ fontSize: '9pt', fontStyle: 'italic', marginTop: '2px' }}>
+                {metaParts.join(' • ')}
+              </div>
+            );
+          })()}
+
+          {displayOptions.showTeacherMeta && taughtClasses.length > 0 && (
             <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: '20px',
-              marginTop: '5px',
-              fontSize: '9pt',
-              fontWeight: 600
+              fontSize: '8.5pt',
+              fontWeight: 700,
+              marginTop: '4px',
+              color: '#000'
             }}>
-              <span>GVCN: <strong>{homeroomName}</strong></span>
-              {displayOptions.showRoom && (
-                <span>Phòng học: <strong>{cls.mainRoom || 'Phòng học lớp'}</strong></span>
+              Danh sách các lớp giảng dạy ({taughtClasses.length} lớp):{' '}
+              <span style={{ fontWeight: 800 }}>
+                {taughtClasses.join(', ')}
+              </span>
+              {displayOptions.showPosition && t.isHomeroom && t.homeroomClassId && (
+                <span style={{ fontStyle: 'italic', marginLeft: '6px' }}>
+                  (Chủ nhiệm: {classes.find(c => c.id === t.homeroomClassId)?.name || t.homeroomClassId})
+                </span>
               )}
-              <span>Sĩ số: <strong>{cls.studentCount || 35} học sinh</strong></span>
             </div>
           )}
         </div>
 
-        {/* Official Printable Table */}
+        {/* 3. Official Printable Table */}
         <table style={{
           width: '100%',
           tableLayout: 'fixed',
@@ -427,9 +571,18 @@ export const ClassTimetablePrintModal = ({
                     )}
 
                     {DAYS_OF_WEEK.map(day => {
-                      const slot = timetable[cls.id]?.[day.id]?.[period.id];
-                      const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { name: slot.subjectRaw || slot.subjectId }) : null;
-                      const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+                      let matchSlot = null;
+                      let matchClass = null;
+
+                      classes.forEach(cls => {
+                        const slot = timetable[cls.id]?.[day.id]?.[period.id];
+                        if (slot && slot.teacherId === t.id) {
+                          matchSlot = slot;
+                          matchClass = cls;
+                        }
+                      });
+
+                      const sub = matchSlot ? ((subjects && subjects[matchSlot.subjectId]) || DEFAULT_SUBJECTS[matchSlot.subjectId] || { name: matchSlot.subjectRaw || matchSlot.subjectId }) : null;
                       const isWedOff = day.id === 4 && period.id > 4;
 
                       if (isWedOff) {
@@ -450,25 +603,18 @@ export const ClassTimetablePrintModal = ({
                         );
                       }
 
-                      let teacherLabel = '';
-                      if (displayOptions.teacherDisplay === 'code') {
-                        teacherLabel = teacher?.code ? `(${teacher.code})` : (teacher?.name ? `(${teacher.name})` : '');
-                      } else if (displayOptions.teacherDisplay === 'name') {
-                        teacherLabel = teacher?.name ? `(${teacher.name})` : '';
-                      }
-
                       return (
                         <td
                           key={day.id}
                           style={{
                             border: '1px solid #000',
-                            height: '35px',
-                            padding: '2px 3px',
+                            height: '36px',
+                            padding: '2px 2px',
                             verticalAlign: 'middle',
                             wordBreak: 'break-word'
                           }}
                         >
-                          {slot ? (
+                          {matchSlot ? (
                             <div>
                               <div style={{
                                 fontWeight: 800,
@@ -476,39 +622,49 @@ export const ClassTimetablePrintModal = ({
                                 color: '#000',
                                 lineHeight: 1.15
                               }}>
-                                {sub?.name || slot.subjectId}
+                                {sub?.name || matchSlot.subjectId}
                               </div>
-                              {teacherLabel && (
-                                <div style={{
-                                  fontSize: fSizes.teacher,
-                                  color: '#333',
-                                  marginTop: '1px'
-                                }}>
-                                  {teacherLabel}
+                              <div style={{
+                                fontSize: fSizes.cls,
+                                fontWeight: 800,
+                                color: '#0f172a',
+                                marginTop: '1px',
+                                background: '#e0e7ff',
+                                padding: '1px 4px',
+                                borderRadius: '3px',
+                                display: 'inline-block'
+                              }}>
+                                {matchClass?.name}
+                              </div>
+                              {displayOptions.showRoom && matchSlot.roomId && (
+                                <div style={{ fontSize: '7pt', color: '#64748b', fontStyle: 'italic' }}>
+                                  ({matchSlot.roomId})
                                 </div>
                               )}
                             </div>
                           ) : (
-                            <span style={{ color: '#aaa' }}>-</span>
+                            <span style={{ color: '#cbd5e1' }}>-</span>
                           )}
                         </td>
                       );
                     })}
                   </tr>
 
-                  {isLunch && displayOptions.showLunchBreak && (
-                    <tr style={{ background: '#f1f5f9', border: '1px solid #000' }}>
+                  {/* Lunch break row */}
+                  {displayOptions.showLunchBreak && isLunch && (
+                    <tr style={{ background: '#f8fafc', border: '1px solid #000' }}>
                       <td
                         colSpan={displayOptions.showPeriodTime ? 8 : 7}
                         style={{
                           border: '1px solid #000',
                           padding: '3px',
-                          fontSize: '7.5pt',
+                          fontSize: '8pt',
                           fontWeight: 800,
-                          fontStyle: 'italic'
+                          fontStyle: 'italic',
+                          color: '#334155'
                         }}
                       >
-                        🍱 NGHỈ TRƯA & ĂN BÁN TRÚ ({printMeta.lunchBreak})
+                        🍱 NGHỈ TRƯA BÁN TRÚ ({printMeta.lunchBreak || '10:30 - 14:00'})
                       </td>
                     </tr>
                   )}
@@ -518,27 +674,32 @@ export const ClassTimetablePrintModal = ({
           </tbody>
         </table>
 
-        {/* Footer Signatures */}
+        {/* 4. Footer Signatures */}
         {displayOptions.showSignatures && (
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
-            marginTop: '14px',
+            marginTop: '16px',
             fontSize: '8.5pt'
           }}>
             <div style={{ textAlign: 'center', width: '200px' }}>
-              <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>NGƯỜI LẬP BIỂU</div>
+              <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>
+                {displayOptions.signatureType === 'scheduler_principal' ? 'NGƯỜI LẬP BIỂU' : 'GIÁO VIÊN'}
+              </div>
               <div style={{ fontStyle: 'italic', fontSize: '7.5pt', marginTop: '2px' }}>(Ký và ghi rõ họ tên)</div>
-              <div style={{ height: '36px' }} />
-              <div style={{ fontWeight: 800 }}>{printMeta.scheduler || ''}</div>
+              <div style={{ height: '38px' }} />
+              <div style={{ fontWeight: 800 }}>
+                {displayOptions.signatureType === 'scheduler_principal' ? (printMeta.scheduler || '') : t.name}
+              </div>
             </div>
+
             <div style={{ textAlign: 'center', width: '220px' }}>
               <div style={{ fontStyle: 'italic', fontSize: '8pt' }}>
                 {printMeta.signLocationDate}
               </div>
               <div style={{ fontWeight: 800, textTransform: 'uppercase', marginTop: '2px' }}>HIỆU TRƯỞNG</div>
               <div style={{ fontStyle: 'italic', fontSize: '7.5pt', marginTop: '2px' }}>(Ký và đóng dấu)</div>
-              <div style={{ height: '36px' }} />
+              <div style={{ height: '38px' }} />
               <div style={{ fontWeight: 800 }}>{printMeta.principal || ''}</div>
             </div>
           </div>
@@ -555,62 +716,56 @@ export const ClassTimetablePrintModal = ({
       style={{
         position: 'fixed',
         inset: 0,
-        width: '100vw',
-        height: '100vh',
+        zIndex: 99999,
         background: 'rgba(15, 23, 42, 0.75)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 99999,
         padding: '16px'
       }}
     >
-      {/* ───────────────────────────────────────────────────────────── */}
-      {/* SCREEN-ONLY INTERACTIVE MODAL CONTAINER                       */}
-      {/* ───────────────────────────────────────────────────────────── */}
       <div
-        className="no-print animate-fade-in"
+        className="no-print"
         style={{
+          width: '98vw',
+          maxWidth: '1500px',
+          height: '95vh',
           background: '#ffffff',
           borderRadius: '20px',
-          width: '100%',
-          maxWidth: '1350px',
-          height: '92vh',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.4)',
-          overflow: 'hidden',
-          border: '1px solid #e2e8f0'
+          overflow: 'hidden'
         }}
       >
-        {/* Modal Top Header */}
+        {/* ─────── TOP HEADER BAR ─────── */}
         <div style={{
-          padding: '16px 24px',
+          padding: '12px 24px',
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)'
+          background: '#ffffff'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{
               width: '42px',
               height: '42px',
               borderRadius: '12px',
               background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
-              color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)'
+              color: '#ffffff',
+              boxShadow: '0 4px 10px rgba(79, 70, 229, 0.3)'
             }}>
               <Printer size={22} />
             </div>
             <div>
               <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                In Thời Khóa Biểu Lớp Học (A4)
+                In Thời Khóa Biểu Giáo Viên (A4)
                 <span style={{
                   fontSize: '0.75rem',
                   fontWeight: 700,
@@ -619,112 +774,115 @@ export const ClassTimetablePrintModal = ({
                   background: '#e0e7ff',
                   color: '#4338ca'
                 }}>
-                  {targetClasses.length} bản in
+                  {targetTeachers.length} bản in
                 </span>
               </h2>
               <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-                Xem trước trang in chuẩn quy cách giáo dục, hỗ trợ in đơn lẻ hoặc in hàng loạt toàn trường.
+                Xem trước trang in chuẩn quy cách giáo dục, hỗ trợ in từng giáo viên, theo tổ chuyên môn hoặc toàn trường.
               </p>
             </div>
           </div>
 
-            {/* Top Quick Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              {/* Copy Image Button */}
-              <button
-                onClick={handleCopyZaloImage}
-                disabled={isCopyingImage || !currentPreviewClass}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  borderRadius: '10px',
-                  background: '#eff6ff',
-                  border: '1px solid #bfdbfe',
-                  color: '#1d4ed8',
-                  fontSize: '0.85rem',
-                  fontWeight: 700,
-                  cursor: isCopyingImage ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-                title="Sao chép ảnh TKB đang xem vào Clipboard. Mở Zalo và nhấn Ctrl+V để gửi ngay cho phụ huynh!"
-              >
-                <Copy size={16} />
-                <span>{isCopyingImage ? 'Đang copy...' : 'Copy Ảnh (Dán Zalo)'}</span>
-              </button>
+          {/* Top Quick Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Copy Image Button */}
+            <button
+              onClick={handleCopyZaloImage}
+              disabled={isCopyingImage || !currentPreviewTeacher}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '10px',
+                background: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                color: '#1d4ed8',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor: isCopyingImage ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Sao chép ảnh TKB đang xem vào Clipboard. Mở Zalo và nhấn Ctrl+V để gửi ngay cho giáo viên!"
+            >
+              <Copy size={16} />
+              <span>{isCopyingImage ? 'Đang copy...' : 'Copy Ảnh (Dán Zalo)'}</span>
+            </button>
 
-              {/* Download Zalo Image Button */}
-              <button
-                onClick={handleExportZaloImage}
-                disabled={isExportingImage || !currentPreviewClass}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  borderRadius: '10px',
-                  background: '#fdf4ff',
-                  border: '1px solid #f5d0fe',
-                  color: '#a21caf',
-                  fontSize: '0.85rem',
-                  fontWeight: 700,
-                  cursor: isExportingImage ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-                title="Tải file ảnh PNG sắc nét (High-DPI) để gửi nhóm Zalo hoặc in ảnh"
-              >
-                <ImageIcon size={16} />
-                <span>{isExportingImage ? 'Đang tạo...' : 'Tải Ảnh Zalo (PNG)'}</span>
-              </button>
+            {/* Download Zalo Image Button */}
+            <button
+              onClick={handleExportZaloImage}
+              disabled={isExportingImage || !currentPreviewTeacher}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '10px',
+                background: '#fdf4ff',
+                border: '1px solid #f5d0fe',
+                color: '#a21caf',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor: isExportingImage ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Tải file ảnh PNG sắc nét (High-DPI) để gửi qua Zalo hoặc in ảnh"
+            >
+              <ImageIcon size={16} />
+              <span>{isExportingImage ? 'Đang tạo...' : 'Tải Ảnh Zalo (PNG)'}</span>
+            </button>
 
-              <button
-                onClick={handleExportExcel}
-                disabled={isExportingExcel || targetClasses.length === 0}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  borderRadius: '10px',
-                  background: '#f0fdf4',
-                  border: '1px solid #bbf7d0',
-                  color: '#15803d',
-                  fontSize: '0.85rem',
-                  fontWeight: 700,
-                  cursor: isExportingExcel ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-                title="Xuất các lớp đã chọn ra file Excel"
-              >
-                <FileSpreadsheet size={16} />
-                <span>{isExportingExcel ? 'Đang xuất...' : `Xuất Excel (${targetClasses.length})`}</span>
-              </button>
+            {/* Export Excel Button */}
+            <button
+              onClick={handleExportExcel}
+              disabled={isExportingExcel || targetTeachers.length === 0}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '10px',
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                color: '#15803d',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor: isExportingExcel ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Xuất các giáo viên đã chọn ra file Excel"
+            >
+              <FileSpreadsheet size={16} />
+              <span>{isExportingExcel ? 'Đang xuất...' : `Xuất Excel (${targetTeachers.length})`}</span>
+            </button>
 
-              <button
-                onClick={handlePrint}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 18px',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontSize: '0.85rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
-                  transition: 'transform 0.15s ease'
-                }}
-                onMouseOver={e => e.currentTarget.style.transform = 'scale(1.03)'}
-                onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <Printer size={16} />
-                <span>In Ngay / PDF ({targetClasses.length} trang)</span>
-              </button>
+            {/* Primary Print Button */}
+            <button
+              onClick={handlePrint}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 18px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                border: 'none',
+                color: '#ffffff',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+                transition: 'transform 0.15s ease'
+              }}
+              onMouseOver={e => e.currentTarget.style.transform = 'scale(1.03)'}
+              onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <Printer size={16} />
+              <span>In Ngay / PDF ({targetTeachers.length} trang)</span>
+            </button>
 
+            {/* Close Button */}
             <button
               onClick={onClose}
               style={{
@@ -841,7 +999,7 @@ export const ClassTimetablePrintModal = ({
                     </label>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      {/* Current Class */}
+                      {/* Current Teacher */}
                       <button
                         onClick={() => setPrintScope('current')}
                         style={{
@@ -857,13 +1015,13 @@ export const ClassTimetablePrintModal = ({
                           gap: '2px'
                         }}
                       >
-                        <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>📌 Lớp hiện tại</div>
+                        <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>📌 GV hiện tại</div>
                         <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                          Chỉ in lớp {currentPreviewClass?.name || 'đang chọn'} (1 trang)
+                          Chỉ in Thầy/Cô {currentPreviewTeacher?.name || 'đang chọn'} (1 trang)
                         </div>
                       </button>
 
-                      {/* All Classes */}
+                      {/* All Teachers */}
                       <button
                         onClick={() => setPrintScope('all')}
                         style={{
@@ -879,21 +1037,21 @@ export const ClassTimetablePrintModal = ({
                           gap: '2px'
                         }}
                       >
-                        <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>🏫 Toàn trường</div>
+                        <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>👨‍🏫 Toàn trường</div>
                         <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                          Tất cả {classes.length} lớp học
+                          Tất cả {teachers.length} giáo viên
                         </div>
                       </button>
 
-                      {/* By Grade */}
+                      {/* By Department */}
                       <button
-                        onClick={() => setPrintScope('grade')}
+                        onClick={() => setPrintScope('department')}
                         style={{
                           padding: '10px 12px',
                           borderRadius: '10px',
-                          border: printScope === 'grade' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
-                          background: printScope === 'grade' ? '#eef2ff' : '#ffffff',
-                          color: printScope === 'grade' ? '#4338ca' : '#475569',
+                          border: printScope === 'department' ? '2px solid #4f46e5' : '1px solid #cbd5e1',
+                          background: printScope === 'department' ? '#eef2ff' : '#ffffff',
+                          color: printScope === 'department' ? '#4338ca' : '#475569',
                           textAlign: 'left',
                           cursor: 'pointer',
                           display: 'flex',
@@ -901,9 +1059,9 @@ export const ClassTimetablePrintModal = ({
                           gap: '2px'
                         }}
                       >
-                        <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>📚 Theo khối</div>
+                        <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>🏢 Theo tổ CM</div>
                         <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                          In riêng Khối 1, 2, 3...
+                          Tổ 1, 2, 3; Tổ 4, 5; GV bộ môn
                         </div>
                       </button>
 
@@ -925,7 +1083,7 @@ export const ClassTimetablePrintModal = ({
                       >
                         <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>✍️ Tùy chọn</div>
                         <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                          Tự chọn từng lớp ({selectedClassIds.length} lớp)
+                          Tự chọn từng GV ({selectedTeacherIds.length} người)
                         </div>
                       </button>
                     </div>
@@ -935,11 +1093,11 @@ export const ClassTimetablePrintModal = ({
                   {printScope === 'current' && (
                     <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                       <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>
-                        Đang chọn lớp:
+                        Đang chọn giáo viên:
                       </label>
                       <select
-                        value={selectedClassIds[0] || ''}
-                        onChange={(e) => setSelectedClassIds([e.target.value])}
+                        value={selectedTeacherIds[0] || ''}
+                        onChange={(e) => setSelectedTeacherIds([e.target.value])}
                         style={{
                           width: '100%',
                           padding: '8px 12px',
@@ -950,40 +1108,65 @@ export const ClassTimetablePrintModal = ({
                           background: '#ffffff'
                         }}
                       >
-                        {classes.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} ({teacherMap.get(c.homeroomTeacherId)?.name || 'Chưa gán GVCN'})
+                        {teachers.map(t => (
+                          <option key={t.id} value={t.id}>
+                            {t.name} ({t.code || t.id}) - {getTeacherDepartment(t)}
                           </option>
                         ))}
                       </select>
                     </div>
                   )}
 
-                  {printScope === 'grade' && (
+                  {printScope === 'department' && (
                     <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                      <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '8px' }}>
-                        Chọn khối muốn in:
+                      <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '8px' }}>
+                        Chọn 1 trong 3 nhóm tổ chuyên môn:
                       </label>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        {availableGrades.map(g => {
-                          const isSel = selectedGrade === g;
-                          const count = classes.filter(c => (c.grade || (c.name?.match(/(\d+)/) ? parseInt(c.name.match(/(\d+)/)[1], 10) : null)) === g).length;
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {[
+                          { id: 'ALL', label: 'Tất cả các tổ', icon: '👨‍🏫', desc: `Toàn bộ ${teachers.length} giáo viên trong trường` },
+                          { id: 'Tổ 1, 2, 3', label: 'Tổ 1, 2, 3', icon: '🏫', desc: `Giáo viên khối 1, 2, 3 (${teachers.filter(t => getTeacherDepartment(t) === 'Tổ 1, 2, 3').length} GV)` },
+                          { id: 'Tổ 4, 5', label: 'Tổ 4, 5', icon: '🏫', desc: `Giáo viên khối 4, 5 (${teachers.filter(t => getTeacherDepartment(t) === 'Tổ 4, 5').length} GV)` },
+                          { id: 'Giáo viên bộ môn', label: 'Giáo viên bộ môn', icon: '🎨', desc: `Toàn bộ giáo viên bộ môn (${teachers.filter(t => getTeacherDepartment(t) === 'Giáo viên bộ môn').length} GV)` }
+                        ].map(group => {
+                          const isSel = selectedDepartment === group.id;
                           return (
                             <button
-                              key={g}
-                              onClick={() => setSelectedGrade(g)}
+                              key={group.id}
+                              onClick={() => setSelectedDepartment(group.id)}
                               style={{
-                                padding: '6px 14px',
-                                borderRadius: '8px',
+                                padding: '10px 14px',
+                                borderRadius: '10px',
                                 border: isSel ? '2px solid #4f46e5' : '1px solid #cbd5e1',
                                 background: isSel ? '#eef2ff' : '#ffffff',
-                                color: isSel ? '#4338ca' : '#475569',
-                                fontWeight: 800,
-                                fontSize: '0.82rem',
-                                cursor: 'pointer'
+                                color: isSel ? '#4338ca' : '#334155',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.15s ease'
                               }}
                             >
-                              Khối {g} ({count} lớp)
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '1.25rem' }}>{group.icon}</span>
+                                <div>
+                                  <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>{group.label}</div>
+                                  <div style={{ fontSize: '0.72rem', color: isSel ? '#6366f1' : '#64748b' }}>{group.desc}</div>
+                                </div>
+                              </div>
+                              {isSel && (
+                                <span style={{
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  background: '#4f46e5',
+                                  color: '#ffffff',
+                                  padding: '2px 10px',
+                                  borderRadius: '20px'
+                                }}>
+                                  Đang chọn
+                                </span>
+                              )}
                             </button>
                           );
                         })}
@@ -995,7 +1178,7 @@ export const ClassTimetablePrintModal = ({
                     <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>
-                          Đã chọn: {selectedClassIds.length} / {classes.length} lớp
+                          Chọn danh sách giáo viên ({selectedTeacherIds.length}/{teachers.length}):
                         </span>
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <button
@@ -1018,9 +1201,9 @@ export const ClassTimetablePrintModal = ({
                         <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '9px' }} />
                         <input
                           type="text"
-                          placeholder="Tìm lớp..."
-                          value={classSearch}
-                          onChange={e => setClassSearch(e.target.value)}
+                          placeholder="Tìm theo tên hoặc mã GV..."
+                          value={teacherSearch}
+                          onChange={e => setTeacherSearch(e.target.value)}
                           style={{
                             width: '100%',
                             padding: '6px 10px 6px 30px',
@@ -1032,15 +1215,20 @@ export const ClassTimetablePrintModal = ({
                         />
                       </div>
 
-                      {/* Class Checkbox List */}
+                      {/* Teacher Checkbox List */}
                       <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {classes
-                          .filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase()))
-                          .map(c => {
-                            const isChecked = selectedClassIds.includes(c.id);
+                        {teachers
+                          .filter(t => 
+                            t.name.toLowerCase().includes(teacherSearch.toLowerCase()) || 
+                            (t.code && t.code.toLowerCase().includes(teacherSearch.toLowerCase())) ||
+                            t.id.toLowerCase().includes(teacherSearch.toLowerCase())
+                          )
+                          .map(t => {
+                            const isChecked = selectedTeacherIds.includes(t.id);
+                            const stat = teacherStats[t.id] || { scheduled: 0 };
                             return (
                               <label
-                                key={c.id}
+                                key={t.id}
                                 style={{
                                   display: 'flex',
                                   alignItems: 'center',
@@ -1057,12 +1245,15 @@ export const ClassTimetablePrintModal = ({
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
-                                  onChange={() => handleToggleClass(c.id)}
+                                  onChange={() => handleToggleTeacher(t.id)}
                                   style={{ cursor: 'pointer' }}
                                 />
-                                <span>{c.name}</span>
-                                <span style={{ color: '#94a3b8', fontSize: '0.72rem', marginLeft: 'auto' }}>
-                                  {c.mainRoom || ''}
+                                <span>{t.name}</span>
+                                <span style={{ color: '#64748b', fontSize: '0.72rem' }}>
+                                  ({t.code || t.id})
+                                </span>
+                                <span style={{ color: '#059669', fontSize: '0.72rem', marginLeft: 'auto', fontWeight: 700 }}>
+                                  {stat.scheduled} tiết
                                 </span>
                               </label>
                             );
@@ -1087,8 +1278,8 @@ export const ClassTimetablePrintModal = ({
                       <Info size={15} />
                       <span>Thông tin trang in:</span>
                     </div>
-                    <div>• Tổng số trang in dự kiến: <strong>{targetClasses.length} trang A4</strong></div>
-                    <div>• Tự động tách trang (Page-Break) chuẩn xác 1 lớp / 1 trang A4 đứng.</div>
+                    <div>• Tổng số trang in dự kiến: <strong>{targetTeachers.length} trang A4</strong></div>
+                    <div>• Tự động tách trang (Page-Break) chuẩn xác 1 giáo viên / 1 trang A4 đứng.</div>
                   </div>
                 </div>
               )}
@@ -1200,41 +1391,31 @@ export const ClassTimetablePrintModal = ({
               {/* TAB 3: DISPLAY OPTIONS */}
               {activeTab === 'options' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {/* Teacher display mode */}
+                  {/* Signature Type */}
                   <div>
                     <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                      Hiển thị Giáo viên bộ môn:
+                      Kiểu chữ ký chân trang:
                     </label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
                         <input
                           type="radio"
-                          name="teacherDisplay"
-                          value="code"
-                          checked={displayOptions.teacherDisplay === 'code'}
-                          onChange={() => setDisplayOptions({ ...displayOptions, teacherDisplay: 'code' })}
+                          name="signatureType"
+                          value="teacher_principal"
+                          checked={displayOptions.signatureType === 'teacher_principal'}
+                          onChange={() => setDisplayOptions({ ...displayOptions, signatureType: 'teacher_principal' })}
                         />
-                        <span>Mã viết tắt / Tên gọn (VD: <em>Mai</em>, <em>GV01</em>)</span>
+                        <span>Giáo viên & Hiệu trưởng (chuẩn thời khóa biểu cá nhân)</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
                         <input
                           type="radio"
-                          name="teacherDisplay"
-                          value="name"
-                          checked={displayOptions.teacherDisplay === 'name'}
-                          onChange={() => setDisplayOptions({ ...displayOptions, teacherDisplay: 'name' })}
+                          name="signatureType"
+                          value="scheduler_principal"
+                          checked={displayOptions.signatureType === 'scheduler_principal'}
+                          onChange={() => setDisplayOptions({ ...displayOptions, signatureType: 'scheduler_principal' })}
                         />
-                        <span>Họ và tên đầy đủ (VD: <em>Cô Nguyễn Thị Mai</em>)</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="teacherDisplay"
-                          value="none"
-                          checked={displayOptions.teacherDisplay === 'none'}
-                          onChange={() => setDisplayOptions({ ...displayOptions, teacherDisplay: 'none' })}
-                        />
-                        <span>Ẩn tên giáo viên (chỉ hiện môn học)</span>
+                        <span>Người lập biểu & Hiệu trưởng (chuẩn quản lý)</span>
                       </label>
                     </div>
                   </div>
@@ -1256,16 +1437,25 @@ export const ClassTimetablePrintModal = ({
                         checked={displayOptions.showSignatures}
                         onChange={e => setDisplayOptions({ ...displayOptions, showSignatures: e.target.checked })}
                       />
-                      <span>Hiển thị phần Chữ ký duyệt (Người lập biểu & Hiệu trưởng)</span>
+                      <span>Hiển thị phần Chữ ký duyệt</span>
                     </label>
 
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
-                        checked={displayOptions.showClassMeta}
-                        onChange={e => setDisplayOptions({ ...displayOptions, showClassMeta: e.target.checked })}
+                        checked={displayOptions.showPosition}
+                        onChange={e => setDisplayOptions({ ...displayOptions, showPosition: e.target.checked })}
                       />
-                      <span>Hiển thị thông tin GVCN & Sĩ số lớp</span>
+                      <span>Hiển thị chức vụ giáo viên (Chức vụ / Vị trí)</span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={displayOptions.showTeacherMeta}
+                        onChange={e => setDisplayOptions({ ...displayOptions, showTeacherMeta: e.target.checked })}
+                      />
+                      <span>Hiển thị danh sách các lớp giảng dạy của GV</span>
                     </label>
 
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
@@ -1274,7 +1464,7 @@ export const ClassTimetablePrintModal = ({
                         checked={displayOptions.showRoom}
                         onChange={e => setDisplayOptions({ ...displayOptions, showRoom: e.target.checked })}
                       />
-                      <span>Hiển thị phòng học của lớp</span>
+                      <span>Hiển thị phòng học / phòng chức năng</span>
                     </label>
 
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
@@ -1352,7 +1542,7 @@ export const ClassTimetablePrintModal = ({
                 }}
               >
                 <Printer size={18} />
-                <span>In Bản In Này ({targetClasses.length} lớp)</span>
+                <span>In Bản In Này ({targetTeachers.length} GV)</span>
               </button>
             </div>
           </div>
@@ -1409,23 +1599,23 @@ export const ClassTimetablePrintModal = ({
                     cursor: 'pointer'
                   }}
                 >
-                  {targetClasses.map((cls, idx) => (
-                    <option key={cls.id} value={idx}>
-                      Trang {idx + 1}/{targetClasses.length}: {cls.name}
+                  {targetTeachers.map((t, idx) => (
+                    <option key={t.id} value={idx}>
+                      Trang {idx + 1}/{targetTeachers.length}: {t.name} ({t.code || t.id})
                     </option>
                   ))}
                 </select>
 
                 <button
-                  onClick={() => setPreviewIndex(prev => Math.min(targetClasses.length - 1, prev + 1))}
-                  disabled={previewIndex >= targetClasses.length - 1}
+                  onClick={() => setPreviewIndex(prev => Math.min(targetTeachers.length - 1, prev + 1))}
+                  disabled={previewIndex >= targetTeachers.length - 1}
                   style={{
                     background: '#1e293b',
                     border: 'none',
                     borderRadius: '6px',
                     padding: '4px 8px',
-                    color: previewIndex >= targetClasses.length - 1 ? '#64748b' : '#ffffff',
-                    cursor: previewIndex >= targetClasses.length - 1 ? 'not-allowed' : 'pointer',
+                    color: previewIndex >= targetTeachers.length - 1 ? '#64748b' : '#ffffff',
+                    cursor: previewIndex >= targetTeachers.length - 1 ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center'
                   }}
@@ -1483,7 +1673,7 @@ export const ClassTimetablePrintModal = ({
                   boxSizing: 'border-box'
                 }}
               >
-                {renderClassSheet(currentPreviewClass, true)}
+                {renderTeacherSheet(currentPreviewTeacher, true)}
               </div>
             </div>
           </div>
@@ -1518,9 +1708,9 @@ export const ClassTimetablePrintModal = ({
       {/* HIDDEN PRINT DOM (ACTIVE DURING BROWSER WINDOW.PRINT)         */}
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="printable-batch-container">
-        {targetClasses.map((cls, index) => (
-          <React.Fragment key={cls.id}>
-            {renderClassSheet(cls, false)}
+        {targetTeachers.map((t) => (
+          <React.Fragment key={t.id}>
+            {renderTeacherSheet(t, false)}
           </React.Fragment>
         ))}
       </div>
@@ -1528,3 +1718,4 @@ export const ClassTimetablePrintModal = ({
     document.body
   );
 };
+export default TeacherTimetablePrintModal;

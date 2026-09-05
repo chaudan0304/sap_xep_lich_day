@@ -18,6 +18,7 @@ export function mapParsedExcelToAppModel(parsedData, currentAppState = {}) {
     assignments = [],
     gradeQuotas = DEFAULT_GRADE_QUOTAS,
     rooms = [],
+    subjects = {},
     schoolInfo = { name: 'Trường TH Quỳnh Lộc', year: 'Năm học 2026 - 2027' }
   } = parsedData || {};
 
@@ -50,7 +51,7 @@ export function mapParsedExcelToAppModel(parsedData, currentAppState = {}) {
       id: c.id,
       name: c.name || `Lớp ${c.id}`,
       grade: Number(c.grade) || Number(String(c.id)[0]) || 1,
-      homeroomTeacherId: c.homeroomTeacherId || (homeroom ? homeroom.id : 'GV_01'),
+      homeroomTeacherId: c.homeroomTeacherId || (homeroom ? homeroom.id : ''),
       mainRoom: c.mainRoom || `P.${c.id}`,
       studentCount: Number(c.studentCount) || 35
     };
@@ -62,7 +63,7 @@ export function mapParsedExcelToAppModel(parsedData, currentAppState = {}) {
     { id: 'SAN_THE_CHAT', name: 'Sân / Nhà đa năng Thể chất', code: 'SAN-TC', capacity: 100, isSpecialized: true, allowMultiple: true }
   ]);
 
-  // 4. Chuẩn hóa thời khóa biểu (Timetable)
+  // 4. Chuẩn hóa thời khóa biểu (Timetable) - Bảo toàn 100% dữ liệu gốc
   const cleanTimetable = {};
   cleanClasses.forEach(cls => {
     cleanTimetable[cls.id] = {
@@ -78,12 +79,14 @@ export function mapParsedExcelToAppModel(parsedData, currentAppState = {}) {
         if (timetable[cls.id][d]) {
           for (let p = 1; p <= 7; p++) {
             const slot = timetable[cls.id][d][p];
-            if (slot && slot.subjectId) {
+            if (slot && (slot.subjectId || slot.subjectRaw)) {
               cleanTimetable[cls.id][d][p] = {
-                subjectId: slot.subjectId,
-                subjectRaw: slot.subjectRaw || slot.subjectId,
+                subjectId: slot.subjectId || 'CHUA_XAC_DINH',
+                subjectRaw: slot.subjectRaw || slot.subjectId || '',
                 teacherId: slot.teacherId || '',
                 teacherRaw: slot.teacherRaw || '',
+                teacherName: slot.teacherName || slot.teacherRaw || '',
+                teacherCode: slot.teacherCode || slot.teacherRaw || '',
                 roomId: slot.roomId || 'LOP_HOC',
                 isLocked: slot.isLocked !== undefined ? slot.isLocked : true
               };
@@ -106,7 +109,7 @@ export function mapParsedExcelToAppModel(parsedData, currentAppState = {}) {
           classId: cls.id,
           grade: cls.grade,
           subjectId: sub.subjectId,
-          teacherId: cls.homeroomTeacherId || 'GV_01',
+          teacherId: cls.homeroomTeacherId || '',
           weeklyPeriods: sub.weeklyPeriods,
           roomType: sub.roomType || 'LOP_HOC',
           allowDouble: sub.allowDouble || false
@@ -119,6 +122,7 @@ export function mapParsedExcelToAppModel(parsedData, currentAppState = {}) {
     teachers: cleanTeachers,
     classes: cleanClasses,
     rooms: cleanRooms,
+    subjects: Object.keys(subjects).length > 0 ? subjects : (currentAppState.subjects || SUBJECTS),
     gradeQuotas: gradeQuotas || DEFAULT_GRADE_QUOTAS,
     assignments: cleanAssignments,
     timetable: cleanTimetable,

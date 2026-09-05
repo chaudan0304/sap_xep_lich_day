@@ -192,8 +192,8 @@ export const SUBJECTS = {
     defaultRoom: 'LOP_HOC',
     description: 'Củng cố, ôn luyện và khắc sâu kiến thức môn học'
   },
-  GDKN_CONG_DAN_SO: {
-    id: 'GDKN_CONG_DAN_SO',
+  GD_CONG_DAN_SO: {
+    id: 'GD_CONG_DAN_SO',
     name: 'Giáo dục kĩ năng công dân số',
     shortName: 'GDKNCDS',
     category: SUBJECT_CATEGORIES.SPECIALIZED,
@@ -204,6 +204,45 @@ export const SUBJECTS = {
     icon: 'ShieldCheck',
     defaultRoom: 'LOP_HOC',
     description: 'Giáo dục kỹ năng số, an toàn mạng và năng lực công nghệ số'
+  },
+  GDKN_CONG_DAN_SO: {
+    id: 'GD_CONG_DAN_SO',
+    name: 'Giáo dục kĩ năng công dân số',
+    shortName: 'GDKNCDS',
+    category: SUBJECT_CATEGORIES.SPECIALIZED,
+    color: '#6366f1',
+    bg: '#eef2ff',
+    border: '#c7d2fe',
+    text: '#4338ca',
+    icon: 'ShieldCheck',
+    defaultRoom: 'LOP_HOC',
+    description: 'Giáo dục kỹ năng số, an toàn mạng và năng lực công nghệ số'
+  },
+  CHAO_CO: {
+    id: 'HDTN',
+    name: 'Sinh hoạt dưới cờ (Chào cờ)',
+    shortName: 'Chào cờ',
+    category: SUBJECT_CATEGORIES.EXPERIENCE,
+    color: '#4f46e5',
+    bg: '#eef2ff',
+    border: '#a5b4fc',
+    text: '#3730a3',
+    icon: 'Sparkles',
+    defaultRoom: 'SAN_TRUONG',
+    description: 'Chào cờ đầu tuần và sinh hoạt dưới cờ'
+  },
+  SINH_HOAT: {
+    id: 'HDTN',
+    name: 'Sinh hoạt lớp',
+    shortName: 'Sinh hoạt',
+    category: SUBJECT_CATEGORIES.EXPERIENCE,
+    color: '#4f46e5',
+    bg: '#eef2ff',
+    border: '#a5b4fc',
+    text: '#3730a3',
+    icon: 'Sparkles',
+    defaultRoom: 'LOP_HOC',
+    description: 'Sinh hoạt lớp cuối tuần và tổng kết'
   },
   TU_CHON: {
     id: 'TU_CHON',
