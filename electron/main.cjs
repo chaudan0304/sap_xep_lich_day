@@ -74,7 +74,7 @@ function downloadFileWithRedirect(url, destPath, onProgress) {
         const client = parsedUrl.protocol === 'http:' ? http : https;
         const options = {
           headers: {
-            'User-Agent': 'EduTimetable-AutoUpdater/1.0.4'
+            'User-Agent': 'EduTimetable-AutoUpdater/1.0.5'
           }
         };
 

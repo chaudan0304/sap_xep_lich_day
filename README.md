@@ -135,13 +135,13 @@ Dự án cung cấp các phương thức đóng gói file thực thi độc lậ
 ```bash
 npm run electron:build:portable
 ```
-File thực thi sẽ được tạo tại thư mục `release/EduTimetable Tiểu Học 1.0.4.exe`. Bạn chỉ cần copy file này vào USB hoặc máy tính bất kỳ để mở lên chạy ngay.
+File thực thi sẽ được tạo tại thư mục `release/EduTimetable Tiểu Học 1.0.5.exe`. Bạn chỉ cần copy file này vào USB hoặc máy tính bất kỳ để mở lên chạy ngay.
 
 #### Cách 2: Xuất file Cài Đặt Setup (NSIS Installer):
 ```bash
 npm run electron:build:installer
 ```
-File cài đặt sẽ được tạo tại thư mục `release/EduTimetable Tiểu Học Setup 1.0.4.exe`, hỗ trợ tạo shortcut ngoài màn hình Desktop và Start Menu.
+File cài đặt sẽ được tạo tại thư mục `release/EduTimetable Tiểu Học Setup 1.0.5.exe`, hỗ trợ tạo shortcut ngoài màn hình Desktop và Start Menu.
 
 #### Cách 3: Đóng gói Desktop tiêu chuẩn:
 ```bash
