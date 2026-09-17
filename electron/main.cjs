@@ -188,11 +188,17 @@ ipcMain.handle('start-in-app-update', async (event, { downloadUrl, fileName }) =
       }
       fs.mkdirSync(extractDir, { recursive: true });
 
-      // Sử dụng tar.exe tích hợp sẵn trên Windows để giải nén cực nhanh
+      // Sử dụng tar.exe tích hợp sẵn trên Windows, tự động fallback sang PowerShell Expand-Archive nếu tar lỗi
       await new Promise((resolve, reject) => {
         execFile('tar.exe', ['-xf', destPath, '-C', extractDir], (err) => {
-          if (err) return reject(new Error('Lỗi giải nén bản cập nhật: ' + err.message));
-          resolve();
+          if (!err) return resolve();
+          // Nếu tar.exe của Windows lỗi với file zip, tự động fallback sang PowerShell Expand-Archive
+          console.warn('tar.exe gặp lỗi, tự động chuyển sang PowerShell Expand-Archive:', err.message);
+          const psCmd = `Expand-Archive -LiteralPath '${destPath.replace(/'/g, "''")}' -DestinationPath '${extractDir.replace(/'/g, "''")}' -Force`;
+          execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psCmd], (psErr) => {
+            if (psErr) return reject(new Error('Lỗi giải nén bản cập nhật: ' + err.message));
+            resolve();
+          });
         });
       });
 
