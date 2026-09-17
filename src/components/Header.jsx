@@ -20,7 +20,8 @@ import {
   Upload,
   Settings,
   ArrowUpCircle,
-  HelpCircle
+  HelpCircle,
+  Database
 } from 'lucide-react';
 import { CURRENT_APP_VERSION } from '../services/updateChecker';
 
@@ -38,6 +39,8 @@ export const Header = ({
   onClearTimetable,
   onExportBackupJson,
   onImportBackupJson,
+  onExportSqliteDb,
+  onImportSqliteDb,
   conflicts = [],
   isAutoScheduling = false,
   schoolInfo = { name: 'Trường TH Quỳnh Lộc', year: 'Năm học 2026 - 2027' },
@@ -46,6 +49,7 @@ export const Header = ({
   importReportCount = 0
 }) => {
   const jsonFileInputRef = React.useRef(null);
+  const dbFileInputRef = React.useRef(null);
 
   const handleJsonFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -61,6 +65,15 @@ export const Header = ({
       }
     };
     reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleDbFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (onImportSqliteDb) {
+      onImportSqliteDb(file);
+    }
     e.target.value = '';
   };
   const errorCount = conflicts.filter(c => c.severity === 'error').length;
@@ -341,6 +354,69 @@ export const Header = ({
               ref={jsonFileInputRef}
               onChange={handleJsonFileChange}
               accept=".json"
+              style={{ display: 'none' }}
+            />
+
+            {/* SQLite Database Backup (.db) */}
+            <button
+              onClick={onExportSqliteDb}
+              title="Xuất tập tin Cơ sở dữ liệu SQLite (.db) lưu về máy tính"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 10px',
+                borderRadius: '7px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: 'rgba(59, 130, 246, 0.18)',
+                border: '1px solid rgba(96, 165, 250, 0.4)',
+                color: '#93c5fd',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'rgba(59, 130, 246, 0.35)';
+                e.currentTarget.style.transform = 'scale(1.02)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'rgba(59, 130, 246, 0.18)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              <Database size={14} />
+              <span>Lưu .db</span>
+            </button>
+
+            {/* SQLite Database Restore (.db) */}
+            <button
+              onClick={() => dbFileInputRef.current?.click()}
+              title="Nạp tập tin Cơ sở dữ liệu SQLite (.db) từ máy tính"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 10px',
+                borderRadius: '7px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: 'transparent',
+                border: 'none',
+                color: '#cbd5e1',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <Upload size={14} />
+              <span>Nạp .db</span>
+            </button>
+            <input
+              type="file"
+              ref={dbFileInputRef}
+              onChange={handleDbFileChange}
+              accept=".db,.sqlite"
               style={{ display: 'none' }}
             />
 

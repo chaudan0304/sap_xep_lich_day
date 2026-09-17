@@ -33,8 +33,14 @@ import {
 import { QUYNH_LOC_DATA } from './data/quynhLocSchoolData';
 import { checkAllConflicts } from './services/conflictDetector';
 import { solveTimetable } from './services/autoScheduler';
+import { 
+  loadAllDataFromDb, 
+  saveAllDataToDb, 
+  exportSqliteDatabaseFile, 
+  importSqliteDatabaseFile 
+} from './services/dbService';
 
-const DATA_VERSION = '2026_08_29_V34_AUTHENTIC_SHORT_NAMES';
+const DATA_VERSION = '2026_09_06_V35_SEPARATE_SCIENCE_HISTORY';
 
 export function App() {
   const currentVersion = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_VERSION') : null;
@@ -201,6 +207,28 @@ export function App() {
     return () => clearTimeout(timer);
   }, []);
 
+  // ★ NẠP DỮ LIỆU TỪ CƠ SỞ DỮ LIỆU SQLITE (src/data/edutimetable.db) KHI KHỞI ĐỘNG
+  useEffect(() => {
+    let isMounted = true;
+    loadAllDataFromDb().then(dbData => {
+      if (!isMounted || !dbData) return;
+      skipAssignmentSyncRef.current = true;
+      if (dbData.schoolInfo) setSchoolInfo(dbData.schoolInfo);
+      if (Array.isArray(dbData.periods) && dbData.periods.length > 0) setPeriods(dbData.periods);
+      if (dbData.subjects && Object.keys(dbData.subjects).length > 0) setSubjects(dbData.subjects);
+      if (dbData.gradeQuotas && Object.keys(dbData.gradeQuotas).length > 0) setGradeQuotas(dbData.gradeQuotas);
+      if (Array.isArray(dbData.classes) && dbData.classes.length > 0) setClasses(dbData.classes);
+      if (Array.isArray(dbData.teachers) && dbData.teachers.length > 0) setTeachers(dbData.teachers);
+      if (Array.isArray(dbData.rooms) && dbData.rooms.length > 0) setRooms(dbData.rooms);
+      if (Array.isArray(dbData.assignments) && dbData.assignments.length > 0) setAssignments(dbData.assignments);
+      if (dbData.timetable && Object.keys(dbData.timetable).length > 0) setTimetable(dbData.timetable);
+    }).catch(err => {
+      console.warn('Initial SQLite load warning:', err);
+    });
+
+    return () => { isMounted = false; };
+  }, []);
+
   // Sync to LocalStorage on changes
   useEffect(() => {
     localStorage.setItem('EDUTIMETABLE_VERSION', DATA_VERSION);
@@ -335,14 +363,15 @@ export function App() {
     localStorage.setItem('EDUTIMETABLE_SCHEDULE', JSON.stringify(timetable));
   }, [timetable]);
 
-  // ★ TỰ ĐỘNG LƯU RA FILE ĐĨA: src/data/savedData.json
-  // Mỗi khi bạn thay đổi dữ liệu, file JSON này sẽ tự động cập nhật ngay trên ổ đĩa
+  // ★ TỰ ĐỘNG LƯU VÀO CƠ SỞ DỮ LIỆU SQLITE (src/data/edutimetable.db)
+  // Mỗi khi bạn thay đổi dữ liệu, CSDL SQLite sẽ tự động cập nhật ngay trên ổ đĩa
   useEffect(() => {
     const timer = setTimeout(() => {
       const payload = {
         version: '1.0',
         timestamp: new Date().toISOString(),
         schoolInfo,
+        periods,
         subjects,
         gradeQuotas,
         classes,
@@ -351,15 +380,11 @@ export function App() {
         assignments,
         timetable
       };
-      fetch('/api/save-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload, null, 2)
-      }).catch(err => console.log('Auto-save to disk failed:', err));
+      saveAllDataToDb(payload);
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [schoolInfo, subjects, gradeQuotas, classes, teachers, rooms, assignments, timetable]);
+  }, [schoolInfo, periods, subjects, gradeQuotas, classes, teachers, rooms, assignments, timetable]);
 
   // 2. Real-time Conflict Detection
   const conflicts = useMemo(() => {
@@ -561,6 +586,38 @@ export function App() {
     if (jsonData.timetable) setTimetable(jsonData.timetable);
   };
 
+  // 11. Xuất File Cơ Sở Dữ Liệu SQLite (.db)
+  const handleExportSqliteDb = async () => {
+    try {
+      await exportSqliteDatabaseFile(schoolInfo.name);
+    } catch (err) {
+      alert('Lỗi khi xuất file cơ sở dữ liệu SQLite: ' + err.message);
+    }
+  };
+
+  // 12. Nạp File Cơ Sở Dữ Liệu SQLite (.db)
+  const handleImportSqliteDb = async (file) => {
+    try {
+      const res = await importSqliteDatabaseFile(file);
+      if (res?.data) {
+        skipAssignmentSyncRef.current = true;
+        const d = res.data;
+        if (d.schoolInfo) setSchoolInfo(d.schoolInfo);
+        if (Array.isArray(d.periods) && d.periods.length > 0) setPeriods(d.periods);
+        if (d.subjects && Object.keys(d.subjects).length > 0) setSubjects(d.subjects);
+        if (d.gradeQuotas && Object.keys(d.gradeQuotas).length > 0) setGradeQuotas(d.gradeQuotas);
+        if (Array.isArray(d.classes) && d.classes.length > 0) setClasses(d.classes);
+        if (Array.isArray(d.teachers) && d.teachers.length > 0) setTeachers(d.teachers);
+        if (Array.isArray(d.rooms) && d.rooms.length > 0) setRooms(d.rooms);
+        if (Array.isArray(d.assignments) && d.assignments.length > 0) setAssignments(d.assignments);
+        if (d.timetable && Object.keys(d.timetable).length > 0) setTimetable(d.timetable);
+        alert('🎉 Nạp cơ sở dữ liệu SQLite (.db) thành công!');
+      }
+    } catch (err) {
+      alert('Lỗi khi nạp file cơ sở dữ liệu SQLite: ' + err.message);
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface-bg)', paddingBottom: '60px' }}>
       {/* Global Header */}
@@ -578,6 +635,8 @@ export function App() {
         onClearTimetable={handleClearTimetable}
         onExportBackupJson={handleExportBackupJson}
         onImportBackupJson={handleImportBackupJson}
+        onExportSqliteDb={handleExportSqliteDb}
+        onImportSqliteDb={handleImportSqliteDb}
         onOpenConflictModal={() => setIsConflictModalOpen(true)}
         conflicts={conflicts}
         isAutoScheduling={isAutoScheduling}

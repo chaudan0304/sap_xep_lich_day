@@ -1,11 +1,18 @@
-// electron/main.cjs
-const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const { spawn, execFile } = require('child_process');
 const { autoUpdater } = require('electron-updater');
+const {
+  openOrCreateDatabase,
+  saveJsonToDatabase,
+  loadJsonFromDatabase,
+  saveDatabaseToFile,
+  getSqlEngine,
+  createSchema
+} = require('../src/services/sqliteManager.cjs');
 
 let mainWindow = null;
 let pendingUpdateScript = null;
@@ -338,6 +345,111 @@ ipcMain.handle('print-window', async (event, options = {}) => {
       }
     );
   });
+});
+
+// -------------------------------------------------------------
+// IPC Handlers cho Quản Lý Cơ Sở Dữ Liệu SQLite Cục Bộ (.db)
+// -------------------------------------------------------------
+function getDbPath() {
+  if (isDev) {
+    return path.resolve(__dirname, '../src/data/edutimetable.db');
+  }
+  return path.join(app.getPath('userData'), 'edutimetable.db');
+}
+
+ipcMain.handle('db-load', async () => {
+  try {
+    const dbPath = getDbPath();
+    const db = await openOrCreateDatabase(dbPath);
+    let data = loadJsonFromDatabase(db);
+
+    // Nếu CSDL mới tinh chưa có dữ liệu trường học, tự động di chuyển từ savedData.json mặc định
+    if (!data.schoolInfo || !data.classes || data.classes.length === 0) {
+      const defaultJsonPath = path.resolve(__dirname, '../src/data/savedData.json');
+      if (fs.existsSync(defaultJsonPath)) {
+        try {
+          const rawJson = fs.readFileSync(defaultJsonPath, 'utf8');
+          const parsedJson = JSON.parse(rawJson);
+          saveJsonToDatabase(db, parsedJson);
+          saveDatabaseToFile(db, dbPath);
+          data = loadJsonFromDatabase(db);
+        } catch (mErr) {
+          console.warn('Initial migration to SQLite in Electron notice:', mErr);
+        }
+      }
+    }
+    return { success: true, data };
+  } catch (err) {
+    console.error('db-load error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('db-save', async (event, payload) => {
+  try {
+    const dbPath = getDbPath();
+    const db = await openOrCreateDatabase(dbPath);
+    saveJsonToDatabase(db, payload);
+    saveDatabaseToFile(db, dbPath);
+    return { success: true };
+  } catch (err) {
+    console.error('db-save error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('db-export-file', async () => {
+  try {
+    const dbPath = getDbPath();
+    if (!fs.existsSync(dbPath)) {
+      return { success: false, error: 'Chưa có tập tin cơ sở dữ liệu SQLite để xuất.' };
+    }
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Lưu bản sao Cơ sở dữ liệu SQLite (.db)',
+      defaultPath: `edutimetable_${new Date().toISOString().slice(0, 10)}.db`,
+      filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite'] }]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    fs.copyFileSync(dbPath, result.filePath);
+    return { success: true, filePath: result.filePath };
+  } catch (err) {
+    console.error('db-export-file error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('db-import-file', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Chọn tập tin Cơ sở dữ liệu SQLite (.db)',
+      properties: ['openFile'],
+      filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite', '*'] }]
+    });
+
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    const selectedPath = result.filePaths[0];
+    const buffer = fs.readFileSync(selectedPath);
+
+    // Kiểm tra tính hợp lệ của file SQLite
+    const SQL = await getSqlEngine();
+    const testDb = new SQL.Database(buffer);
+    createSchema(testDb);
+    const data = loadJsonFromDatabase(testDb);
+
+    const dbPath = getDbPath();
+    fs.writeFileSync(dbPath, buffer);
+    return { success: true, data };
+  } catch (err) {
+    console.error('db-import-file error:', err);
+    return { success: false, error: err.message };
+  }
 });
 
 app.whenReady().then(() => {

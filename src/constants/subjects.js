@@ -114,10 +114,23 @@ export const SUBJECTS = {
     defaultRoom: 'LOP_HOC',
     description: 'Khám phá thế giới tự nhiên và xã hội xung quanh'
   },
+  KHOA_HOC: {
+    id: 'KHOA_HOC',
+    name: 'Khoa học',
+    shortName: 'Khoa học',
+    category: SUBJECT_CATEGORIES.CORE,
+    color: '#0284c7',
+    bg: '#f0f9ff',
+    border: '#7dd3fc',
+    text: '#0369a1',
+    icon: 'FlaskConical',
+    defaultRoom: 'LOP_HOC',
+    description: 'Khám phá thế giới tự nhiên và khoa học đời sống'
+  },
   LS_DL: {
     id: 'LS_DL',
-    name: 'Khoa học - Lịch sử - Địa lí',
-    shortName: 'Khoa-Sử-Địa',
+    name: 'Lịch sử và Địa lí',
+    shortName: 'Lịch sử - Địa lí',
     category: SUBJECT_CATEGORIES.CORE,
     color: '#b45309',
     bg: '#fffbeb',
@@ -125,7 +138,7 @@ export const SUBJECTS = {
     text: '#78350f',
     icon: 'Globe',
     defaultRoom: 'LOP_HOC',
-    description: 'Khoa học, Lịch sử và Địa lí'
+    description: 'Lịch sử và Địa lí cấp Tiểu học'
   },
   AM_NHAC: {
     id: 'AM_NHAC',

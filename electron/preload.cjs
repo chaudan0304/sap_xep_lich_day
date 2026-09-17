@@ -11,7 +11,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, info) => callback(info)),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   restartAndInstall: () => ipcRenderer.invoke('restart-app-for-update'),
-  printWindow: (options) => ipcRenderer.invoke('print-window', options)
+  printWindow: (options) => ipcRenderer.invoke('print-window', options),
+  db: {
+    load: () => ipcRenderer.invoke('db-load'),
+    save: (data) => ipcRenderer.invoke('db-save', data),
+    exportFile: () => ipcRenderer.invoke('db-export-file'),
+    importFile: () => ipcRenderer.invoke('db-import-file')
+  }
 });
+
 
 

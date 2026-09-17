@@ -246,6 +246,26 @@ export const ConflictModal = ({
               <Clock size={13} />
               <span>Buổi nghỉ ({conflicts.filter(c => c.type === 'TEACHER_OFF_SESSION').length})</span>
             </button>
+
+            <button
+              onClick={() => setFilterType('QUOTA')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                border: filterType === 'QUOTA' ? '1px solid #b45309' : '1px solid #cbd5e1',
+                background: filterType === 'QUOTA' ? '#b45309' : '#ffffff',
+                color: filterType === 'QUOTA' ? '#ffffff' : '#475569',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <Layers size={13} />
+              <span>Vượt định mức ({conflicts.filter(c => c.type === 'SUBJECT_QUOTA_EXCEEDED' || c.type === 'TEACHER_MAX_DAILY').length})</span>
+            </button>
           </div>
 
           {/* Secondary Filters: Class & Search */}
@@ -335,6 +355,7 @@ export const ConflictModal = ({
               const isTeacherBooking = item.type === 'TEACHER_DOUBLE_BOOKING';
               const isRoomBooking = item.type === 'ROOM_DOUBLE_BOOKING';
               const isOffSession = item.type === 'TEACHER_OFF_SESSION';
+              const isQuotaExceeded = item.type === 'SUBJECT_QUOTA_EXCEEDED';
 
               return (
                 <div
@@ -353,40 +374,68 @@ export const ConflictModal = ({
                 >
                   {/* Top Bar: Title & Tags */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{
                         padding: '3px 8px',
                         borderRadius: '6px',
                         fontSize: '0.72rem',
                         fontWeight: 800,
-                        background: isError ? '#ef4444' : '#d97706',
+                        background: isError ? '#ef4444' : isQuotaExceeded ? '#b45309' : '#d97706',
                         color: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '4px'
                       }}>
                         {isError ? <AlertTriangle size={12} /> : <AlertCircle size={12} />}
-                        <span>{item.title || (isError ? 'LỖI TRÙNG LỊCH' : 'CẢNH BÁO')}</span>
+                        <span>{isQuotaExceeded ? 'XẾP VƯỢT ĐỊNH MỨC MÔN' : (item.title || (isError ? 'LỖI TRÙNG LỊCH' : 'CẢNH BÁO'))}</span>
                       </span>
 
                       {/* Time Badge */}
-                      <span style={{
-                        padding: '3px 10px',
-                        borderRadius: '6px',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        background: '#ffffff',
-                        border: '1px solid #cbd5e1',
-                        color: '#1e293b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        <Calendar size={13} color="#4f46e5" />
-                        <span>{item.dayName || `Thứ ${item.day}`}</span>
-                        <span style={{ color: '#94a3b8' }}>•</span>
-                        <span>{item.periodName || `Tiết ${item.period}`}</span>
-                      </span>
+                      {item.day ? (
+                        <span style={{
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          background: '#ffffff',
+                          border: '1px solid #cbd5e1',
+                          color: '#1e293b',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <Calendar size={13} color="#4f46e5" />
+                          <span>{item.dayName || `Thứ ${item.day}`}</span>
+                          <span style={{ color: '#94a3b8' }}>•</span>
+                          <span>{item.periodName || `Tiết ${item.period}`}</span>
+                        </span>
+                      ) : (
+                        <span style={{
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          background: '#ffffff',
+                          border: '1px solid #fde68a',
+                          color: '#b45309',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <Layers size={13} color="#d97706" />
+                          <span>Định mức tuần: <strong>{item.placed} / {item.weeklyPeriods}</strong> tiết</span>
+                          <span style={{
+                            background: '#dc2626',
+                            color: '#ffffff',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            fontSize: '0.7rem',
+                            fontWeight: 800
+                          }}>
+                            Thừa {item.excessPeriods || (item.placed - item.weeklyPeriods)} tiết
+                          </span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Quick navigation buttons */}
@@ -430,7 +479,7 @@ export const ConflictModal = ({
                               display: 'flex',
                               alignItems: 'center',
                               gap: '4px',
-                              padding: '5px 10px',
+                              padding: '5px 12px',
                               borderRadius: '6px',
                               background: '#eff6ff',
                               border: '1px solid #bfdbfe',
@@ -462,21 +511,51 @@ export const ConflictModal = ({
                     {/* Ai trùng (Giáo viên hoặc Phòng) */}
                     <div>
                       <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>
-                        {isRoomBooking ? '🏢 Phòng Chức Năng Bị Trùng:' : '👤 Giáo Viên Bị Trùng / Vi Phạm:'}
+                        {isRoomBooking ? '🏢 Phòng Chức Năng Bị Trùng:' : isQuotaExceeded ? '👤 Giáo Viên Phụ Trách Môn:' : '👤 Giáo Viên Bị Trùng / Vi Phạm:'}
                       </div>
-                      <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.9rem' }}>
-                        {isRoomBooking ? (item.roomName || item.roomType) : (item.teacherName || item.teacherId)}
-                        {item.teacherCode && <span style={{ fontSize: '0.75rem', color: '#4f46e5', marginLeft: '6px', fontWeight: 700 }}>({item.teacherCode})</span>}
+                      <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {isRoomBooking ? (
+                          item.roomName || item.roomType
+                        ) : isQuotaExceeded ? (
+                          item.teacherName && item.teacherName !== 'Chưa phân công' ? (
+                            <>
+                              <span>{item.teacherName}</span>
+                              {item.teacherCode && <span style={{ fontSize: '0.75rem', color: '#4f46e5', fontWeight: 700 }}>({item.teacherCode})</span>}
+                            </>
+                          ) : (
+                            <span style={{ color: '#94a3b8', fontWeight: 500, fontStyle: 'italic' }}>Chưa phân công GV</span>
+                          )
+                        ) : (
+                          <>
+                            <span>{item.teacherName || item.teacherId}</span>
+                            {item.teacherCode && <span style={{ fontSize: '0.75rem', color: '#4f46e5', fontWeight: 700 }}>({item.teacherCode})</span>}
+                          </>
+                        )}
                       </div>
                     </div>
 
                     {/* Lớp & Môn học */}
                     <div>
                       <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>
-                        🏫 Các Lớp Bị Ảnh Hưởng:
+                        {isQuotaExceeded ? '🏫 Lớp & Môn Học Vi Phạm:' : '🏫 Các Lớp Bị Ảnh Hưởng:'}
                       </div>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        {item.conflictingClasses && item.conflictingClasses.length > 0 ? (
+                        {isQuotaExceeded ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: 800, color: '#1e293b' }}>{item.className}</span>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              background: '#eef2ff',
+                              border: '1px solid #c7d2fe',
+                              color: '#4338ca',
+                              fontWeight: 800,
+                              fontSize: '0.8rem'
+                            }}>
+                              Môn: {item.subjectName}
+                            </span>
+                          </div>
+                        ) : item.conflictingClasses && item.conflictingClasses.length > 0 ? (
                           item.conflictingClasses.map((c, i) => (
                             <span key={c.classId} style={{
                               padding: '2px 8px',
@@ -496,6 +575,46 @@ export const ConflictModal = ({
                       </div>
                     </div>
                   </div>
+
+                  {/* Danh Sách Vị Trí Các Tiết Đã Xếp (Khi vượt định mức) */}
+                  {item.placedSlots && item.placedSlots.length > 0 && (
+                    <div style={{
+                      padding: '10px 14px',
+                      background: '#ffffff',
+                      borderRadius: '10px',
+                      border: '1px solid #fde68a',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#b45309', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Clock size={13} />
+                        <span>Vị trí các tiết môn {item.subjectName} đang xếp trên TKB ({item.placed} tiết):</span>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {item.placedSlots.map((s, sIdx) => (
+                          <span
+                            key={sIdx}
+                            style={{
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              background: '#fffbeb',
+                              border: '1px solid #fde68a',
+                              color: '#92400e',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <Calendar size={11} color="#d97706" />
+                            <span>{s.dayName}: {s.periodName} ({s.session})</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Clear Message */}
                   <div style={{

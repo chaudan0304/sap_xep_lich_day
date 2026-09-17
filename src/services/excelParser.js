@@ -76,9 +76,14 @@ export function mapSubjectCodeAndRoom(subRaw, defaultRoom = 'LOP_HOC') {
     return { subjectId: 'TNXH', roomId: 'LOP_HOC' };
   }
 
-  // 9. Lịch sử & Địa lí / Khoa học
-  if (s.includes('Khoa-Sử-Địa') || s.includes('Sử-Địa') || s.includes('LS_DL') || s.includes('LS-ĐL') || s.includes('LS&ĐL') ||
-      sLower.includes('lịch sử') || sLower.includes('địa lí') || sLower.includes('địa lý') || sLower.includes('khoa học') || s === 'KH') {
+  // 9. Khoa học
+  if (sLower.includes('khoa học') || sLower.includes('khoa hoc') || s === 'KH' || s === 'KHOA_HOC' || sLower === 'khoa') {
+    return { subjectId: 'KHOA_HOC', roomId: 'LOP_HOC' };
+  }
+
+  // 10. Lịch sử & Địa lí
+  if (s.includes('Sử-Địa') || s.includes('LS_DL') || s.includes('LS-ĐL') || s.includes('LS&ĐL') ||
+      sLower.includes('lịch sử') || sLower.includes('địa lí') || sLower.includes('địa lý') || sLower.includes('lich su') || sLower.includes('dia li') || sLower.includes('dia ly') || s === 'LS' || s === 'ĐL') {
     return { subjectId: 'LS_DL', roomId: 'LOP_HOC' };
   }
 

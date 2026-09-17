@@ -3,18 +3,142 @@ import { defineConfig } from 'vite'
 import fs from 'fs'
 import path from 'path'
 
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+
+function getSqliteManager() {
+  try {
+    delete require.cache[require.resolve('./src/services/sqliteManager.cjs')];
+  } catch {}
+  return require('./src/services/sqliteManager.cjs');
+}
+
 function autoSavePlugin() {
   return {
     name: 'auto-save-plugin',
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
+      server.middlewares.use(async (req, res, next) => {
+        const dbPath = path.resolve(process.cwd(), 'src/data/edutimetable.db');
+        const jsonPath = path.resolve(process.cwd(), 'src/data/savedData.json');
+
+        // 1. API nạp dữ liệu từ SQLite
+        if (req.url === '/api/db/load' && req.method === 'GET') {
+          try {
+            const { openOrCreateDatabase, saveJsonToDatabase, loadJsonFromDatabase, saveDatabaseToFile } = getSqliteManager();
+            const db = await openOrCreateDatabase(dbPath);
+            let data = loadJsonFromDatabase(db);
+
+            // Nếu DB mới tinh chưa có trường học, nạp từ savedData.json hoặc seed
+            if (!data.schoolInfo || !data.classes || data.classes.length === 0) {
+              if (fs.existsSync(jsonPath)) {
+                const rawJson = fs.readFileSync(jsonPath, 'utf8');
+                const parsedJson = JSON.parse(rawJson);
+                saveJsonToDatabase(db, parsedJson);
+                saveDatabaseToFile(db, dbPath);
+                data = loadJsonFromDatabase(db);
+              }
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify(data));
+          } catch (err) {
+            console.error('Error in /api/db/load:', err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: false, error: err.message }));
+          }
+          return;
+        }
+
+        // 2. API lưu dữ liệu vào SQLite
+        if (req.url === '/api/db/save' && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const { openOrCreateDatabase, saveJsonToDatabase, saveDatabaseToFile } = getSqliteManager();
+              const payload = JSON.parse(body);
+              const db = await openOrCreateDatabase(dbPath);
+              saveJsonToDatabase(db, payload);
+              saveDatabaseToFile(db, dbPath);
+
+              // Đồng bộ song song ra file json dự phòng
+              try {
+                fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2), 'utf8');
+              } catch (jErr) {
+                console.warn('Backup JSON write warning:', jErr);
+              }
+
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true, message: 'Saved successfully to SQLite edutimetable.db' }));
+            } catch (err) {
+              console.error('Error in /api/db/save:', err);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+          });
+          return;
+        }
+
+        // 3. API tải file database SQLite nhị phân (.db)
+        if (req.url === '/api/db/download' && req.method === 'GET') {
+          try {
+            if (fs.existsSync(dbPath)) {
+              const fileBuffer = fs.readFileSync(dbPath);
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/x-sqlite3');
+              res.setHeader('Content-Disposition', 'attachment; filename="edutimetable.db"');
+              res.end(fileBuffer);
+            } else {
+              res.statusCode = 404;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'Database file not found' }));
+            }
+          } catch (err) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err.message }));
+          }
+          return;
+        }
+
+        // 4. API nạp đè file database SQLite nhị phân (.db) từ client
+        if (req.url === '/api/db/upload' && req.method === 'POST') {
+          const chunks = [];
+          req.on('data', chunk => { chunks.push(chunk); });
+          req.on('end', async () => {
+            try {
+              const buffer = Buffer.concat(chunks);
+              // Kiểm tra xem buffer có hợp lệ với SQLite không
+              const { getSqlEngine, createSchema } = require('./src/services/sqliteManager.cjs');
+              const SQL = await getSqlEngine();
+              const testDb = new SQL.Database(buffer);
+              createSchema(testDb);
+
+              fs.writeFileSync(dbPath, buffer);
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true, message: 'Database restored successfully' }));
+            } catch (err) {
+              console.error('Error in /api/db/upload:', err);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+          });
+          return;
+        }
+
+        // Tương thích ngược: /api/save-data
         if (req.url === '/api/save-data' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
           req.on('end', () => {
             try {
-              const dataPath = path.resolve(process.cwd(), 'src/data/savedData.json');
-              fs.writeFileSync(dataPath, body, 'utf8');
+              fs.writeFileSync(jsonPath, body, 'utf8');
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ success: true, message: 'Saved to src/data/savedData.json' }));
@@ -23,11 +147,14 @@ function autoSavePlugin() {
               res.end(JSON.stringify({ success: false, error: err.message }));
             }
           });
-        } else if (req.url === '/api/load-data' && req.method === 'GET') {
+          return;
+        }
+
+        // Tương thích ngược: /api/load-data
+        if (req.url === '/api/load-data' && req.method === 'GET') {
           try {
-            const dataPath = path.resolve(process.cwd(), 'src/data/savedData.json');
-            if (fs.existsSync(dataPath)) {
-              const content = fs.readFileSync(dataPath, 'utf8');
+            if (fs.existsSync(jsonPath)) {
+              const content = fs.readFileSync(jsonPath, 'utf8');
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(content);
@@ -39,9 +166,10 @@ function autoSavePlugin() {
             res.statusCode = 500;
             res.end(JSON.stringify({ error: err.message }));
           }
-        } else {
-          next();
+          return;
         }
+
+        next();
       });
     }
   }

@@ -215,36 +215,82 @@ export const checkAllConflicts = (timetable = {}, assignments = [], teachers = [
 
 
 
-  // 3. Kiểm tra Thừa / Thiếu số tiết so với phân công của từng lớp
+  // 3. Kiểm tra Thừa số tiết so với phân công của từng lớp
   classes.forEach(cls => {
     const classAssignments = (assignments || []).filter(a => a.classId === cls.id);
-    const placedCounts = {};
+    const cleanClassName = (cls.name || '').trim().toLowerCase().startsWith('lớp') ? cls.name.trim() : `Lớp ${cls.name.trim()}`;
+
+    // Thu thập chi tiết từng slot đã xếp theo subjectId
+    const placedSlotsBySubject = {};
 
     for (let day = 2; day <= 6; day++) {
       for (let period = 1; period <= 7; period++) {
         const slot = timetable[cls.id]?.[day]?.[period];
         if (slot && slot.subjectId) {
-          placedCounts[slot.subjectId] = (placedCounts[slot.subjectId] || 0) + 1;
+          if (!placedSlotsBySubject[slot.subjectId]) {
+            placedSlotsBySubject[slot.subjectId] = [];
+          }
+          const pInfo = getPeriodInfo(period);
+          const tObj = teacherMap.get(slot.teacherId);
+          placedSlotsBySubject[slot.subjectId].push({
+            day,
+            period,
+            dayName: getDayName(day),
+            periodName: pInfo.name || `Tiết ${period}`,
+            session: pInfo.session,
+            time: pInfo.time,
+            teacherId: slot.teacherId,
+            teacherName: tObj?.name || slot.teacherRaw || '',
+            teacherCode: tObj?.code || tObj?.shortName || ''
+          });
         }
       }
     }
 
     classAssignments.forEach(asg => {
-      const placed = placedCounts[asg.subjectId] || 0;
+      const slots = placedSlotsBySubject[asg.subjectId] || [];
+      const placed = slots.length;
+
       if (placed > asg.weeklyPeriods) {
-        const subObj = SUBJECTS[asg.subjectId] || { name: asg.subjectId };
+        const subObj = SUBJECTS[asg.subjectId] || { name: asg.subjectId, shortName: asg.subjectId };
+        const excess = placed - asg.weeklyPeriods;
+
+        // Tìm giáo viên phụ trách môn này trong bảng phân công
+        const assignedTeacher = teacherMap.get(asg.teacherId);
+        const teacherName = assignedTeacher ? assignedTeacher.name : (asg.teacherId ? asg.teacherId : 'Chưa phân công');
+        const teacherCode = assignedTeacher?.code || assignedTeacher?.shortName || '';
+
+        // Gom nhóm các tiết theo Thứ để tạo chuỗi tóm tắt rõ ràng
+        // Ví dụ: Thứ 2 (Tiết 1, Tiết 2) • Thứ 3 (Tiết 1) • Thứ 4 (Tiết 2) • Thứ 5 (Tiết 1, Tiết 2)
+        const slotsByDay = {};
+        slots.forEach(s => {
+          if (!slotsByDay[s.dayName]) slotsByDay[s.dayName] = [];
+          slotsByDay[s.dayName].push(s.periodName);
+        });
+        const slotSummaryText = Object.entries(slotsByDay)
+          .map(([dName, pList]) => `${dName} (${pList.join(', ')})`)
+          .join(' • ');
+
         conflicts.push({
           id: `quota_exceeded_${cls.id}_${asg.subjectId}`,
           type: CONFLICT_TYPES.SUBJECT_QUOTA_EXCEEDED,
           severity: 'warning',
           title: 'Xếp vượt số tiết phân công',
           classId: cls.id,
-          className: cls.name,
+          className: cleanClassName,
           subjectId: asg.subjectId,
           subjectName: subObj.name || asg.subjectId,
+          subjectShortName: subObj.shortName || subObj.name || asg.subjectId,
+          subjectColor: subObj.color || '#4f46e5',
           placed,
           weeklyPeriods: asg.weeklyPeriods,
-          message: `Vượt định mức môn: Lớp ${cls.name} môn ${subObj.name} đã xếp ${placed} tiết (vượt mức phân công ${asg.weeklyPeriods} tiết/tuần)`
+          excessPeriods: excess,
+          teacherId: asg.teacherId,
+          teacherName,
+          teacherCode,
+          placedSlots: slots,
+          slotSummary: slotSummaryText,
+          message: `${cleanClassName}: Môn ${subObj.name} đã xếp ${placed} tiết (vượt mức phân công ${asg.weeklyPeriods} tiết/tuần, thừa ${excess} tiết). Các tiết đang xếp: ${slotSummaryText}`
         });
       }
     });

@@ -687,35 +687,49 @@ export const UserGuideModal = ({ isOpen, onClose, onNavigateTab }) => {
                 )}
 
                 {/* ───────────────────────────────────────────────────────────── */}
-                {/* TAB 6: EXCEL & BACKUP                                        */}
+                {/* TAB 6: EXCEL, SQLITE & SAO LƯU                               */}
                 {/* ───────────────────────────────────────────────────────────── */}
                 {activeCategory === 'excel_backup' && (
                   <div className="animate-fade-in">
                     <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#0f172a', marginBottom: '8px' }}>
-                      Nhập / Xuất Excel & Sao Lưu Dữ Liệu (.JSON)
+                      Cơ Sở Dữ Liệu SQLite, Nhập / Xuất Excel & Sao Lưu
                     </h2>
                     <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '20px' }}>
-                      Dễ dàng chia sẻ file, lưu trữ định kỳ và xuất bảng tính Excel chuẩn Bộ Giáo Dục.
+                      Lưu trữ an toàn bằng CSDL SQLite quan hệ (.db), hỗ trợ xuất bảng tính Excel chuẩn Bộ Giáo Dục và sao lưu dự phòng đa tầng.
                     </p>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div style={{ padding: '16px', borderRadius: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                        <div style={{ fontWeight: 800, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                          <Save size={16} color="#16a34a" />
+                          <span>Cơ Sở Dữ Liệu SQLite Cục Bộ (edutimetable.db) - Chuẩn ACID</span>
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: '#14532d', margin: 0, lineHeight: 1.6 }}>
+                          Hệ thống đã nâng cấp toàn diện sang <strong>Cơ sở dữ liệu SQLite (.db)</strong> chuẩn nghiệp vụ. Mọi thao tác xếp lịch, thay đổi định mức, phân công giáo viên đều được tự động lưu ngay lập tức bằng Transaction an toàn tuyệt đối. Thầy/cô có thể bấm <strong>[📂 Quản Lý CSDL (.db)]</strong> để sao chép file database ra ngoài hoặc nạp dữ liệu cũ vào.
+                        </p>
+                      </div>
+
                       <div style={{ padding: '16px', borderRadius: '12px', background: '#ecfdf5', border: '1px solid #a7f3d0' }}>
                         <div style={{ fontWeight: 800, color: '#065f46', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                          <Save size={16} color="#059669" />
-                          <span>Lưu File & Nạp File (.json) - An toàn 100%</span>
+                          <FileSpreadsheet size={16} color="#059669" />
+                          <span>Xuất File Bảng Tính Excel Toàn Trường & Từng Lớp</span>
                         </div>
-                        <p style={{ fontSize: '0.85rem', color: '#047857', margin: 0 }}>
-                          Bấm nút <strong>[💾 Lưu File]</strong> để tải 1 file `.json` chứa toàn bộ dữ liệu (lớp, giáo viên, định mức, bảng xếp lịch) về máy tính. Khi chuyển máy tính khác hoặc muốn khôi phục bản sao lưu, chỉ cần bấm <strong>[📤 Nạp File]</strong>.
+                        <p style={{ fontSize: '0.85rem', color: '#047857', margin: 0, lineHeight: 1.6 }}>
+                          Hệ thống hỗ trợ xuất bảng tính Excel chất lượng cao với các định dạng phong phú:
+                          <br/>• <strong>Thời khóa biểu toàn trường (Master Matrix):</strong> Bảng tổng thể 23 lớp học theo từng ngày, từng buổi.
+                          <br/>• <strong>Thời khóa biểu từng lớp học:</strong> In phiếu dán lớp hoặc gửi phụ huynh học sinh.
+                          <br/>• <strong>Thời khóa biểu từng giáo viên:</strong> Phục vụ theo dõi lịch dạy cá nhân của từng thầy cô.
+                          <br/>• <strong>Bảng phân công chuyên môn & Định mức khối:</strong> Báo cáo Ban Giám Hiệu và Phòng GD&ĐT.
                         </p>
                       </div>
 
                       <div style={{ padding: '16px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                         <div style={{ fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                          <FileSpreadsheet size={16} color="#059669" />
-                          <span>Xuất File Excel Chuẩn</span>
+                          <Upload size={16} color="#4f46e5" />
+                          <span>Sao Lưu & Khôi Phục Dự Phòng (.JSON & .DB)</span>
                         </div>
-                        <p style={{ fontSize: '0.85rem', color: '#475569', margin: 0 }}>
-                          Xuất toàn bộ thời khóa biểu ra bảng tính Excel với đầy đủ sheet: TKB Toàn trường, TKB Từng Lớp, TKB Giáo Viên và Bảng phân công tiết dạy.
+                        <p style={{ fontSize: '0.85rem', color: '#475569', margin: 0, lineHeight: 1.6 }}>
+                          Bấm nút <strong>[💾 Lưu File]</strong> hoặc xuất file SQLite để sao lưu dữ liệu ra ổ đĩa USB hoặc Google Drive. Khi đổi máy tính mới, chỉ cần cài ứng dụng và nạp lại file sao lưu là toàn bộ lịch dạy được khôi phục nguyên vẹn 100%.
                         </p>
                       </div>
                     </div>
@@ -738,16 +752,34 @@ export const UserGuideModal = ({ isOpen, onClose, onNavigateTab }) => {
                           ❓ Khi chạy Tự động xếp lịch báo "Không thể xếp do xung đột", tôi cần làm gì?
                         </div>
                         <p style={{ fontSize: '0.83rem', color: '#475569', margin: 0 }}>
-                          👉 Hãy nhấp vào nút <strong>[Xung Đột]</strong> màu đỏ trên Header. Hệ thống sẽ chỉ ra chính xác giáo viên nào bị đăng ký nghỉ quá nhiều hoặc môn nào thiếu giáo viên/phòng chức năng.
+                          👉 Hãy nhấp vào nút <strong>[Kiểm Tra Trùng Lịch]</strong> trên thanh điều hướng. Modal sẽ liệt kê chi tiết: Giáo viên nào bị trùng giờ, phòng nào bị trùng, giáo viên nào bị xếp vào buổi đăng ký nghỉ hoặc môn nào bị xếp vượt định mức số tiết tuần. Bạn chỉ cần nhấn nút <strong>[Đến Lớp...]</strong> trên thẻ lỗi là hệ thống sẽ đưa thẳng vào đúng lớp để gỡ tiết đó.
                         </p>
                       </div>
 
                       <div style={{ padding: '14px 18px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                         <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.9rem', marginBottom: '4px' }}>
-                          ❓ Dữ liệu được lưu ở đâu? Có bị mất khi tắt trình duyệt không?
+                          ❓ Môn Khoa học và Lịch sử - Địa lí ở Khối 4 và Khối 5 được tính như thế nào?
                         </div>
                         <p style={{ fontSize: '0.83rem', color: '#475569', margin: 0 }}>
-                          👉 Dữ liệu được tự động lưu liên tục trong bộ nhớ cục bộ (LocalStorage) của máy tính. Tuy nhiên, thầy/cô nên bấm <strong>[💾 Lưu File]</strong> định kỳ để lưu file `.json` dự phòng ra ổ đĩa D hoặc USB!
+                          👉 Theo chuẩn mới nhất của Bộ GD&ĐT, hệ thống đã tách độc lập thành 2 môn riêng biệt: <strong>Khoa học (2 tiết/tuần)</strong> và <strong>Lịch sử và Địa lí (2 tiết/tuần)</strong>. Thầy cô có thể phân công 2 giáo viên khác nhau dạy 2 môn này và xếp lịch riêng biệt trên TKB.
+                        </p>
+                      </div>
+
+                      <div style={{ padding: '14px 18px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.9rem', marginBottom: '4px' }}>
+                          ❓ Muốn thêm môn học mới vào định mức của một khối thì làm thế nào?
+                        </div>
+                        <p style={{ fontSize: '0.83rem', color: '#475569', margin: 0 }}>
+                          👉 Vào tab <strong>[Định Mức Khối]</strong>, chọn khối tương ứng và bấm <strong>[+ Thêm Môn]</strong>. Modal sẽ hiển thị danh sách các môn học <em>chưa có trong khối đó</em>, cho phép thầy cô chọn môn, tăng giảm số tiết/tuần, tùy chọn ghép tiết kép (2 tiết liền nhau) và chọn phòng bộ môn trước khi đưa vào thời khóa biểu.
+                        </p>
+                      </div>
+
+                      <div style={{ padding: '14px 18px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.9rem', marginBottom: '4px' }}>
+                          ❓ Dữ liệu được lưu ở đâu? Có bị mất khi tắt máy tính hoặc mất điện không?
+                        </div>
+                        <p style={{ fontSize: '0.83rem', color: '#475569', margin: 0 }}>
+                          👉 Dữ liệu được lưu trực tiếp vào tập tin Cơ sở dữ liệu SQLite cục bộ (<code>edutimetable.db</code>) trên máy tính của bạn. Dữ liệu ghi qua Transaction nên không bao giờ lo mất dữ liệu khi mất điện đột ngột. Bạn cũng có thể dùng nút <strong>[Lưu File]</strong> để lưu bản sao lưu dự phòng ra ổ cứng ngoài.
                         </p>
                       </div>
 

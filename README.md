@@ -1,41 +1,74 @@
-# 🏫 EduTimetable Studio - Hệ Thống Xếp Thời Khóa Biểu & Quản Lý Giảng Dạy Tiểu Học
+# 🏫 EduTimetable Tiểu Học - Phần Mềm Xếp Thời Khóa Biểu & Quản Lý Giảng Dạy Chuẩn GDPT 2018
 
-> **Giải pháp xếp thời khóa biểu thông minh, tự động và toàn diện chuẩn Chương trình Giáo dục Phổ thông 2018 (CTGDPT 2018) cho các trường Tiểu học.**
-
----
-
-## 🌟 1. Giới Thiệu
-
-**EduTimetable Studio** là ứng dụng web hiện đại giúp Ban Giám Hiệu và Tổ Chuyên Môn các trường Tiểu học dễ dàng quản lý phân công giảng dạy, cấu hình định mức chuyên môn theo khối lớp và tự động giải bài toán xếp thời khóa biểu phức tạp trong vài giây.
-
-Dự án tích hợp thuật toán giải ràng buộc thông minh (**Constraint Satisfaction Problem - CSP + Heuristic Scoring**), loại bỏ hoàn toàn tình trạng trùng giờ giáo viên, trùng phòng máy/phòng chức năng, đồng thời hỗ trợ quản lý lịch nghỉ, phân bổ đều buổi sáng - chiều theo chuẩn sư phạm.
+> **Giải pháp sắp xếp thời khóa biểu thông minh, tự động, toàn diện và tối ưu cho các trường Tiểu học theo đúng chuẩn Chương trình Giáo dục Phổ thông 2018 (CTGDPT 2018 - 32 tiết/tuần).**
 
 ---
 
-## ✨ 2. Tính Năng Nổi Bật
+## 🌟 1. Giới Thiệu Tổng Quan
 
-### 🤖 2.1. Thuật Toán Xếp Lịch Tự Động Thông Minh (Auto Scheduler)
-- **Tự động xếp lịch toàn trường hoặc từng khối/lớp**: Giải quyết hàng trăm tiết học chỉ trong 1 lần click.
-- **Tối ưu ràng buộc chặt chẽ**:
-  - Không trùng giờ giáo viên dạy cùng lúc ở nhiều lớp.
-  - Không trùng phòng chức năng chuyên dụng (*Phòng Tin học, Sân Thể chất...*).
-  - Tôn trọng buổi nghỉ/ngày nghỉ đăng ký của từng giáo viên.
-  - Tự động tránh xếp lịch vào các buổi nghỉ chung (*ví dụ: Chiều Thứ 4 sinh hoạt chuyên môn*).
-  - Giới hạn số tiết tối đa trong ngày của mỗi giáo viên và phân bổ hợp lý các môn văn hóa chính (*Toán, Tiếng Việt*).
+**EduTimetable Tiểu Học** là phần mềm quản lý giảng dạy và xếp thời khóa biểu chuyên biệt dành cho Ban Giám Hiệu, Tổ Chuyên Môn và Cán bộ phụ trách xếp lịch tại các trường Tiểu học.
 
-### 🎨 2.2. Studio Xếp Lịch Tương Tác Trực Quan (Timetable Studio)
-- Giao diện trực quan với bảng lưới 5 ngày (Thứ Hai → Thứ Sáu), 7 tiết/ngày (4 tiết sáng, 3 tiết chiều).
-- Cho phép xếp nhanh từng ô, khóa tiết cố định (`isLocked`), kiểm tra xung đột thời gian thực (**Real-time Conflict Detector**).
-- Thẻ môn học được thiết kế sang trọng với màu sắc nhận diện chuẩn, biểu tượng trực quan.
+Phần mềm tích hợp thuật toán giải bài toán thỏa mãn ràng buộc nâng cao (**Constraint Satisfaction Problem - CSP + Heuristic Scoring**), giúp tự động tính toán, phân bổ và xếp lịch cho toàn bộ các lớp trong trường trong vòng vài giây mà không bao giờ bị trùng giờ giáo viên, trùng phòng chức năng hay vi phạm buổi đăng ký nghỉ của giáo viên.
 
-### 📚 2.3. Danh Mục Môn Học Chuẩn CTGDPT 2018
-Đầy đủ các môn học và hoạt động giáo dục:
-* **Môn Cơ bản**: Tiếng Việt, Toán, Tự nhiên và Xã hội (TNXH), Lịch sử và Địa lí - Khoa học (LS-ĐL), Đạo đức, Hoạt động củng cố (HĐCC).
-* **Môn Ngoại ngữ & Chuyên biệt**: Tiếng Anh, Tin học, Công nghệ, Giáo dục thể chất (GDTC), Âm nhạc, Mĩ thuật.
-* **Hoạt động Giáo dục & Kỹ năng**: Hoạt động trải nghiệm (HĐTN), Đọc thư viện (Đọc TV), Giáo dục kĩ năng công dân số (GDKNCDS).
+Toàn bộ dữ liệu được quản trị an toàn bằng **Cơ sở dữ liệu SQLite cục bộ (`edutimetable.db`)**, hoạt động hoàn toàn ngoại tuyến (offline), bảo mật tuyệt đối và có thể đóng gói thành ứng dụng Desktop Windows (`.exe`) để cài đặt hoặc chạy trực tiếp không cần mạng Internet.
 
-### 📊 2.4. Bảng Định Mức Số Tiết Chuẩn Theo Từng Khối Lớp (32 tiết/tuần)
-Hệ thống được cấu hình định mức chính xác theo đúng chương trình thực tế của nhà trường:
+---
+
+## ✨ 2. Các Tính Năng Nổi Bật & Nâng Cấp Mới
+
+### 🗄️ 2.1. Cơ Sở Dữ Liệu SQLite Cục Bộ (`edutimetable.db`)
+- Quản lý toàn diện 9 bảng dữ liệu quan hệ: `school_info`, `periods`, `subjects`, `grade_metadata`, `grade_quotas`, `classes`, `teachers`, `rooms`, `assignments`, `timetable_slots`.
+- Cơ chế ghi theo **SQL Transaction (ACID)** an toàn 100%, không lo mất dữ liệu khi mất điện đột ngột hoặc tắt máy.
+- Hỗ trợ công cụ **Xuất / Nhập file CSDL SQLite (.db)** trực tiếp trên giao diện để sao lưu hoặc chuyển đổi giữa các máy tính.
+
+### 🔬 2.2. Danh Mục Môn Học Chuẩn Hóa & Tách Độc Lập Khoa Học, Sử - Địa
+- Phân định rõ ràng 2 môn học chuyên biệt ở Khối 4 và Khối 5 theo quy định mới nhất của Bộ GD&ĐT:
+  - 🔬 **Khoa học** (`KHOA_HOC`): 2 tiết/tuần.
+  - 🌏 **Lịch sử và Địa lí** (`LS_DL`): 2 tiết/tuần.
+- Cho phép phân công 2 giáo viên khác nhau và bố trí linh hoạt các tiết trên thời khóa biểu.
+- Hệ thống màu sắc nhận diện sang trọng, thẻ môn học trực quan, hiển thị rõ ràng mã viết tắt trên từng ô TKB.
+
+### 📚 2.3. Quản Lý Định Mức Số Tiết Theo Khối & Thêm Môn Trực Quan
+- Cấu hình chuẩn định mức **32 tiết/tuần** cho toàn bộ 5 khối (Khối 1 đến Khối 5).
+- **Tính năng Thêm Môn thông minh**:
+  - Tự động lọc và hiển thị danh sách các **môn học chưa có trong khối đang chọn**.
+  - Cho phép người dùng chủ động chọn môn học mong muốn từ danh sách trực quan.
+  - Thiết lập ngay: Số tiết/tuần (1-15 tiết), tùy chọn ghép tiết kép (2 tiết liền nhau) và phòng chức năng bộ môn yêu cầu.
+  - Môn vừa thêm sẽ tự động được loại trừ khỏi danh sách môn chưa học, đảm bảo không bị trùng môn trong khối.
+
+### 🤖 2.4. Thuật Toán Xếp Lịch Tự Động Thông Minh (AI Auto-Scheduler)
+- Tự động xếp lịch toàn trường hoặc từng khối lớp chỉ trong 1 lần bấm.
+- Đảm bảo 100% các ràng buộc cứng:
+  - Không trùng giờ giáo viên (1 giáo viên không dạy 2 lớp cùng 1 tiết).
+  - Không trùng phòng chức năng độc quyền (*Phòng Tin học, Sân Thể chất*).
+  - Không xếp vào buổi đăng ký nghỉ của giáo viên (*ví dụ: nghỉ Sáng Thứ 2, Chiều Thứ 6*).
+  - Tự động tránh xếp lịch vào các buổi sinh hoạt chung (*Chiều Thứ 4 toàn trường nghỉ sinh hoạt chuyên môn*).
+  - Ưu tiên các môn văn hóa chính (*Toán, Tiếng Việt, Tiếng Anh*) vào buổi sáng; môn vận động, rèn luyện, củng cố vào buổi chiều.
+  - Bảo toàn tuyệt đối các tiết học đã được bấm **Khóa cố định (🔒)**.
+
+### 🛡️ 2.5. Bảng Kiểm Tra & Cảnh Báo Trùng Lịch Chi Tiết (Conflict Inspector)
+- Cảnh báo tức thì theo thời gian thực (Real-time Conflict Detection):
+  - **Trùng giờ dạy giáo viên**: Chỉ rõ tiết, thứ, giáo viên và các lớp bị trùng.
+  - **Trùng phòng chức năng**: Cảnh báo khi có 2 lớp cùng sử dụng phòng bộ môn.
+  - **Dạy vào buổi đăng ký nghỉ**: Hiển thị buổi nghỉ mà giáo viên đã đăng ký.
+  - **Xếp vượt số tiết phân công**: Liệt kê chi tiết toàn bộ các vị trí tiết đang xếp trên TKB (*ví dụ: Thứ Hai (Tiết 1, Tiết 2) • Thứ Ba (Tiết 1)...*), giáo viên phụ trách và số tiết vượt định mức.
+- Tích hợp nút **[Đến Lớp →]** trên từng thẻ lỗi để chuyển ngay vào Studio của lớp đó và chỉnh sửa tức thời.
+
+### 🎨 2.6. Timetable Studio & Ma Trận Toàn Trường (Master Matrix)
+- **Timetable Studio**: Kéo thả, bấm chọn thay đổi tiết học, hoán vị 2 tiết (Swap), khóa tiết (`Lock/Unlock`), kiểm tra định mức môn đã xếp so với phân công.
+- **Master Matrix View**: Toàn cảnh thời khóa biểu 23 lớp học trên 1 màn hình duy nhất, lọc theo khối, xem theo buổi sáng/chiều, hỗ trợ rà soát nhanh.
+
+### 📑 2.7. Xuất Bảng Tính Excel Đa Dạng & In Ấn A4 Chuẩn Văn Bản Hành Chính
+- Xuất Excel chuyên nghiệp với thư viện `ExcelJS`:
+  - Thời khóa biểu Toàn trường (Master Matrix).
+  - Thời khóa biểu từng Lớp học.
+  - Thời khóa biểu từng Giáo viên.
+  - Bảng phân công chuyên môn và thống kê số tiết giảng dạy.
+- In ấn A4 tối ưu: Tự động ngắt trang, tùy chọn hiển thị chữ ký Hiệu trưởng & Người lập biểu, dòng nghỉ trưa bán trú.
+
+---
+
+## 📋 3. Bảng Định Mức Chương Trình Chuẩn (32 tiết/tuần)
 
 | STT | Môn Học / Hoạt Động Giáo Dục | Khối 1 | Khối 2 | Khối 3 | Khối 4 | Khối 5 | Ghi chú & Phòng học |
 | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
@@ -43,194 +76,121 @@ Hệ thống được cấu hình định mức chính xác theo đúng chương
 | 2 | **Toán** | 3 | 5 | 5 | 5 | 5 | Phòng học tại lớp |
 | 3 | **Tiếng Anh** | 2 | 2 | 4 | 4 | 4 | GV chuyên trách Ngoại ngữ |
 | 4 | **Tự nhiên và Xã hội (TNXH)** | 2 | 2 | 2 | - | - | Khối 1, 2, 3 |
-| 5 | **Lịch sử - Địa lí & Khoa học** | - | - | - | 4 | 4 | Khối 4, 5 (Khoa học 2t + Sử-Địa 2t) |
-| 6 | **Công nghệ** | - | - | 1 | 1 | 1 | Khối 3, 4, 5 |
-| 7 | **Tin học** | 1 | 1 | 1 | 1 | 1 | **Phòng máy vi tính chuyên dụng** |
-| 8 | **Giáo dục thể chất (GDTC)** | 2 | 2 | 2 | 2 | 2 | **Sân / Nhà đa năng thể chất** |
-| 9 | **Đạo đức** | 1 | 1 | 1 | 1 | 1 | Phòng học tại lớp |
-| 10 | **Âm nhạc** | 1 | 1 | 1 | 1 | 1 | GV chuyên trách Âm nhạc |
-| 11 | **Mĩ thuật** | 1 | 1 | 1 | 1 | 1 | GV chuyên trách Mĩ thuật |
-| 12 | **Hoạt động trải nghiệm (HĐTN)** | 3 | 3 | 3 | 3 | 3 | Sinh hoạt dưới cờ, HĐTN, SH lớp |
-| 13 | **Đọc thư viện (Đọc TV)** | 1 | 1 | 1 | 1 | 1 | Theo lịch phân phòng Thư viện |
-| 14 | **Hoạt động củng cố (HĐCC)** | 2 | 2 | 2 | - | - | Bổ trợ rèn luyện Khối 1, 2, 3 |
-| 15 | **Kỹ năng công dân số (GDKNCDS)** | 1 | 1 | 1 | 1 | 1 | Giáo dục năng lực số Tiểu học |
+| 5 | **Khoa học** | - | - | - | 2 | 2 | Khối 4, 5 (Môn chuyên biệt) |
+| 6 | **Lịch sử và Địa lí** | - | - | - | 2 | 2 | Khối 4, 5 (Môn chuyên biệt) |
+| 7 | **Công nghệ** | - | - | 1 | 1 | 1 | Khối 3, 4, 5 |
+| 8 | **Tin học** | 1 | 1 | 1 | 1 | 1 | **Phòng máy tính chuyên dụng** |
+| 9 | **Giáo dục thể chất (GDTC)** | 2 | 2 | 2 | 2 | 2 | **Sân trường / Sân thể chất** |
+| 10 | **Đạo đức** | 1 | 1 | 1 | 1 | 1 | Phòng học tại lớp |
+| 11 | **Âm nhạc** | 1 | 1 | 1 | 1 | 1 | GV chuyên trách Âm nhạc |
+| 12 | **Mĩ thuật** | 1 | 1 | 1 | 1 | 1 | GV chuyên trách Mĩ thuật |
+| 13 | **Hoạt động trải nghiệm (HĐTN)** | 3 | 3 | 3 | 3 | 3 | Chào cờ, HĐTN, Sinh hoạt lớp |
+| 14 | **Đọc thư viện (Đọc TV)** | 1 | 1 | 1 | 1 | 1 | Lịch phòng Thư viện |
+| 15 | **Hoạt động củng cố (HĐCC)** | 2 | 2 | 2 | - | - | Bổ trợ củng cố Khối 1, 2, 3 |
+| 16 | **Kỹ năng công dân số (GDKNCDS)** | 1 | 1 | 1 | 1 | 1 | Giáo dục năng lực số Tiểu học |
 | | **TỔNG CỘNG TIẾT / TUẦN** | **32** | **32** | **32** | **32** | **32** | **Đúng chuẩn 32 tiết/tuần** |
 
-### 👩‍🏫 2.5. Quản Lý Giáo Viên & Phân Công Chuyên Môn
-- Quản lý thông tin hồ sơ giáo viên, tổ chuyên môn, định mức tiết chuẩn/tuần.
-- Phân định rõ ràng: **Giáo viên Chủ nhiệm (GVCN)** và **Giáo viên Bộ môn (Chuyên trách)**.
-- Bảng thống kê định mức thời gian thực: So sánh số tiết phân công với số tiết thực tế đã xếp trên thời khóa biểu.
-- Cấu hình các buổi nghỉ cố định của từng giáo viên.
+---
 
-### 🏫 2.5. Quản Lý Phòng Chức Năng (Room Timetable View)
-- Theo dõi lịch sử dụng riêng biệt cho từng phòng học: *Phòng Tin học, Nhà thi đấu đa năng / Sân Thể chất, Sân trường...*
-- Cảnh báo tức thì nếu 2 lớp trùng lịch sử dụng phòng chuyên môn độc quyền.
+## 🧭 4. Quy Trình 5 Bước Sử Dụng Chuẩn
 
-### 📊 2.6. Ma Trận Toàn Trường (Master Matrix View)
-- Bảng tổng thể toàn bộ các lớp trong trường theo từng ngày, từng tiết.
-- Giúp Ban Giám hiệu có cái nhìn bao quát 100% thời khóa biểu toàn trường trên một màn hình duy nhất.
-
-### 📑 2.7. Nhập & Xuất File Excel / In Ấn Chuẩn A4
-- **Xuất Excel đa dạng**:
-  - Thời khóa biểu từng lớp học.
-  - Thời khóa biểu cá nhân của từng giáo viên.
-  - Ma trận TKB toàn trường.
-  - Danh sách giáo viên và thống kê định mức giảng dạy.
-- **Nhập dữ liệu Excel linh hoạt**: Tự động nhận diện cấu trúc file Excel TKB sẵn có của nhà trường.
-- **In ấn A4 tối ưu**: Tự động ngắt trang, bố cục chuẩn văn bản hành chính sư phạm.
+1. **Bước 1: Cài đặt trường học & Khung giờ tiết:**
+   - Vào mục **[Thông Tin Trường]** để nhập tên trường, hiệu trưởng, người lập biểu, năm học và số tiết sáng/chiều.
+2. **Bước 2: Cập nhật Danh bạ Giáo viên & Buổi đăng ký nghỉ:**
+   - Vào tab **[Danh Sách Giáo Viên]** kiểm tra tên viết tắt, mã giáo viên, gán GVCN và tích chọn các buổi nghỉ cố định của giáo viên.
+3. **Bước 3: Thiết lập Định Mức Khối & Phân Công Chuyên Môn:**
+   - Kiểm tra định mức 32 tiết ở tab **[Định Mức Khối]**. Nếu cần bổ sung môn học, bấm **[+ Thêm Môn]** để chọn từ danh sách môn chưa học.
+   - Nhấn **[Đồng Bộ Vào Phân Công GV]** để tự động tạo danh sách phân công tương ứng cho từng lớp.
+4. **Bước 4: Xếp Lịch Tự Động Bằng AI & Khóa Tiết Cố Định:**
+   - Tại tab **[Studio Xếp Lịch]**, khóa các tiết cố định (như Chào cờ sáng Thứ Hai, Sinh hoạt lớp chiều Thứ Sáu).
+   - Bấm **[🤖 Tự Động Xếp Lịch]** $\rightarrow$ Hệ thống tự động xếp lịch toàn trường trong vài giây.
+5. **Bước 5: Rà Soát Xung Đột, Xuất Excel & In Ấn A4:**
+   - Mở **[Bảng Kiểm Tra Trùng Lịch]** để kiểm tra và xử lý dứt điểm các cảnh báo (nếu có).
+   - Xuất file Excel lưu trữ hoặc in bản A4 gửi giáo viên và học sinh.
 
 ---
 
-## 📂 3. Cấu Trúc Dữ Liệu Đầu Vào & Regex Phân Tích Excel
+## 💻 5. Hướng Dẫn Cài Đặt, Phát Triển & Xuất File .EXE
 
-Cấu trúc thư mục dữ liệu mẫu: `public/data/` chứa các file Excel phục vụ việc trích xuất và đồng bộ dữ liệu vào hệ thống.
-
-### 3.1. Danh Sách Các Tệp Excel Dữ Liệu
-
-| Tên file | Mô tả |
-|----------|--------|
-| `Cơ sở vật chất Tân Mai.xlsx` | Danh sách phòng chức năng và khả năng sử dụng của các phòng học. |
-| `Phân công chuyên môn 23-24 (GVCN).xlsx` | Phân công giáo viên chủ nhiệm cho các lớp trong năm học 2023-2024. |
-| `STKB thực hiện từ tuần 01 (Thầy Trí).xlsx` | Thời khóa biểu thực hiện từ tuần 01, do Thầy Trí phụ trách. |
-| `TKB các lớp - GVBM 23-24.xlsx` | Thời khóa biểu các lớp theo khối và giáo viên bộ môn trong năm học 2023-2024. |
-
----
-
-### 3.2. Cấu Trúc Chi Tiết Của Từng Tệp Excel
-
-#### A. `Cơ sở vật chất Tân Mai.xlsx`
-**Mục đích:** Định nghĩa các phòng học và số lượng cơ bản (máy tính/chỗ ngồi).
-
-| **Cột A** (Mã phòng) | **Cột B** (Tên phòng) | **Cột D** (Khả năng) | **Cột E** (Số lượng) |
-|----------------------|-----------------------|-----------------------|-----------------------|
-| `PH_CNTT_01`         | `Phòng học máy tính` | `phòng chức năng`      | `30` (máy tính)       |
-| `PH_AM_NHAC`         | `Phòng học nhạc cụ`    | `phòng chức năng`      | `1`                   |
-
-#### B. `Phân công chuyên môn 23-24 (GVCN).xlsx`
-**Mục đích:** Phân công giáo viên chủ nhiệm (GVCN) cho từng lớp.
-
-| **Cột A** (Mã lớp) | **Cột B** (Lớp) | **Cột C** (Tên GVCN) |
-|----------------------|-----------------|----------------------|
-| `1A1`                | `1A1`           | `NGUYỄN THỊ HƯƠNG`   |
-| `1A2`                | `1A2`           | `TRẦN VĂN ĐẠT`      | 
-
-#### C. `STKB thực hiện từ tuần 01 (Thầy Trí).xlsx`
-**Mục đích:** Chứa thời khóa biểu chi tiết của 23 lớp học, bao gồm môn học, tiết học, buổi học, ngày học và giáo viên bộ môn (GVBM).
-
-| **Cột A** (Thứ) | **Cột B** (Buổi) | **Cột C** (Tiết) | **Cột D** (1A1 - CN) | **Cột E** (1A1 - GV) | ... | **Cột AH** (5A5 - CN) | **Cột AI** (5A5 - GV) |
-|------------------|-------------------|-----------------|---------------------|----------------------|-----|---------------------|----------------------|
-| (Thứ 2..6)       | (Sáng/Chiều)      | (Tiết 1..7)     | (Môn học)           | (GVBM)               | ... | (Môn học)           | (GVBM)               |
-
-#### D. `TKB các lớp - GVBM 23-24.xlsx`
-**Mục đích:** Cung cấp định mức số tiết học cho từng môn của từng khối lớp trong năm học.
-
-| **Cột A** (Môn học) | **Cột B** (Mã môn học) | **Cột C** (Khối 1) | **Cột D** (Khối 2) | **Cột E** (Khối 3) | **Cột F** (Khối 4) | **Cột G** (Khối 5) |
-|----------------------|-------------------------|--------------------|--------------------|--------------------|--------------------|--------------------|
-| `Toán`               | `TOAN`                  | `3`                | `5`                | `5`                | `5`                | `5`                |
-| `Tiếng Việt`         | `TIENG_VIET`            | `12`               | `7`                | `7`                | `7`                | `7`                |
-
----
-
-### 3.3. Các Biểu Thức Chính Quy (Regex) Phân Tích Dữ Liệu Excel
-
-#### 🔹 Phân tích Môn học và Giáo viên Bộ môn (GVBM)
-* **Regex:** `([A-Z0-9_]+)\s*\(?(.*?)\)?`
-* **Ý nghĩa:**
-  * Nhóm 1 `[A-Z0-9_]+`: Bắt mã hoặc tên viết tắt môn học (VD: `TOAN`, `TIENG_VIET`, `AM_NHAC`).
-  * Nhóm 2 `\(.*?\)`: Bắt tên hoặc mã giáo viên trong ngoặc đơn (VD: `(Thầy Trí)`, `(Cô Mai)`).
-
-#### 🔹 Phân tích Mã Phòng Học Chức Năng
-* **Regex:** `(PH_\w+|SAN_\w+)`
-* **Ý nghĩa:** Bắt các mã phòng bắt đầu bằng tiền tố `PH_` hoặc `SAN_` theo sau là các ký tự chữ/số.
-
-#### 🔹 Phân tích Họ và Tên Giáo Viên Tiếng Việt
-* **Regex:** `^([A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+(?:\s+[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+)*)$`
-* **Ý nghĩa:** Chuẩn hóa và nhận diện chính xác họ tên đầy đủ có dấu tiếng Việt của cán bộ giáo viên.
-
-#### 🔹 Phân tích Số lượng máy tính / Sức chứa phòng học
-* **Regex:** `(\d+)\s*(?:máy|máy tính|chỗ|học sinh)?`
-* **Ý nghĩa:** Trích xuất số lượng thiết bị hoặc dung lượng chỗ ngồi khả dụng từ chuỗi mô tả.
-
----
-
-## 🛠️ 4. Công Nghệ Sử Dụng
-
-- **Frontend Core**: [React 18](https://react.dev/) + [Vite](https://vitejs.dev/)
-- **Icons**: [Lucide React](https://lucide.dev/)
-- **Xử lý Excel**: [SheetJS (xlsx)](https://docs.sheetjs.com/)
-- **Hiệu ứng**: [Canvas Confetti](https://www.npmjs.com/package/canvas-confetti)
-- **Kiến trúc CSS**: Vanilla CSS Design Tokens, Glassmorphism, Micro-animations, HSL Colors.
-
----
-
-## 🚀 5. Hướng Dẫn Cài Đặt & Chạy Ứng Dụng
-
-### 1. Yêu cầu môi trường
-- [Node.js](https://nodejs.org/) (phiên bản 18.x trở lên)
-- Trình quản lý gói `npm` hoặc `yarn` / `pnpm`
-
-### 2. Cài đặt các thư viện phụ thuộc
+### 5.1. Chạy trên môi trường phát triển (Web Dev)
 ```bash
-git clone https://github.com/chaudan0304/sap_xep_lich_day.git
-cd sap_xep_lich_day
+# Cài đặt thư viện phụ thuộc
 npm install
-```
 
-### 3. Khởi chạy môi trường phát triển (Dev Server)
-```bash
+# Khởi chạy server phát triển
 npm run dev
 ```
-Mở trình duyệt tại đường dẫn `http://localhost:5173` để trải nghiệm ứng dụng.
+Truy cập trình duyệt: `http://localhost:5173`.
 
-### 4. Đóng gói cho Production
+### 5.2. Chạy thử nghiệm ứng dụng Desktop Electron
 ```bash
-npm run build
+npm run electron:dev
 ```
+
+### 5.3. Xuất file thực thi Windows (.EXE)
+
+Dự án cung cấp các phương thức đóng gói file thực thi độc lập:
+
+#### Cách 1: Xuất file EXE Portable (Chạy ngay, không cần cài đặt) - Khuyên dùng:
+```bash
+npm run electron:build:portable
+```
+File thực thi sẽ được tạo tại thư mục `release/EduTimetable Tiểu Học 1.0.4.exe`. Bạn chỉ cần copy file này vào USB hoặc máy tính bất kỳ để mở lên chạy ngay.
+
+#### Cách 2: Xuất file Cài Đặt Setup (NSIS Installer):
+```bash
+npm run electron:build:installer
+```
+File cài đặt sẽ được tạo tại thư mục `release/EduTimetable Tiểu Học Setup 1.0.4.exe`, hỗ trợ tạo shortcut ngoài màn hình Desktop và Start Menu.
+
+#### Cách 3: Đóng gói Desktop tiêu chuẩn:
+```bash
+npm run desktop:build
+```
+Thư mục phần mềm hoàn chỉnh sẽ nằm trong `dist-desktop/EduTimetable_TieuHoc-win32-x64/EduTimetable_TieuHoc.exe`.
 
 ---
 
-## 📁 6. Cấu Trúc Thư Mục Dự Án
+## 📂 6. Cấu Trúc Mã Nguồn
 
 ```plaintext
 sap_xep_lich_day/
-├── public/                     # Static assets & dữ liệu Excel mẫu
-│   └── data/                   # Các file Excel đầu vào
+├── electron/                   # Backend Electron Desktop App
+│   ├── main.cjs                # Tiến trình chính Electron & IPC Database SQLite
+│   └── preload.cjs             # Cầu nối an toàn Context Bridge
 ├── src/
-│   ├── components/             # React UI Components
-│   │   ├── AssignmentManager.jsx    # Quản lý phân công chuyên môn
-│   │   ├── AutoScheduleModal.jsx    # Modal thuật toán xếp TKB tự động
-│   │   ├── ConflictModal.jsx        # Bảng chi tiết cảnh báo xung đột
-│   │   ├── ExcelModal.jsx           # Import / Export Excel
-│   │   ├── GradeQuotaManager.jsx    # Cấu hình định mức môn theo khối
-│   │   ├── Header.jsx               # Thanh điều hướng chính
+│   ├── components/             # Các thành phần giao diện React
+│   │   ├── AssignmentManager.jsx    # Phân công chuyên môn từng lớp
+│   │   ├── AutoScheduleModal.jsx    # Thuật toán AI xếp lịch tự động
+│   │   ├── ConflictModal.jsx        # Bảng kiểm tra & cảnh báo trùng lịch
+│   │   ├── GradeQuotaManager.jsx    # Định mức khối & modal thêm môn học
 │   │   ├── MasterMatrixView.jsx     # Ma trận TKB toàn trường
-│   │   ├── RoomTimetableView.jsx    # TKB theo phòng chức năng
 │   │   ├── SubjectManager.jsx       # Quản lý danh mục môn học
 │   │   ├── TeacherDirectory.jsx     # Danh bạ & hồ sơ giáo viên
-│   │   └── TimetableStudio.jsx      # Studio xếp TKB từng lớp
-│   ├── constants/              # Hằng số & Cấu hình mặc định
-│   │   ├── defaultCurriculum.js     # Khung định mức 32 tiết CTGDPT 2018
-│   │   └── subjects.js              # Danh mục môn học & thuộc tính giao diện
-│   ├── data/                   # Dữ liệu mẫu & mẫu trường thực tế
-│   │   ├── quynhLocSchoolData.js    # Dữ liệu thực tế Tiểu học Quỳnh Lộc B
-│   │   ├── sampleData.js            # Trình tạo dữ liệu mẫu
-│   │   └── savedData.json           # Dữ liệu sao lưu
-│   ├── services/               # Nghiệp vụ & Thuật toán
-│   │   ├── autoScheduler.js         # Thuật toán xếp lịch tự động (CSP Solver)
-│   │   ├── conflictDetector.js      # Kiểm tra xung đột thời gian thực
-│   │   └── excelService.js          # Xử lý đọc/ghi bảng tính Excel
-│   ├── App.jsx                 # Ứng dụng chính & đồng bộ dữ liệu
-│   ├── index.css               # Hệ thống Style & Token
-│   └── main.jsx                # Điểm khởi chạy React
-├── package.json
-├── vite.config.js
-└── README.md
+│   │   ├── TimetableStudio.jsx      # Studio xếp lịch chi tiết từng lớp
+│   │   └── UserGuideModal.jsx       # Sổ tay hướng dẫn sử dụng tương tác
+│   ├── constants/              # Hằng số chuẩn GDPT 2018
+│   │   ├── defaultCurriculum.js     # Định mức 32 tiết chuẩn của 5 khối
+│   │   └── subjects.js              # Danh mục môn học, màu sắc, phòng học
+│   ├── data/
+│   │   ├── edutimetable.db          # Cơ sở dữ liệu SQLite cục bộ
+│   │   └── savedData.json           # Dữ liệu dự phòng
+│   ├── services/               # Xử lý nghiệp vụ lõi & thuật toán
+│   │   ├── autoScheduler.js         # Thuật toán giải ràng buộc CSP AI
+│   │   ├── conflictDetector.js      # Kiểm tra và định vị xung đột
+│   │   ├── dbService.js             # API kết nối CSDL SQLite đa nền tảng
+│   │   ├── excelService.js          # Xuất nhập bảng tính ExcelJS
+│   │   └── sqliteManager.cjs        # Động cơ SQLite chuẩn WebAssembly (sql.js)
+│   ├── App.jsx                 # Ứng dụng chính & điều phối dữ liệu
+│   └── main.jsx                # Điểm khởi động React
+├── package.json                # Cấu hình dự án & Scripts đóng gói
+└── vite.config.js              # Cấu hình Vite & API SQLite Dev Server
 ```
 
 ---
 
-## 👨‍💻 7. Tác Giả & Bản Quyền
+## 👨‍💻 7. Bản Quyền & Tác Giả
 
-- **Tác giả**: [chaudan0304](https://github.com/chaudan0304)
+- **Tác giả phát triển**: Châu Đàn (`chaudan0304`)
 - **Kho lưu trữ GitHub**: [https://github.com/chaudan0304/sap_xep_lich_day](https://github.com/chaudan0304/sap_xep_lich_day)
-- Phát triển phục vụ công tác chuyển đổi số và tối ưu hóa quản lý thời khóa biểu giáo dục tiểu học.
+- Phát triển phục vụ công tác chuyển đổi số và nâng cao hiệu quả quản trị giáo dục Tiểu học.
