@@ -100,6 +100,10 @@ Section "MainSection" SEC01
 
   ; Tạo biểu tượng ngoài màn hình chính Desktop
   CreateShortcut "$DESKTOP\EduTimetable Tiểu Học.lnk" "$INSTDIR\EduTimetable_TieuHoc.exe" "" "$INSTDIR\EduTimetable_TieuHoc.exe" 0
+
+  ; Nếu chạy ở chế độ cài đặt ngầm (/S khi tự động cập nhật), tự động khởi chạy phần mềm ngay
+  IfSilent 0 +2
+    ExecShell "" "$INSTDIR\EduTimetable_TieuHoc.exe"
 SectionEnd
 
 ; Phân Đoạn Gỡ Cài Đặt (Uninstall)
