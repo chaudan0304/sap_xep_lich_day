@@ -9,10 +9,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "vitest run",
     "lint": "oxlint",
     "preview": "vite preview",
     "desktop:build": "vite build && electron-packager . \"EduTimetable_TieuHoc\" --platform=win32 --arch=x64 --out=dist-desktop --overwrite --prune=true",
-    "installer:build": "npm run desktop:build && powershell -Command \"& 'C:\\Users\\chaud\\AppData\\Local\\electron-builder\\cache\\nsis\\nsis-3.0.4.1-nsis-3.0.4.1\\Bin\\makensis.exe' /INPUTCHARSET UTF8 installer.nsi\"",
+    "installer:build": "npm run desktop:build && powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1",
     "release:zip": "npm run desktop:build && cmd.exe /c \"cd /d dist-desktop\\EduTimetable_TieuHoc-win32-x64 && tar.exe -acf ..\\EduTimetable_TieuHoc_v1.0.5.zip * && copy /y ..\\EduTimetable_TieuHoc_v1.0.5.zip ..\\EduTimetable_TieuHoc.zip\"",
     "electron:dev": "concurrently -k \"cross-env BROWSER=none vite\" \"wait-on tcp:5173 && electron .\"",
     "electron:build": "vite build && electron-builder --win nsis portable",
@@ -85,6 +86,7 @@
     "electron-packager": "^17.1.2",
     "oxlint": "^1.79.0",
     "vite": "^8.2.2",
+    "vitest": "^5.0.1",
     "wait-on": "^9.1.0"
   }
 }
