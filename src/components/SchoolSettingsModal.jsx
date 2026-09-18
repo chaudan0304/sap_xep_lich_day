@@ -18,14 +18,15 @@ import {
 import { PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 
 export const DEFAULT_SCHOOL_INFO = {
-  name: 'Trường Tiểu học Quỳnh Lộc',
-  district: 'UBND Phường Tân Mai',
+  name: 'Trường Tiểu Học Ánh Dương',
+  district: 'Phòng Giáo Dục & Đào Tạo',
   year: 'Năm học 2026 - 2027',
-  principal: 'Bùi Văn Việt',
+  principal: 'Thầy Nguyễn Văn An',
   scheduler: '',
-  address: 'Phường Tân Mai, TX Hoàng Mai, Nghệ An',
+  address: 'Số 123 Đường Giáo Dục, Quận 1, TP. Hồ Chí Minh',
   lunchBreak: '10:30 - 14:00'
 };
+
 
 const SchoolSettingsModal = ({
   isOpen,

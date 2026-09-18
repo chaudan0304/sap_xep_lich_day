@@ -7,7 +7,6 @@ import ExcelJS from 'exceljs';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects.js';
 import { DAYS_OF_WEEK, PERIODS, DEFAULT_GRADE_QUOTAS } from '../constants/defaultCurriculum.js';
 import { SAMPLE_ROOMS, SAMPLE_CLASSES, SAMPLE_TEACHERS } from '../data/sampleData.js';
-import { QUYNH_LOC_DATA } from '../data/quynhLocSchoolData.js';
 
 import { parseExcelWorkbook, mapSubjectCodeAndRoom, resolveTeacher, getTeacherShortName } from './excelParser.js';
 import { validateParsedExcelData } from './excelValidator.js';

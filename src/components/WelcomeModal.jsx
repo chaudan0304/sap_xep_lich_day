@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   Trash2
 } from 'lucide-react';
-import { QUYNH_LOC_DATA } from '../data/quynhLocSchoolData';
 import { DEFAULT_GRADE_QUOTAS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as INITIAL_SUBJECTS } from '../constants/subjects';
 import { DEFAULT_SCHOOL_INFO } from './SchoolSettingsModal';

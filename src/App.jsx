@@ -27,10 +27,10 @@ import {
   SAMPLE_CLASSES, 
   SAMPLE_TEACHERS, 
   SAMPLE_ROOMS, 
+  SAMPLE_SCHOOL_INFO,
   generateSampleAssignments, 
   initializeEmptyTimetable 
 } from './data/sampleData';
-import { QUYNH_LOC_DATA } from './data/quynhLocSchoolData';
 import { checkAllConflicts } from './services/conflictDetector';
 import { solveTimetable } from './services/autoScheduler';
 import { 
@@ -54,15 +54,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState('studio');
 
   const [schoolInfo, setSchoolInfo] = useState(() => {
-    if (!isUpToDate) {
-      return {
-        ...DEFAULT_SCHOOL_INFO,
-        name: QUYNH_LOC_DATA.schoolName || DEFAULT_SCHOOL_INFO.name,
-        year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year,
-        scheduler: ''
-      };
-    }
-    const saved = localStorage.getItem('EDUTIMETABLE_SCHOOL_INFO');
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_SCHOOL_INFO') : null;
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -74,12 +66,7 @@ export function App() {
         console.error('Error parsing schoolInfo:', e);
       }
     }
-    return {
-      ...DEFAULT_SCHOOL_INFO,
-      name: QUYNH_LOC_DATA.schoolName || DEFAULT_SCHOOL_INFO.name,
-      year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year,
-      scheduler: ''
-    };
+    return { ...DEFAULT_SCHOOL_INFO };
   });
 
   const [periods, setPeriods] = useState(() => {
@@ -113,9 +100,14 @@ export function App() {
   });
 
   const [classes, setClasses] = useState(() => {
-    if (!isUpToDate) return [...QUYNH_LOC_DATA.classes];
-    const saved = localStorage.getItem('EDUTIMETABLE_CLASSES');
-    return saved ? JSON.parse(saved) : [...QUYNH_LOC_DATA.classes];
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_CLASSES') : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return [...SAMPLE_CLASSES];
   });
 
   // Danh mục Tổ Chuyên Môn / Văn Phòng động
@@ -131,12 +123,14 @@ export function App() {
   });
 
   const [teachers, setTeachers] = useState(() => {
-    const raw = !isUpToDate
-      ? [...QUYNH_LOC_DATA.teachers]
-      : (() => {
-          const saved = localStorage.getItem('EDUTIMETABLE_TEACHERS');
-          return saved ? JSON.parse(saved) : [...QUYNH_LOC_DATA.teachers];
-        })();
+    let raw = [...SAMPLE_TEACHERS];
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_TEACHERS') : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) raw = parsed;
+      } catch {}
+    }
 
     let currentDepts = DEFAULT_DEPARTMENTS;
     try {
@@ -150,22 +144,41 @@ export function App() {
   });
 
   const [rooms, setRooms] = useState(() => {
-    if (!isUpToDate) return [...(QUYNH_LOC_DATA.rooms || SAMPLE_ROOMS)];
-    const saved = localStorage.getItem('EDUTIMETABLE_ROOMS');
-    return saved ? JSON.parse(saved) : [...(QUYNH_LOC_DATA.rooms || SAMPLE_ROOMS)];
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_ROOMS') : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return [...SAMPLE_ROOMS];
   });
   
   const [assignments, setAssignments] = useState(() => {
-    if (!isUpToDate) return [...QUYNH_LOC_DATA.assignments];
-    const saved = localStorage.getItem('EDUTIMETABLE_ASSIGNMENTS');
-    return saved ? JSON.parse(saved) : [...QUYNH_LOC_DATA.assignments];
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_ASSIGNMENTS') : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return generateSampleAssignments(SAMPLE_CLASSES, DEFAULT_GRADE_QUOTAS, SAMPLE_TEACHERS);
   });
 
   const [timetable, setTimetable] = useState(() => {
-    if (!isUpToDate) return JSON.parse(JSON.stringify(QUYNH_LOC_DATA.timetable));
-    const saved = localStorage.getItem('EDUTIMETABLE_SCHEDULE');
-    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(QUYNH_LOC_DATA.timetable));
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_SCHEDULE') : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) return parsed;
+      } catch {}
+    }
+    const initialEmpty = initializeEmptyTimetable(SAMPLE_CLASSES);
+    const initialAssignments = generateSampleAssignments(SAMPLE_CLASSES, DEFAULT_GRADE_QUOTAS, SAMPLE_TEACHERS);
+    const solved = solveTimetable(SAMPLE_CLASSES, initialAssignments, SAMPLE_TEACHERS, SAMPLE_ROOMS, initialEmpty);
+    return solved.timetable || initialEmpty;
   });
+
 
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [importReport, setImportReport] = useState(null);
@@ -472,27 +485,28 @@ export function App() {
     }
   };
 
-  // 5. Khởi tạo / Nạp Dữ Liệu Mẫu Chuẩn (Quỳnh Lộc - 23 lớp)
+  // 5. Khởi tạo / Nạp Dữ Liệu Mẫu Chuẩn (Trường Tiểu Học Ánh Dương)
   const handleSelectSampleData = () => {
     localStorage.setItem('EDUTIMETABLE_INITIALIZED_CHOICE', 'sample');
-    setSchoolInfo({
-      name: QUYNH_LOC_DATA.schoolName || DEFAULT_SCHOOL_INFO.name,
-      district: 'UBND Phường Tân Mai',
-      year: QUYNH_LOC_DATA.schoolYear || DEFAULT_SCHOOL_INFO.year,
-      principal: 'Bùi Văn Việt',
-      scheduler: '',
-      address: 'Phường Tân Mai, TX Hoàng Mai, Nghệ An',
-      lunchBreak: '10:30 - 14:00'
-    });
+    const freshQuotas = JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS));
+    const freshClasses = [...SAMPLE_CLASSES];
+    const freshTeachers = [...SAMPLE_TEACHERS];
+    const freshRooms = [...SAMPLE_ROOMS];
+    const freshAssignments = generateSampleAssignments(freshClasses, freshQuotas, freshTeachers);
+    const empty = initializeEmptyTimetable(freshClasses);
+    const solved = solveTimetable(freshClasses, freshAssignments, freshTeachers, freshRooms, empty);
+
+    setSchoolInfo({ ...DEFAULT_SCHOOL_INFO });
     setSubjects(JSON.parse(JSON.stringify(INITIAL_SUBJECTS)));
-    setGradeQuotas(JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS)));
-    setClasses([...QUYNH_LOC_DATA.classes]);
-    setTeachers([...QUYNH_LOC_DATA.teachers]);
-    setRooms([...(QUYNH_LOC_DATA.rooms || SAMPLE_ROOMS)]);
-    setAssignments([...QUYNH_LOC_DATA.assignments]);
-    setTimetable(JSON.parse(JSON.stringify(QUYNH_LOC_DATA.timetable)));
+    setGradeQuotas(freshQuotas);
+    setClasses(freshClasses);
+    setTeachers(freshTeachers);
+    setRooms(freshRooms);
+    setAssignments(freshAssignments);
+    setTimetable(solved.timetable || empty);
     setSelectedStudioClassId('1A1');
   };
+
 
   // Khởi tạo Dự Án Mới Trắng Hoàn Toàn Cho Trường Của Người Dùng
   const handleStartBlankProject = (customInfo) => {

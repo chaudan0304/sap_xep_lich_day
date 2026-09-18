@@ -1,6 +1,16 @@
 // src/data/sampleData.js
 // Dữ liệu mẫu trường Tiểu học Ánh Dương (Chuẩn CTGDPT 2018)
 
+export const SAMPLE_SCHOOL_INFO = {
+  name: 'Trường Tiểu Học Ánh Dương',
+  district: 'Phòng Giáo Dục & Đào Tạo',
+  year: 'Năm học 2026 - 2027',
+  principal: 'Thầy Nguyễn Văn An',
+  scheduler: 'Ban Chuyên Môn',
+  address: 'Số 123 Đường Giáo Dục, Quận 1, TP. Hồ Chí Minh',
+  lunchBreak: '10:30 - 14:00'
+};
+
 export const SAMPLE_ROOMS = [
   { id: 'PHONG_TIN_HOC', name: 'Phòng Tin học 1', code: 'TIN-01', capacity: 35, isSpecialized: true },
   { id: 'SAN_THE_CHAT', name: 'Nhà thi đấu / Sân Thể chất', code: 'SAN-TC', capacity: 100, isSpecialized: true, allowMultiple: true }

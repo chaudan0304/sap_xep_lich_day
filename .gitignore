@@ -27,3 +27,14 @@ release
 .agents
 .gemini
 .codegraph
+
+# Database and private school data
+src/data/*.db
+src/data/*.sqlite
+src/data/edutimetable.db
+src/data/savedData.json
+src/data/quynhLocSchoolData.js
+public/data/*.xlsx
+public/data/*.xls
+*.backup*
+
