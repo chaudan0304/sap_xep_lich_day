@@ -23,15 +23,51 @@ import {
   Maximize2,
   Image as ImageIcon,
   Copy,
-  CheckCircle2
+  CheckCircle2,
+  Building2,
+  Briefcase
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { exportTeacherDirectory } from '../services/excelService';
 import { TeacherTimetablePrintModal } from './TeacherTimetablePrintModal';
+import { TeacherFormModal } from './TeacherFormModal';
+import { 
+  DEFAULT_DEPARTMENTS,
+  getDepartments,
+  getDepartmentById,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+  validateDepartmentName,
+  isOfficeDepartment as isOfficeDeptService,
+  countTeachersInDepartment,
+  findDepartmentByName
+} from '../services/departmentService';
+
+/**
+ * Kiểm tra xem một Tổ có phải là Tổ Văn Phòng / Hành chính hay không
+ */
+export const isOfficeDepartment = (dept) => {
+  return isOfficeDeptService(dept);
+};
+
 
 const getTeacherRoleBadge = (teacher) => {
   if (!teacher) return { label: 'Giáo Viên', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
+
+  // 0. ƯU TIÊN ĐẶC BIỆT: Tổ Văn Phòng
+  if (isOfficeDepartment(teacher.department)) {
+    const pos = (teacher.position || '').trim();
+    const task = (teacher.task || '').trim();
+    const label = pos || (task ? task.split(';')[0] : 'Tổ Văn Phòng');
+    return {
+      label: label.length > 28 ? 'Tổ Văn Phòng' : label,
+      bg: '#f0fdfa',
+      color: '#0f766e',
+      border: '#99f6e4'
+    };
+  }
 
   const position = (teacher.position || '').trim().toLowerCase();
   const task = (teacher.task || '').trim().toLowerCase();
@@ -121,6 +157,8 @@ const getTeacherRoleBadge = (teacher) => {
 export const TeacherDirectory = ({
   teachers,
   setTeachers,
+  departments = [],
+  setDepartments = () => {},
   assignments,
   setAssignments,
   classes,
@@ -131,7 +169,135 @@ export const TeacherDirectory = ({
   schoolInfo = {}
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRole, setSelectedRole] = useState('ALL'); // ALL, HOMEROOM, SUBJECT
+  const [selectedRole, setSelectedRole] = useState('ALL'); // ALL, HOMEROOM, SUBJECT, DEPT:...
+
+  // Danh mục Tổ Chuyên Môn / Văn Phòng động từ data source
+  const activeDepartments = useMemo(() => {
+    return getDepartments(departments && departments.length > 0 ? departments : DEFAULT_DEPARTMENTS);
+  }, [departments]);
+
+  // Danh sách tên các tổ để tương thích các render loop
+  const allExistingDepartments = useMemo(() => {
+    return activeDepartments.map(d => d.name);
+  }, [activeDepartments]);
+
+  // Xử lý khi thay đổi hoặc chọn Tổ Chuyên Môn
+  const handleDepartmentChange = (val, explicitDeptId = null) => {
+    const cleanName = (val || '').trim();
+    let targetDept = null;
+    if (explicitDeptId) {
+      targetDept = getDepartmentById(activeDepartments, explicitDeptId);
+    }
+    if (!targetDept && cleanName) {
+      targetDept = findDepartmentByName(activeDepartments, cleanName);
+    }
+
+    const isOffice = targetDept ? (targetDept.isOffice || isOfficeDepartment(targetDept.name)) : isOfficeDepartment(cleanName);
+    const deptId = targetDept ? targetDept.id : (editingTeacher?.departmentId || '');
+
+    if (isOffice) {
+      setEditingTeacher(prev => ({
+        ...prev,
+        departmentId: deptId,
+        department: targetDept ? targetDept.name : cleanName,
+        dinhMuc: 0,
+        weeklyQuota: 0,
+        isHomeroom: false,
+        homeroomClassId: '',
+        subjectAssignments: [],
+        offSessions: []
+      }));
+    } else {
+      setEditingTeacher(prev => ({
+        ...prev,
+        departmentId: deptId,
+        department: targetDept ? targetDept.name : cleanName,
+        dinhMuc: (prev.dinhMuc === 0 || prev.dinhMuc === undefined) ? 23 : prev.dinhMuc,
+        weeklyQuota: (prev.weeklyQuota === 0 || prev.weeklyQuota === undefined) ? 23 : prev.weeklyQuota
+      }));
+    }
+  };
+
+  // State Quản lý Danh mục Tổ chuyên môn (CRUD Modal)
+  const [isDeptManagerOpen, setIsDeptManagerOpen] = useState(false);
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptDesc, setNewDeptDesc] = useState('');
+  const [newDeptIsOffice, setNewDeptIsOffice] = useState(false);
+  const [editingDeptId, setEditingDeptId] = useState(null);
+  const [editingDeptName, setEditingDeptName] = useState('');
+  const [editingDeptDesc, setEditingDeptDesc] = useState('');
+  const [editingDeptIsOffice, setEditingDeptIsOffice] = useState(false);
+
+  // Thêm tổ mới qua dialog quản lý tổ
+  const handleCreateDept = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const res = createDepartment(activeDepartments, {
+      name: newDeptName,
+      description: newDeptDesc,
+      isOffice: newDeptIsOffice
+    });
+    if (!res.success) {
+      alert('⚠️ ' + res.message);
+      return;
+    }
+    setDepartments(res.departments);
+    setNewDeptName('');
+    setNewDeptDesc('');
+    setNewDeptIsOffice(false);
+    alert(`✅ Đã thêm tổ "${res.department.name}" vào danh mục thành công!`);
+  };
+
+  // Bắt đầu sửa tổ
+  const handleStartEditDept = (dept) => {
+    setEditingDeptId(dept.id);
+    setEditingDeptName(dept.name);
+    setEditingDeptDesc(dept.description || '');
+    setEditingDeptIsOffice(Boolean(dept.isOffice));
+  };
+
+  // Lưu sửa tổ (đổi tên tổ -> tự động cập nhật tên tổ trong danh sách giáo viên)
+  const handleSaveEditDept = (deptId) => {
+    const res = updateDepartment(activeDepartments, deptId, {
+      name: editingDeptName,
+      description: editingDeptDesc,
+      isOffice: editingDeptIsOffice
+    }, teachers);
+    if (!res.success) {
+      alert('⚠️ ' + res.message);
+      return;
+    }
+    setDepartments(res.departments);
+    if (res.teachersModified && res.updatedTeachers) {
+      setTeachers(res.updatedTeachers);
+    }
+    setEditingDeptId(null);
+    alert(`✅ Đã cập nhật tổ "${res.department.name}" thành công!`);
+  };
+
+  // Xóa tổ (chặn xóa nếu đang có giáo viên thuộc tổ)
+  const handleDeleteDept = (dept) => {
+    const count = countTeachersInDepartment(dept, teachers);
+    if (count > 0) {
+      alert(
+        `⚠️ KHÔNG THỂ XÓA TỔ "${dept.name}":\n\n` +
+        `Hiện đang có ${count} giáo viên / nhân sự thuộc tổ này.\n` +
+        `Để đảm bảo toàn vẹn dữ liệu, bạn vui lòng chuyển các giáo viên này sang tổ khác trước khi xóa!`
+      );
+      return;
+    }
+
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa tổ "${dept.name}" khỏi danh mục?\nThao tác này không thể hoàn tác.`)) {
+      return;
+    }
+
+    const res = deleteDepartment(activeDepartments, dept.id, teachers);
+    if (!res.success) {
+      alert('⚠️ ' + res.message);
+      return;
+    }
+    setDepartments(res.departments);
+    alert(`✅ Đã xóa tổ "${dept.name}" khỏi hệ thống thành công!`);
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -143,7 +309,7 @@ export const TeacherDirectory = ({
 
   // Lock body scroll when modal is open so popup stays dead-center
   useEffect(() => {
-    if (isModalOpen || isPrintModalOpen) {
+    if (isModalOpen || isPrintModalOpen || isDeptManagerOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -151,7 +317,7 @@ export const TeacherDirectory = ({
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isModalOpen, isPrintModalOpen]);
+  }, [isModalOpen, isPrintModalOpen, isDeptManagerOpen]);
 
 
   // Tính toán số tiết phân công & số tiết thực tế đã xếp của từng GV
@@ -193,37 +359,67 @@ export const TeacherDirectory = ({
         t.phone?.includes(searchQuery);
 
       let matchRole = true;
-      if (selectedRole === 'TO_123') {
-        matchRole = t.department === 'Tổ 1, 2, 3';
+      if (selectedRole.startsWith('DEPT:')) {
+        const targetVal = selectedRole.substring(5);
+        const targetDept = getDepartmentById(activeDepartments, targetVal) || findDepartmentByName(activeDepartments, targetVal);
+        if (targetDept) {
+          matchRole = t.departmentId === targetDept.id || (t.department || '').trim().toLowerCase() === targetDept.name.trim().toLowerCase();
+        } else {
+          matchRole = (t.department || '').trim() === targetVal;
+        }
+      } else if (selectedRole === 'TO_123') {
+        matchRole = (t.department || '').trim() === 'Tổ 1, 2, 3';
       } else if (selectedRole === 'TO_45') {
-        matchRole = t.department === 'Tổ 4, 5';
+        matchRole = (t.department || '').trim() === 'Tổ 4, 5';
       } else if (selectedRole === 'SUBJECT_GROUP') {
-        matchRole = t.department === 'Giáo viên bộ môn';
+        matchRole = (t.department || '').trim() === 'Giáo viên bộ môn';
+      } else if (selectedRole === 'TO_OFFICE') {
+        matchRole = isOfficeDepartment(t.department);
       } else if (selectedRole === 'HOMEROOM') {
-        matchRole = t.isHomeroom;
+        matchRole = t.isHomeroom && !isOfficeDepartment(t.department);
       } else if (selectedRole === 'SUBJECT') {
         const badge = getTeacherRoleBadge(t);
-        matchRole = badge.label === 'GV Bộ Môn' || badge.label === 'Tổng Phụ Trách Đội';
+        matchRole = (badge.label === 'GV Bộ Môn' || badge.label === 'Tổng Phụ Trách Đội') && !isOfficeDepartment(t.department);
       } else if (selectedRole === 'ADMIN') {
         const badge = getTeacherRoleBadge(t);
         matchRole = ['Hiệu Trưởng', 'Phó Hiệu Trưởng'].includes(badge.label);
       } else if (selectedRole === 'STAFF') {
         const badge = getTeacherRoleBadge(t);
-        matchRole = ['Kế toán', 'Văn thư - Thủ quỹ', 'Y tế - Thư viện', 'Bảo vệ', 'Nghỉ sinh'].includes(badge.label);
+        matchRole = isOfficeDepartment(t.department) || ['Kế toán', 'Văn thư - Thủ quỹ', 'Y tế - Thư viện', 'Bảo vệ', 'Nghỉ sinh'].includes(badge.label);
       }
 
       return matchSearch && matchRole;
     });
   }, [teachers, searchQuery, selectedRole]);
 
-  // Mở modal thêm GV
+
+  // Toggle Buổi Nghỉ cho GV đang chỉnh sửa
+  const toggleOffSession = (sessionKey) => {
+    if (!editingTeacher) return;
+    setEditingTeacher(prev => {
+      const current = prev.offSessions || [];
+      const isOff = current.includes(sessionKey);
+      return {
+        ...prev,
+        offSessions: isOff
+          ? current.filter(s => s !== sessionKey)
+          : [...current, sessionKey]
+      };
+    });
+  };
+
+  // Mở modal thêm GV / Nhân sự
   const handleAddNew = () => {
     const nextId = `GV_${String(teachers.length + 1).padStart(2, '0')}`;
+    const defaultDept = activeDepartments[0] || { id: 'dept_bo_mon', name: 'Giáo viên bộ môn' };
     setEditingTeacher({
       id: nextId,
       name: '',
       code: '',
-      department: 'Giáo viên bộ môn',
+      departmentId: defaultDept.id,
+      department: defaultDept.name,
+      position: '',
+      task: '',
       isHomeroom: false,
       homeroomClassId: '',
       phone: '',
@@ -284,8 +480,14 @@ export const TeacherDirectory = ({
       classIds: cIds
     }));
 
+    const matchingDept = teacher.departmentId
+      ? getDepartmentById(activeDepartments, teacher.departmentId)
+      : findDepartmentByName(activeDepartments, teacher.department);
+
     setEditingTeacher({
       ...teacher,
+      departmentId: matchingDept ? matchingDept.id : (activeDepartments[0]?.id || 'dept_bo_mon'),
+      department: matchingDept ? matchingDept.name : (teacher.department || 'Giáo viên bộ môn'),
       note: teacher.note || '',
       offSessions: [...(teacher.offSessions || [])],
       subjectAssignments: subjectAssignments
@@ -304,13 +506,49 @@ export const TeacherDirectory = ({
   const handleSaveTeacher = (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!editingTeacher || !editingTeacher.name?.trim()) {
-      alert('Vui lòng nhập họ và tên giáo viên!');
+      alert('Vui lòng nhập họ và tên giáo viên / nhân viên!');
       return;
     }
 
-    const isHomeroom = !!editingTeacher.isHomeroom;
+    const deptTrimmed = (editingTeacher.department || '').trim();
+    let targetDept = null;
+    if (editingTeacher.departmentId) {
+      targetDept = getDepartmentById(activeDepartments, editingTeacher.departmentId);
+    }
+    if (!targetDept && deptTrimmed) {
+      targetDept = findDepartmentByName(activeDepartments, deptTrimmed);
+    }
+
+    // Tự động tạo tổ mới nếu người dùng gõ tên tổ chưa từng có trong danh mục
+    if (!targetDept && deptTrimmed) {
+      const createRes = createDepartment(activeDepartments, { name: deptTrimmed });
+      if (createRes.success) {
+        targetDept = createRes.department;
+        setDepartments(createRes.departments);
+      }
+    }
+
+    const finalDeptId = targetDept ? targetDept.id : 'dept_bo_mon';
+    const finalDeptName = targetDept ? targetDept.name : (deptTrimmed || 'Giáo viên bộ môn');
+    const isOffice = targetDept ? (targetDept.isOffice || isOfficeDepartment(targetDept.name)) : isOfficeDepartment(deptTrimmed);
+    const isHomeroom = !isOffice && !!editingTeacher.isHomeroom;
     const homeroomClassId = isHomeroom ? editingTeacher.homeroomClassId : null;
-    const subjectAssignments = editingTeacher.subjectAssignments || [];
+    const subjectAssignments = isOffice ? [] : (editingTeacher.subjectAssignments || []);
+    const dinhMuc = isOffice ? 0 : (editingTeacher.dinhMuc !== undefined ? Number(editingTeacher.dinhMuc) : (editingTeacher.weeklyQuota !== undefined ? Number(editingTeacher.weeklyQuota) : 23));
+    const weeklyQuota = dinhMuc;
+    const offSessions = isOffice ? [] : (editingTeacher.offSessions || []);
+
+    const teacherToSave = {
+      ...editingTeacher,
+      departmentId: finalDeptId,
+      department: finalDeptName,
+      isHomeroom,
+      homeroomClassId,
+      subjectAssignments,
+      dinhMuc,
+      weeklyQuota,
+      offSessions
+    };
 
     // Gom tất cả các classId được chọn theo từng subjectId (hỗ trợ không giới hạn số môn)
     const subjectMap = {};
@@ -325,13 +563,13 @@ export const TeacherDirectory = ({
     setTeachers(prev => {
       // Nếu chọn làm GVCN lớp X, hủy vai trò GVCN của các GV khác trên lớp X đó
       let updated = prev.map(t => {
-        if (homeroomClassId && t.id !== editingTeacher.id && t.homeroomClassId === homeroomClassId) {
+        if (homeroomClassId && t.id !== teacherToSave.id && t.homeroomClassId === homeroomClassId) {
           t = { ...t, isHomeroom: false, homeroomClassId: null };
         }
 
         // RÀNG BUỘC: 1 môn của 1 lớp chỉ cho 1 người dạy!
         // Nếu GV khác đang có lớp mà editingTeacher vừa chọn cho cùng môn -> Tự động loại bỏ lớp đó khỏi GV khác
-        if (t.id !== editingTeacher.id && Array.isArray(t.subjectAssignments)) {
+        if (!isOffice && t.id !== teacherToSave.id && Array.isArray(t.subjectAssignments)) {
           let hasOverlap = false;
           const cleanedConfigs = t.subjectAssignments.map(cfg => {
             const myClaimedClasses = subjectMap[cfg.subjectId];
@@ -352,71 +590,83 @@ export const TeacherDirectory = ({
         return t;
       });
 
-      const exists = updated.some(t => t.id === editingTeacher.id);
+      const exists = updated.some(t => t.id === teacherToSave.id);
       if (exists) {
-        return updated.map(t => t.id === editingTeacher.id ? editingTeacher : t);
+        return updated.map(t => t.id === teacherToSave.id ? teacherToSave : t);
       } else {
-        return [...updated, editingTeacher];
+        return [...updated, teacherToSave];
       }
     });
 
     // Cập nhật GVCN trong danh sách classes
-    if (setClasses && homeroomClassId) {
-      setClasses(prev => prev.map(c => 
-        c.id === homeroomClassId ? { ...c, homeroomTeacherId: editingTeacher.id } : c
-      ));
+    if (setClasses) {
+      if (homeroomClassId) {
+        setClasses(prev => prev.map(c => 
+          c.id === homeroomClassId ? { ...c, homeroomTeacherId: teacherToSave.id } : c
+        ));
+      } else {
+        // Nếu không làm chủ nhiệm hoặc là Tổ Văn Phòng, gỡ giáo viên này khỏi bất kỳ lớp nào từng gán
+        setClasses(prev => prev.map(c => 
+          c.homeroomTeacherId === teacherToSave.id ? { ...c, homeroomTeacherId: null } : c
+        ));
+      }
     }
 
     // Đồng bộ danh sách các môn và lớp phụ trách vào assignments
     if (setAssignments) {
-      const specialistSubjects = ['TIENG_ANH', 'TIN_HOC', 'THE_DUC', 'AM_NHAC', 'MY_THUAT', 'DAO_DUC'];
+      if (isOffice) {
+        // Tổ Văn Phòng: Gỡ bỏ toàn bộ phân công đứng lớp của nhân viên văn phòng
+        setAssignments(prev => prev.map(a => a.teacherId === teacherToSave.id ? { ...a, teacherId: '' } : a));
+      } else {
+        const specialistSubjects = ['TIENG_ANH', 'TIN_HOC', 'THE_DUC', 'AM_NHAC', 'MY_THUAT', 'DAO_DUC'];
 
-      setAssignments(prev => {
-        let updatedList = prev.map(a => {
-          const isHomeroomSubject = homeroomClassId && a.classId === homeroomClassId && !specialistSubjects.includes(a.subjectId);
+        setAssignments(prev => {
+          let updatedList = prev.map(a => {
+            const isHomeroomSubject = homeroomClassId && a.classId === homeroomClassId && !specialistSubjects.includes(a.subjectId);
 
-          // 1. Môn chủ nhiệm của Lớp Chủ Nhiệm -> Luôn phân công cho GVCN
-          if (isHomeroomSubject) {
-            return { ...a, teacherId: editingTeacher.id };
-          }
-
-          // 2. Kiểm tra môn này có trong danh sách phân công của GV này không
-          if (subjectMap[a.subjectId]) {
-            if (subjectMap[a.subjectId].has(a.classId)) {
-              return { ...a, teacherId: editingTeacher.id };
-            } else if (a.teacherId === editingTeacher.id) {
-              return { ...a, teacherId: '' };
+            // 1. Môn chủ nhiệm của Lớp Chủ Nhiệm -> Luôn phân công cho GVCN
+            if (isHomeroomSubject) {
+              return { ...a, teacherId: teacherToSave.id };
             }
-          } else {
-            // Môn này không còn trong danh sách môn của GV -> Gỡ bỏ nếu trước đó đang gán
-            if (a.teacherId === editingTeacher.id) {
-              return { ...a, teacherId: '' };
-            }
-          }
 
-          return a;
-        });
-
-        // 3. Tự động bổ sung các phân công lớp chưa tồn tại trong danh sách assignments
-        Object.entries(subjectMap).forEach(([sId, classSet]) => {
-          classSet.forEach(cId => {
-            const exists = updatedList.some(a => a.subjectId === sId && a.classId === cId);
-            if (!exists) {
-              const defaultRoom = (subjects && subjects[sId]?.defaultRoom) || 'LOP_HOC';
-              updatedList.push({
-                id: `asg_${cId}_${sId}`,
-                classId: cId,
-                subjectId: sId,
-                teacherId: editingTeacher.id,
-                weeklyPeriods: 1,
-                roomType: defaultRoom
-              });
+            // 2. Kiểm tra môn này có trong danh sách phân công của GV này không
+            if (subjectMap[a.subjectId]) {
+              if (subjectMap[a.subjectId].has(a.classId)) {
+                return { ...a, teacherId: teacherToSave.id };
+              } else if (a.teacherId === teacherToSave.id) {
+                return { ...a, teacherId: '' };
+              }
+            } else {
+              // Môn này không còn trong danh sách môn của GV -> Gỡ bỏ nếu trước đó đang gán
+              if (a.teacherId === teacherToSave.id) {
+                return { ...a, teacherId: '' };
+              }
             }
+
+            return a;
           });
-        });
 
-        return updatedList;
-      });
+          // 3. Tự động bổ sung các phân công lớp chưa tồn tại trong danh sách assignments
+          Object.entries(subjectMap).forEach(([sId, classSet]) => {
+            classSet.forEach(cId => {
+              const exists = updatedList.some(a => a.subjectId === sId && a.classId === cId);
+              if (!exists) {
+                const defaultRoom = (subjects && subjects[sId]?.defaultRoom) || 'LOP_HOC';
+                updatedList.push({
+                  id: `asg_${cId}_${sId}`,
+                  classId: cId,
+                  subjectId: sId,
+                  teacherId: teacherToSave.id,
+                  weeklyPeriods: 1,
+                  roomType: defaultRoom
+                });
+              }
+            });
+          });
+
+          return updatedList;
+        });
+      }
     }
 
     setIsModalOpen(false);
@@ -492,6 +742,29 @@ export const TeacherDirectory = ({
             </button>
 
             <button
+              onClick={() => setIsDeptManagerOpen(true)}
+              title="Quản lý danh mục Tổ Chuyên Môn và Tổ Văn Phòng động"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '10px 16px',
+                borderRadius: '10px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#4338ca',
+                cursor: 'pointer',
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <Building2 size={16} color="#4f46e5" />
+              <span>Quản Lý Tổ ({activeDepartments.length})</span>
+            </button>
+
+
+            <button
               onClick={handleAddNew}
               style={{
                 display: 'flex',
@@ -509,7 +782,7 @@ export const TeacherDirectory = ({
               }}
             >
               <UserPlus size={16} />
-              <span>Thêm Giáo Viên Mới</span>
+              <span>Thêm Nhân Sự Mới</span>
             </button>
           </div>
         </div>
@@ -517,7 +790,7 @@ export const TeacherDirectory = ({
       {/* 2. Top Stats Overview Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '16px',
         marginBottom: '24px'
       }}>
@@ -535,8 +808,8 @@ export const TeacherDirectory = ({
             <Users size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Tổng Số Giáo Viên</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>{teachers.length} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8' }}>thầy cô</span></div>
+            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Tổng Số Nhân Sự</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>{teachers.length} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8' }}>thầy cô / CB</span></div>
           </div>
         </div>
 
@@ -577,7 +850,28 @@ export const TeacherDirectory = ({
           <div>
             <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Giáo Viên Bộ Môn</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>
-              {teachers.filter(t => !t.isHomeroom).length} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8' }}>thầy cô</span>
+              {teachers.filter(t => !t.isHomeroom && !isOfficeDepartment(t.department)).length} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8' }}>thầy cô</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          background: '#ffffff',
+          padding: '16px 20px',
+          borderRadius: '14px',
+          border: '1px solid #e2e8f0',
+          boxShadow: 'var(--shadow-sm)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px'
+        }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#f0fdfa', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0d9488' }}>
+            <Building2 size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Tổ Văn Phòng</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>
+              {teachers.filter(t => isOfficeDepartment(t.department)).length} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8' }}>nhân sự</span>
             </div>
           </div>
         </div>
@@ -665,13 +959,23 @@ export const TeacherDirectory = ({
                 outline: 'none'
               }}
             >
-              <option value="ALL">Tất cả giáo viên</option>
-              <option value="TO_123">Tổ 1, 2, 3</option>
-              <option value="TO_45">Tổ 4, 5</option>
-              <option value="SUBJECT_GROUP">Giáo viên Bộ Môn</option>
-              <option value="HOMEROOM">Giáo viên Chủ Nhiệm</option>
-              <option value="ADMIN">Ban Giám Hiệu</option>
-              <option value="STAFF">Văn phòng / Nhân viên</option>
+              <option value="ALL">Tất cả nhân sự ({teachers.length})</option>
+              <optgroup label="── Danh Sách Tổ Chuyên Môn / Văn Phòng ──">
+                {activeDepartments.map(dept => {
+                  const count = countTeachersInDepartment(dept, teachers);
+                  const isOffice = dept.isOffice || isOfficeDepartment(dept.name);
+                  return (
+                    <option key={dept.id} value={`DEPT:${dept.id}`}>
+                      {isOffice ? '🏢 ' : '👥 '}{dept.name} ({count})
+                    </option>
+                  );
+                })}
+              </optgroup>
+              <optgroup label="── Phân Loại Vai Trò ──">
+                <option value="HOMEROOM">Giáo viên Chủ Nhiệm ({teachers.filter(t => t.isHomeroom && !isOfficeDepartment(t.department)).length})</option>
+                <option value="ADMIN">Ban Giám Hiệu</option>
+                <option value="STAFF">Tổ Văn Phòng / Nhân viên ({teachers.filter(t => isOfficeDepartment(t.department)).length})</option>
+              </optgroup>
             </select>
           </div>
         </div>
@@ -822,7 +1126,21 @@ export const TeacherDirectory = ({
                           const badge = getTeacherRoleBadge(teacher);
                           const subEntries = Object.entries(subMap);
                           const isOnLeave = badge.label === 'Nghỉ sinh';
-                          const isStaff = ['Kế toán', 'Văn thư - Thủ quỹ', 'Y tế - Thư viện', 'Bảo vệ'].includes(badge.label);
+                          const isOfficeStaff = isOfficeDepartment(teacher.department);
+                          const isStaff = isOfficeStaff || ['Kế toán', 'Văn thư - Thủ quỹ', 'Y tế - Thư viện', 'Bảo vệ'].includes(badge.label);
+
+                          if (isOfficeStaff || isStaff) {
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <span style={{ fontSize: '0.78rem', color: '#0f766e', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Building2 size={13} /> {teacher.position || (teacher.task ? teacher.task.split(';')[0] : 'Tổ Văn Phòng')}
+                                </span>
+                                <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                                  (Công tác hành chính - Không đứng lớp)
+                                </span>
+                              </div>
+                            );
+                          }
 
                           if (!teacher.isHomeroom && subEntries.length === 0) {
                             if (isOnLeave) {
@@ -833,18 +1151,6 @@ export const TeacherDirectory = ({
                                   </span>
                                   <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic' }}>
                                     (Tạm ngưng công tác)
-                                  </span>
-                                </div>
-                              );
-                            }
-                            if (isStaff) {
-                              return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                  <span style={{ fontSize: '0.78rem', color: '#0f766e', fontWeight: 600 }}>
-                                    {teacher.task ? teacher.task.split(';')[0] : `Nhiệm vụ: ${badge.label}`}
-                                  </span>
-                                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic' }}>
-                                    (Không tham gia đứng lớp)
                                   </span>
                                 </div>
                               );
@@ -894,7 +1200,8 @@ export const TeacherDirectory = ({
                         {(() => {
                           const badge = getTeacherRoleBadge(teacher);
                           const isOnLeave = badge.label === 'Nghỉ sinh';
-                          const isStaff = ['Kế toán', 'Văn thư - Thủ quỹ', 'Y tế - Thư viện', 'Bảo vệ'].includes(badge.label);
+                          const isOfficeStaff = isOfficeDepartment(teacher.department);
+                          const isStaff = isOfficeStaff || ['Kế toán', 'Văn thư - Thủ quỹ', 'Y tế - Thư viện', 'Bảo vệ'].includes(badge.label);
 
                           if (isOnLeave) {
                             return (
@@ -912,7 +1219,7 @@ export const TeacherDirectory = ({
                             );
                           }
 
-                          if (isStaff && stat.scheduled === 0) {
+                          if (isOfficeStaff || (isStaff && stat.scheduled === 0)) {
                             return (
                               <span style={{
                                 padding: '3px 8px',
@@ -921,9 +1228,12 @@ export const TeacherDirectory = ({
                                 border: '1px solid #99f6e4',
                                 color: '#0f766e',
                                 fontSize: '0.72rem',
-                                fontWeight: 600
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}>
-                                Công tác hành chính (0 tiết)
+                                <Building2 size={12} /> Công tác hành chính (0 tiết)
                               </span>
                             );
                           }
@@ -961,9 +1271,9 @@ export const TeacherDirectory = ({
                               </span>
                             );
                           }
-                          if (['Kế toán', 'Văn thư - Thủ quỹ', 'Y tế - Thư viện', 'Bảo vệ'].includes(badge.label)) {
+                          if (isOfficeDepartment(teacher.department) || ['Kế toán', 'Văn thư - Thủ quỹ', 'Y tế - Thư viện', 'Bảo vệ'].includes(badge.label)) {
                             return (
-                              <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                              <span style={{ color: '#0f766e', fontSize: '0.72rem', fontStyle: 'italic', background: '#f0fdfa', padding: '2px 6px', borderRadius: '4px', border: '1px solid #ccfbf1' }}>
                                 Theo giờ hành chính
                               </span>
                             );
@@ -999,7 +1309,8 @@ export const TeacherDirectory = ({
                         {(() => {
                           const badge = getTeacherRoleBadge(teacher);
                           const isOnLeave = badge.label === 'Nghỉ sinh';
-                          const isStaff = ['Kế toán', 'Văn thư - Thủ quỹ', 'Y tế - Thư viện', 'Bảo vệ'].includes(badge.label);
+                          const isOfficeStaff = isOfficeDepartment(teacher.department);
+                          const isStaff = isOfficeStaff || ['Kế toán', 'Văn thư - Thủ quỹ', 'Y tế - Thư viện', 'Bảo vệ'].includes(badge.label);
                           const hasSchedule = stat.scheduled > 0;
 
                           return (
@@ -1072,568 +1383,349 @@ export const TeacherDirectory = ({
         </div>
       </div>
 
-      {/* 5. ADD / EDIT TEACHER MODAL (PORTAL TO ROOT BODY - ALWAYS ON TOP) */}
-      {isModalOpen && editingTeacher && createPortal(
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(15, 23, 42, 0.7)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 99999,
-          padding: '20px'
-        }}>
-          <div className="animate-fade-in" style={{
-            background: '#ffffff',
-            borderRadius: '24px',
-            maxWidth: '680px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
-            padding: '28px',
-            position: 'relative'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Users size={24} color="#4f46e5" />
-                <span>{editingTeacher.id && teachers.some(t => t.id === editingTeacher.id) ? 'Chỉnh Sửa Hồ Sơ Giáo Viên' : 'Thêm Giáo Viên Mới'}</span>
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px' }}>
-                <X size={22} color="#94a3b8" />
+      {/* 5. ADD / EDIT TEACHER MODAL (REDESIGNED PHASE 3) */}
+      <TeacherFormModal
+        isOpen={isModalOpen && Boolean(editingTeacher)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingTeacher(null);
+        }}
+        editingTeacher={editingTeacher}
+        setEditingTeacher={setEditingTeacher}
+        onSave={handleSaveTeacher}
+        departments={activeDepartments}
+        setDepartments={setDepartments}
+        classes={classes}
+        subjects={subjects}
+        teachers={teachers}
+        assignments={assignments}
+        onOpenDeptManager={() => setIsDeptManagerOpen(true)}
+        toggleOffSession={toggleOffSession}
+        handleDepartmentChange={handleDepartmentChange}
+      />
+
+      {/* 5b. MODAL QUẢN LÝ DANH MỤC TỔ CHUYÊN MÔN & VĂN PHÒNG */}
+      {isDeptManagerOpen && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsDeptManagerOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '850px',
+              width: '100%',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: '#f8fafc'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  background: '#e0e7ff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Building2 size={22} color="#4338ca" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
+                    Quản Lý Danh Mục Tổ Chuyên Môn & Văn Phòng
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#64748b' }}>
+                    Thêm mới tổ, đổi tên và kiểm tra số lượng nhân sự trực thuộc
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeptManagerOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '8px',
+                  color: '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveTeacher}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                    Mã Giáo Viên *
-                  </label>
+            {/* Modal Body */}
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Card Thêm Tổ Mới */}
+              <form onSubmit={handleCreateDept} style={{
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '12px',
+                padding: '16px'
+              }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Plus size={16} color="#4f46e5" />
+                  <span>Thêm Tổ Chuyên Môn / Văn Phòng Mới</span>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <input
                     type="text"
+                    value={newDeptName}
+                    onChange={(e) => setNewDeptName(e.target.value)}
+                    placeholder="Tên tổ mới (VD: Tổ 1, Tổ Tin Học...)"
                     required
-                    value={editingTeacher.id}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, id: e.target.value.trim() })}
-                    placeholder="VD: GV_01"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                    Mã Viết Tắt (Hiển thị TKB)
-                  </label>
-                  <input
-                    type="text"
-                    value={editingTeacher.code || ''}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, code: e.target.value })}
-                    placeholder="VD: Nga, NGA.NT, Trang..."
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Họ và Tên Giáo Viên *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editingTeacher.name}
-                  onChange={(e) => setEditingTeacher({ ...editingTeacher, name: e.target.value })}
-                  placeholder="VD: Nguyễn Thị Nga"
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-                />
-              </div>
-
-              {/* Ghi Chú Giáo Viên */}
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  📝 Ghi Chú Giáo Viên (Hiển thị ngay dưới tên giáo viên)
-                </label>
-                <input
-                  type="text"
-                  value={editingTeacher.note || ''}
-                  onChange={(e) => setEditingTeacher({ ...editingTeacher, note: e.target.value })}
-                  placeholder="VD: Dạy tăng cường khối 4-5, Tổ trưởng CM, Bồi dưỡng HSG..."
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                    Tổ Chuyên Môn
-                  </label>
-                  <select
-                    value={editingTeacher.department || 'Giáo viên bộ môn'}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, department: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-                  >
-                    <option value="Tổ 1, 2, 3">Tổ 1, 2, 3</option>
-                    <option value="Tổ 4, 5">Tổ 4, 5</option>
-                    <option value="Giáo viên bộ môn">Giáo viên bộ môn</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                    Chức Vụ / Vị Trí Công Tác
-                  </label>
-                  <input
-                    type="text"
-                    value={editingTeacher.position || ''}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, position: e.target.value })}
-                    placeholder="VD: GVCN, GV Bộ Môn, Kế toán, Văn thư, Hiệu Trưởng..."
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                    Định Mức Tiết Dạy / Tuần *
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="35"
-                    value={editingTeacher.dinhMuc !== undefined ? editingTeacher.dinhMuc : (editingTeacher.weeklyQuota !== undefined ? editingTeacher.weeklyQuota : 23)}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, dinhMuc: Number(e.target.value), weeklyQuota: Number(e.target.value) })}
-                    placeholder="VD: 23 tiết/tuần (hoặc 0 nếu BGH/văn phòng)"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                    Số Điện Thoại
-                  </label>
-                  <input
-                    type="text"
-                    value={editingTeacher.phone}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, phone: e.target.value })}
-                    placeholder="0912.xxx.xxx"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={editingTeacher.email}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, email: e.target.value })}
-                    placeholder="gv@quynhlocb.edu.vn"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
-                  />
-                </div>
-              </div>
-
-              {/* Vai trò chủ nhiệm */}
-              <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, color: '#334155', fontSize: '0.875rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={editingTeacher.isHomeroom}
-                    onChange={(e) => setEditingTeacher({ ...editingTeacher, isHomeroom: e.target.checked })}
-                    style={{ width: '18px', height: '18px' }}
-                  />
-                  <span>Là Giáo Viên Chủ Nhiệm (GVCN)</span>
-                </label>
-
-                {editingTeacher.isHomeroom && (
-                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Phụ trách lớp:</span>
-                    <select
-                      value={editingTeacher.homeroomClassId || ''}
-                      onChange={(e) => setEditingTeacher({ ...editingTeacher, homeroomClassId: e.target.value })}
-                      style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
-                    >
-                      <option value="">-- Chọn lớp chủ nhiệm --</option>
-                      {classes.map(c => (
-                        <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {/* Phân công Giảng dạy Nhiều Môn & Lớp */}
-              <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-                  <div>
-                    <label style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <BookOpen size={20} color="#4f46e5" />
-                      <span>Phân Công Giảng Dạy Các Môn & Lớp ({(editingTeacher.subjectAssignments || []).length} môn):</span>
-                    </label>
-                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                      (Không giới hạn số môn — Bạn có thể thêm 1, 2, 3, 4, 5+ môn cho mỗi giáo viên)
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const current = editingTeacher.subjectAssignments || [];
-                      const usedSubjectIds = new Set(current.map(c => c.subjectId));
-                      const allSubIds = Object.keys(subjects);
-                      const nextSubId = allSubIds.find(k => !usedSubjectIds.has(k)) || allSubIds[0] || 'THE_DUC';
-                      setEditingTeacher({
-                        ...editingTeacher,
-                        subjectAssignments: [
-                          ...current,
-                          { subjectId: nextSubId, classIds: [] }
-                        ]
-                      });
-                    }}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 14px',
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '8px 18px',
                       borderRadius: '8px',
                       background: '#4f46e5',
-                      color: '#ffffff',
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
                       border: 'none',
+                      color: '#ffffff',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
                       cursor: 'pointer',
-                      boxShadow: '0 2px 4px rgba(79, 70, 229, 0.25)'
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      whiteSpace: 'nowrap'
                     }}
                   >
-                    <Plus size={15} />
-                    <span>+ Thêm Môn Dạy Mới</span>
+                    <Plus size={14} />
+                    <span>Thêm Tổ</span>
                   </button>
                 </div>
+              </form>
 
-                {/* Danh sách các môn giảng dạy */}
-                {(editingTeacher.subjectAssignments || []).length === 0 ? (
-                  <div style={{
-                    padding: '24px 16px',
-                    textAlign: 'center',
-                    background: '#ffffff',
-                    borderRadius: '12px',
-                    border: '2px dashed #cbd5e1',
-                    color: '#64748b'
-                  }}>
-                    <div style={{ fontSize: '1.75rem', marginBottom: '6px' }}>👨‍🏫</div>
-                    <p style={{ margin: '0 0 6px 0', fontWeight: 700, color: '#334155', fontSize: '0.9rem' }}>
-                      Giáo viên hiện không phụ trách môn bộ môn nào (0 môn)
-                    </p>
-                    <p style={{ margin: '0 0 14px 0', fontSize: '0.78rem', color: '#94a3b8', maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
-                      Thích hợp cho Ban Giám Hiệu, Cán bộ văn phòng, hoặc chỉ quản lý lớp chủ nhiệm.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const allSubIds = Object.keys(subjects);
-                        setEditingTeacher({
-                          ...editingTeacher,
-                          subjectAssignments: [{ subjectId: allSubIds[0] || 'THE_DUC', classIds: [] }]
-                        });
-                      }}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 16px',
-                        borderRadius: '8px',
-                        background: '#4f46e5',
-                        color: '#ffffff',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        border: 'none',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <Plus size={14} />
-                      <span>+ Thêm Môn Dạy Đầu Tiên</span>
-                    </button>
-                  </div>
-                ) : (
-                  (editingTeacher.subjectAssignments || []).map((subItem, subIdx) => {
-                    const subjectObj = subjects[subItem.subjectId] || { name: subItem.subjectId };
-                    return (
-                      <div
-                        key={subIdx}
-                        style={{
-                          background: '#ffffff',
-                          padding: '14px',
-                          borderRadius: '12px',
-                          border: '1px solid #c7d2fe',
-                          marginBottom: '12px',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#3730a3' }}>
-                              Môn #{subIdx + 1}:
-                            </span>
-                            <select
-                              value={subItem.subjectId}
-                              onChange={(e) => {
-                                const newSubId = e.target.value;
-                                const updated = (editingTeacher.subjectAssignments || []).map((item, idx) => {
-                                  if (idx === subIdx) {
-                                    const existingClasses = (assignments || [])
-                                      .filter(a => a.teacherId === editingTeacher.id && a.subjectId === newSubId)
-                                      .map(a => a.classId);
-                                    return { ...item, subjectId: newSubId, classIds: existingClasses };
-                                  }
-                                  return item;
-                                });
-                                setEditingTeacher({ ...editingTeacher, subjectAssignments: updated });
-                              }}
-                              style={{
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                border: '1px solid #818cf8',
-                                fontSize: '0.85rem',
-                                fontWeight: 700,
-                                background: '#eef2ff',
-                                color: '#312e81'
-                              }}
-                            >
-                              {Object.values(subjects).map(sub => (
-                                <option key={sub.id} value={sub.id}>{sub.name} ({sub.id})</option>
-                              ))}
-                            </select>
-                          </div>
+              {/* Bảng Danh Sách Các Tổ */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#334155' }}>
+                    Danh Sách Các Tổ Hiện Có ({activeDepartments.length})
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    💡 Khi đổi tên tổ, giáo viên thuộc tổ sẽ tự động được cập nhật. Tổ đang có giáo viên sẽ không cho phép xóa trực tiếp.
+                  </span>
+                </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = (editingTeacher.subjectAssignments || []).map((item, idx) => {
-                                  if (idx === subIdx) {
-                                    return { ...item, classIds: classes.map(c => c.id) };
-                                  }
-                                  return item;
-                                });
-                                setEditingTeacher({ ...editingTeacher, subjectAssignments: updated });
-                              }}
-                              style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, background: '#e0e7ff', color: '#3730a3', border: '1px solid #c7d2fe', cursor: 'pointer' }}
-                            >
-                              Chọn Tất Cả Lớp
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = (editingTeacher.subjectAssignments || []).map((item, idx) => {
-                                  if (idx === subIdx) {
-                                    return { ...item, classIds: [] };
-                                  }
-                                  return item;
-                                });
-                                setEditingTeacher({ ...editingTeacher, subjectAssignments: updated });
-                              }}
-                              style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 600, background: '#f8fafc', color: '#64748b', border: '1px solid #cbd5e1', cursor: 'pointer' }}
-                            >
-                              Bỏ Chọn
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = (editingTeacher.subjectAssignments || []).filter((_, idx) => idx !== subIdx);
-                                setEditingTeacher({ ...editingTeacher, subjectAssignments: updated });
-                              }}
-                              title="Xóa môn này khỏi phân công"
-                              style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 600, background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            >
-                              <Trash2 size={12} />
-                              <span>Xóa môn</span>
-                            </button>
-                          </div>
-                        </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9', color: '#475569', textAlign: 'left', borderBottom: '1px solid #cbd5e1' }}>
+                        <th style={{ padding: '10px 12px', width: '50px', textAlign: 'center' }}>STT</th>
+                        <th style={{ padding: '10px 12px' }}>Tên Tổ</th>
+                        <th style={{ padding: '10px 12px', width: '140px', textAlign: 'center' }}>Số Nhân Sự</th>
+                        <th style={{ padding: '10px 12px', width: '140px', textAlign: 'center' }}>Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeDepartments.map((dept, idx) => {
+                        const isEditing = editingDeptId === dept.id;
+                        const teacherCount = countTeachersInDepartment(dept, teachers);
 
-                      {/* Danh sách lớp checkboxes */}
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4f46e5', marginBottom: '6px' }}>
-                        Lớp dạy môn {subjectObj.name}: {(subItem.classIds || []).length} / {classes.length} lớp
-                      </div>
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(75px, 1fr))',
-                        gap: '6px',
-                        maxHeight: '120px',
-                        overflowY: 'auto',
-                        background: '#f8fafc',
-                        padding: '8px',
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0'
-                      }}>
-                        {classes.map(cls => {
-                          const isChecked = (subItem.classIds || []).includes(cls.id);
-                          const asgForClass = (assignments || []).find(a => a.classId === cls.id && a.subjectId === subItem.subjectId);
-                          const currentTeacherId = asgForClass?.teacherId;
-                          const currentTeacherObj = currentTeacherId && currentTeacherId !== editingTeacher.id
-                            ? teachers.find(t => t.id === currentTeacherId)
-                            : null;
-
+                        if (isEditing) {
                           return (
-                            <label
-                              key={cls.id}
-                              title={currentTeacherObj && !isChecked ? `Lớp ${cls.name} môn ${subjectObj.name} đang do ${currentTeacherObj.name} (${currentTeacherObj.code || currentTeacherObj.id}) dạy. Tích chọn sẽ chuyển sang giáo viên này.` : cls.name}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                padding: '3px 6px',
-                                borderRadius: '5px',
-                                background: isChecked ? '#e0e7ff' : (currentTeacherObj ? '#fffbeb' : '#ffffff'),
-                                border: `1px solid ${isChecked ? '#818cf8' : (currentTeacherObj ? '#fde68a' : '#e2e8f0')}`,
-                                cursor: 'pointer',
-                                fontWeight: isChecked ? 700 : 500,
-                                fontSize: '0.75rem',
-                                color: isChecked ? '#312e81' : (currentTeacherObj ? '#92400e' : '#64748b')
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  const curClasses = subItem.classIds || [];
-                                  const nextClasses = e.target.checked
-                                    ? [...curClasses, cls.id]
-                                    : curClasses.filter(id => id !== cls.id);
-                                  const updated = (editingTeacher.subjectAssignments || []).map((item, idx) => {
-                                    if (idx === subIdx) {
-                                      return { ...item, classIds: nextClasses };
-                                    }
-                                    return item;
-                                  });
-                                  setEditingTeacher({ ...editingTeacher, subjectAssignments: updated });
-                                }}
-                              />
-                              <span>{cls.name}</span>
-                              {currentTeacherObj && !isChecked && (
-                                <span style={{ fontSize: '0.62rem', color: '#b45309', background: '#fef3c7', padding: '1px 3px', borderRadius: '3px', border: '1px solid #fde68a' }}>
-                                  {currentTeacherObj.code || currentTeacherObj.name.split(' ').pop()}
-                                </span>
-                              )}
-                            </label>
+                            <tr key={dept.id} style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a' }}>
+                              <td style={{ padding: '10px 12px', textAlign: 'center' }}>{idx + 1}</td>
+                              <td style={{ padding: '10px 12px' }}>
+                                <input
+                                  type="text"
+                                  value={editingDeptName}
+                                  onChange={(e) => setEditingDeptName(e.target.value)}
+                                  style={{
+                                    width: '100%',
+                                    padding: '6px 8px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #d97706',
+                                    fontSize: '0.82rem',
+                                    fontWeight: 700
+                                  }}
+                                />
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700 }}>
+                                {teacherCount}
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveEditDept(dept.id)}
+                                    style={{
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      background: '#059669',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700
+                                    }}
+                                  >
+                                    Lưu
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingDeptId(null)}
+                                    style={{
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      background: '#94a3b8',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: '0.72rem'
+                                    }}
+                                  >
+                                    Hủy
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
                           );
-                        })}
-                      </div>
-                    </div>
-                  );
-                }))}
-              </div>
+                        }
 
-              {/* Đăng ký Buổi nghỉ */}
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
-                  📅 Đăng Ký Buổi Nghỉ Chuyên Môn / Bồi Dưỡng:
-                </label>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(5, 1fr)',
-                  gap: '8px',
-                  background: '#f8fafc',
-                  padding: '12px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0'
-                }}>
-                  {DAYS_OF_WEEK.map(day => {
-                    const morningKey = `${day.id}_morning`;
-                    const afternoonKey = `${day.id}_afternoon`;
-                    const isMorningOff = (editingTeacher.offSessions || []).includes(morningKey);
-                    const isAfternoonOff = (editingTeacher.offSessions || []).includes(afternoonKey);
-
-                    return (
-                      <div key={day.id} style={{ textAlign: 'center' }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.75rem', color: '#475569', marginBottom: '6px' }}>
-                          {day.name}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <button
-                            type="button"
-                            onClick={() => toggleOffSession(morningKey)}
-                            style={{
-                              padding: '4px',
-                              borderRadius: '6px',
-                              fontSize: '0.7rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              border: '1px solid',
-                              background: isMorningOff ? '#fef2f2' : '#ffffff',
-                              borderColor: isMorningOff ? '#ef4444' : '#cbd5e1',
-                              color: isMorningOff ? '#b91c1c' : '#64748b'
-                            }}
-                          >
-                            {isMorningOff ? 'Sáng: Nghỉ' : 'Sáng: Dạy'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toggleOffSession(afternoonKey)}
-                            style={{
-                              padding: '4px',
-                              borderRadius: '6px',
-                              fontSize: '0.7rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              border: '1px solid',
-                              background: isAfternoonOff ? '#fef2f2' : '#ffffff',
-                              borderColor: isAfternoonOff ? '#ef4444' : '#cbd5e1',
-                              color: isAfternoonOff ? '#b91c1c' : '#64748b'
-                            }}
-                          >
-                            {isAfternoonOff ? 'Chiều: Nghỉ' : 'Chiều: Dạy'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        return (
+                          <tr key={dept.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                            <td style={{ padding: '10px 12px', textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
+                            <td style={{ padding: '10px 12px', fontWeight: 700, color: '#1e293b' }}>
+                              <span style={{ marginRight: '8px' }}>👥</span>
+                              <span>{dept.name}</span>
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                background: teacherCount > 0 ? '#e0e7ff' : '#f1f5f9',
+                                color: teacherCount > 0 ? '#4338ca' : '#94a3b8'
+                              }}>
+                                {teacherCount} người
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditDept(dept)}
+                                  title="Đổi tên / sửa thông tin tổ"
+                                  style={{
+                                    padding: '5px 8px',
+                                    borderRadius: '6px',
+                                    background: '#f8fafc',
+                                    border: '1px solid #cbd5e1',
+                                    color: '#475569',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 600
+                                  }}
+                                >
+                                  <Edit3 size={13} />
+                                  <span>Sửa</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDept(dept)}
+                                  title={teacherCount > 0 ? `Không thể xóa vì có ${teacherCount} GV đang thuộc tổ` : 'Xóa tổ trống này'}
+                                  style={{
+                                    padding: '5px 8px',
+                                    borderRadius: '6px',
+                                    background: teacherCount > 0 ? '#f8fafc' : '#fef2f2',
+                                    border: teacherCount > 0 ? '1px solid #e2e8f0' : '1px solid #fca5a5',
+                                    color: teacherCount > 0 ? '#94a3b8' : '#ef4444',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 600
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Xóa</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
+            </div>
 
-              {/* Submit Buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: '10px',
-                    background: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                    color: '#475569',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '10px 22px',
-                    borderRadius: '10px',
-                    background: '#4f46e5',
-                    border: 'none',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)'
-                  }}
-                >
-                  Lưu Thông Tin Giáo Viên
-                </button>
-              </div>
-            </form>
+            {/* Modal Footer */}
+            <div style={{
+              padding: '14px 20px',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: '#f8fafc'
+            }}>
+              <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                Tổng cộng: <strong>{activeDepartments.length}</strong> tổ chuyên môn & văn phòng
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsDeptManagerOpen(false)}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '8px',
+                  background: '#1e293b',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>,
         document.body
@@ -1646,6 +1738,7 @@ export const TeacherDirectory = ({
           isOpen={isPrintModalOpen}
           onClose={() => setIsPrintModalOpen(false)}
           teachers={teachers}
+          departments={activeDepartments}
           classes={classes}
           timetable={timetable}
           subjects={subjects}

@@ -23,18 +23,15 @@ import { DAYS_OF_WEEK, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCu
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { exportTeacherTimetables } from '../services/excelService';
 import { triggerAppPrint } from '../services/printService';
+import { DEFAULT_DEPARTMENTS } from '../services/departmentService';
 
-export const TEACHER_GROUPS = [
-  'Tổ 1, 2, 3',
-  'Tổ 4, 5',
-  'Giáo viên bộ môn'
-];
+export const TEACHER_GROUPS = DEFAULT_DEPARTMENTS.map(d => d.name);
 
 export const getTeacherDepartment = (teacher) => {
   if (!teacher) return 'Giáo viên bộ môn';
 
   const d = (teacher.department || '').trim();
-  if (d === 'Tổ 1, 2, 3' || d === 'Tổ 4, 5' || d === 'Giáo viên bộ môn') {
+  if (d) {
     return d;
   }
 
@@ -100,6 +97,7 @@ export const TeacherTimetablePrintModal = ({
   isOpen,
   onClose,
   teachers = [],
+  departments = [],
   classes = [],
   timetable = {},
   subjects = DEFAULT_SUBJECTS,
@@ -209,7 +207,7 @@ export const TeacherTimetablePrintModal = ({
     }
     if (printScope === 'department') {
       if (selectedDepartment === 'ALL') return [...teachers];
-      return teachers.filter(t => getTeacherDepartment(t) === selectedDepartment);
+      return teachers.filter(t => t.departmentId === selectedDepartment || (t.department || '').trim() === selectedDepartment || getTeacherDepartment(t) === selectedDepartment);
     }
     if (printScope === 'custom') {
       return teachers.filter(t => selectedTeacherIds.includes(t.id));
@@ -1120,15 +1118,33 @@ export const TeacherTimetablePrintModal = ({
                   {printScope === 'department' && (
                     <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                       <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '8px' }}>
-                        Chọn 1 trong 3 nhóm tổ chuyên môn:
+                        Chọn tổ chuyên môn cần in:
                       </label>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {[
-                          { id: 'ALL', label: 'Tất cả các tổ', icon: '👨‍🏫', desc: `Toàn bộ ${teachers.length} giáo viên trong trường` },
-                          { id: 'Tổ 1, 2, 3', label: 'Tổ 1, 2, 3', icon: '🏫', desc: `Giáo viên khối 1, 2, 3 (${teachers.filter(t => getTeacherDepartment(t) === 'Tổ 1, 2, 3').length} GV)` },
-                          { id: 'Tổ 4, 5', label: 'Tổ 4, 5', icon: '🏫', desc: `Giáo viên khối 4, 5 (${teachers.filter(t => getTeacherDepartment(t) === 'Tổ 4, 5').length} GV)` },
-                          { id: 'Giáo viên bộ môn', label: 'Giáo viên bộ môn', icon: '🎨', desc: `Toàn bộ giáo viên bộ môn (${teachers.filter(t => getTeacherDepartment(t) === 'Giáo viên bộ môn').length} GV)` }
-                        ].map(group => {
+                        {(() => {
+                          const base = Array.isArray(departments) && departments.length > 0
+                            ? departments.map(d => d.name)
+                            : ['Tổ 1, 2, 3', 'Tổ 4, 5', 'Giáo viên bộ môn', 'Tổ Văn Phòng'];
+                          const fromT = (teachers || []).map(t => getTeacherDepartment(t)).filter(Boolean);
+                          const allDepts = Array.from(new Set([...base, ...fromT])).sort((a, b) => {
+                            if (a.toLowerCase().includes('văn phòng')) return 1;
+                            if (b.toLowerCase().includes('văn phòng')) return -1;
+                            return a.localeCompare(b, 'vi', { numeric: true });
+                          });
+
+                          return [
+                            { id: 'ALL', label: 'Tất cả các tổ', icon: '👨‍🏫', desc: `Toàn bộ ${teachers.length} giáo viên / nhân sự trong trường` },
+                            ...allDepts.map(dept => {
+                              const isOffice = dept.toLowerCase().includes('văn phòng');
+                              const count = teachers.filter(t => getTeacherDepartment(t) === dept).length;
+                              return {
+                                id: dept,
+                                label: dept,
+                                icon: isOffice ? '🏢' : (dept.includes('bộ môn') ? '🎨' : '🏫'),
+                                desc: isOffice ? `Cán bộ, nhân viên văn phòng (${count} người)` : `Danh sách (${count} GV)`
+                              };
+                            })
+                          ].map(group => {
                           const isSel = selectedDepartment === group.id;
                           return (
                             <button
@@ -1169,10 +1185,11 @@ export const TeacherTimetablePrintModal = ({
                               )}
                             </button>
                           );
-                        })}
-                      </div>
+                        });
+                      })()}
                     </div>
-                  )}
+                  </div>
+                )}
 
                   {printScope === 'custom' && (
                     <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>

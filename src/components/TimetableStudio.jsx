@@ -80,23 +80,23 @@ export const TimetableStudio = ({
     });
   };
 
-  const handleUndo = () => {
+  const handleUndo = React.useCallback(() => {
     if (history.length === 0) return;
     const previousSnapshot = history[history.length - 1];
     setHistory(h => h.slice(0, -1));
     setFuture(f => [JSON.parse(JSON.stringify(timetable)), ...f]);
     setTimetable(previousSnapshot);
     setSwapSource(null);
-  };
+  }, [history, timetable, setTimetable]);
 
-  const handleRedo = () => {
+  const handleRedo = React.useCallback(() => {
     if (future.length === 0) return;
     const nextSnapshot = future[0];
     setFuture(f => f.slice(1));
     setHistory(h => [...h, JSON.parse(JSON.stringify(timetable))]);
     setTimetable(nextSnapshot);
     setSwapSource(null);
-  };
+  }, [future, timetable, setTimetable]);
 
   // Keyboard shortcut listener for Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z
   React.useEffect(() => {
@@ -116,7 +116,7 @@ export const TimetableStudio = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [history, future, timetable]);
+  }, [handleUndo, handleRedo]);
 
   // 1. Grade detection & grouping
   const getGradeOfClass = (cls) => {

@@ -581,14 +581,14 @@ export const exportMasterTimetable = async (timetable, classes = [], teachers = 
 
   // 1. Sheet Ma Trận Toàn Trường
   const wsMaster = wb.addWorksheet('TKB_Toan_Truong');
-  renderMatrixSheet(wsMaster, classes, `Toàn Trường (${classes.length} Lớp)`);
+  renderMatrixHelper(wsMaster, classes, `Toàn Trường (${classes.length} Lớp)`, timetable, teacherMap, _subjects, schoolInfo);
 
   // 2. Các Sheet theo từng Khối (Khối 1 -> Khối 5)
   for (let g = 1; g <= 5; g++) {
     const gradeClasses = classes.filter(c => c.grade === g);
     if (gradeClasses.length > 0) {
       const wsGrade = wb.addWorksheet(`Khoi_${g}`);
-      renderMatrixSheet(wsGrade, gradeClasses, `Khối ${g}`);
+      renderMatrixHelper(wsGrade, gradeClasses, `Khối ${g}`, timetable, teacherMap, _subjects, schoolInfo);
     }
   }
 

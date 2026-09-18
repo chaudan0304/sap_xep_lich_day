@@ -91,7 +91,18 @@ function createSchema(db) {
       extra_data TEXT
     );
 
-    -- 6. Bảng danh sách giáo viên (đầy đủ code / short_name / nhiệm vụ / định mức)
+    -- 5b. Bảng danh mục Tổ Chuyên Môn / Văn Phòng động
+    CREATE TABLE IF NOT EXISTS departments (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      is_office INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      extra_data TEXT
+    );
+
+    -- 6. Bảng danh sách giáo viên (đầy đủ code / short_name / nhiệm vụ / định mức / department_id)
     CREATE TABLE IF NOT EXISTS teachers (
       id TEXT PRIMARY KEY,
       tt INTEGER,
@@ -99,6 +110,7 @@ function createSchema(db) {
       code TEXT,
       short_name TEXT,
       department TEXT,
+      department_id TEXT,
       position TEXT,
       task TEXT,
       assigned_periods INTEGER DEFAULT 0,
@@ -163,6 +175,13 @@ function createSchema(db) {
       value TEXT
     );
   `);
+
+  // Migration an toàn cho các DB SQLite cũ: bổ sung cột department_id nếu chưa có
+  try {
+    db.run("ALTER TABLE teachers ADD COLUMN department_id TEXT;");
+  } catch (e) {
+    // Bảng mới tạo hoặc cột đã tồn tại
+  }
 }
 
 /**
@@ -350,15 +369,44 @@ function saveJsonToDatabase(db, data) {
       stmt.free();
     }
 
-    // 6. Lưu danh sách giáo viên (bảo toàn code, short_name, position, task, dinhMuc, v.v.)
+    // 5b. Lưu danh mục Tổ Chuyên Môn / Văn Phòng động
+    if (Array.isArray(data.departments)) {
+      db.run("DELETE FROM departments;");
+      const stmt = db.prepare(
+        `INSERT OR REPLACE INTO departments (
+          id, name, description, is_office, created_at, updated_at, extra_data
+        ) VALUES (?, ?, ?, ?, ?, ?, ?);`
+      );
+      data.departments.forEach(d => {
+        if (!d.id) return;
+        const extra = {};
+        Object.keys(d).forEach(k => {
+          if (!['id', 'name', 'description', 'isOffice', 'is_office', 'createdAt', 'created_at', 'updatedAt', 'updated_at'].includes(k)) {
+            extra[k] = d[k];
+          }
+        });
+        stmt.run([
+          d.id,
+          d.name || '',
+          d.description || '',
+          d.isOffice || d.is_office ? 1 : 0,
+          d.createdAt || d.created_at || new Date().toISOString(),
+          d.updatedAt || d.updated_at || new Date().toISOString(),
+          JSON.stringify(extra)
+        ]);
+      });
+      stmt.free();
+    }
+
+    // 6. Lưu danh sách giáo viên (bảo toàn code, short_name, position, task, dinhMuc, department_id, v.v.)
     if (Array.isArray(data.teachers)) {
       db.run("DELETE FROM teachers;");
       const stmt = db.prepare(
         `INSERT OR REPLACE INTO teachers (
-          id, tt, name, code, short_name, department, position, task, 
+          id, tt, name, code, short_name, department, department_id, position, task, 
           assigned_periods, dinh_muc, max_periods_per_day, max_periods_per_week, 
           off_sessions, fixed_days_off, phone, email, is_homeroom, homeroom_class_id, color, extra_data
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
       );
       data.teachers.forEach(t => {
         if (!t.id) return;
@@ -366,7 +414,7 @@ function saveJsonToDatabase(db, data) {
         const extra = {};
         Object.keys(t).forEach(k => {
           if (![
-            'id', 'tt', 'name', 'code', 'shortName', 'short_name', 'department',
+            'id', 'tt', 'name', 'code', 'shortName', 'short_name', 'department', 'departmentId', 'department_id',
             'position', 'task', 'assignedPeriods', 'dinhMuc', 'maxPeriodsPerDay',
             'maxPeriodsPerWeek', 'offSessions', 'fixedDaysOff', 'phone', 'email',
             'isHomeroom', 'homeroomClassId', 'color'
@@ -382,6 +430,7 @@ function saveJsonToDatabase(db, data) {
           teacherCode,
           teacherCode,
           t.department || 'Giáo viên bộ môn',
+          t.departmentId || t.department_id || '',
           t.position || '',
           t.task || '',
           t.assignedPeriods || 0,
@@ -717,7 +766,36 @@ function loadJsonFromDatabase(db) {
     console.warn("loadJsonFromDatabase: classes error", e);
   }
 
-  // 6. teachers (Bảo toàn đầy đủ code và shortName)
+  // 5b. departments (Danh mục Tổ Chuyên Môn / Văn Phòng)
+  try {
+    const res = db.exec("SELECT * FROM departments ORDER BY is_office ASC, name ASC;");
+    if (res.length > 0) {
+      const cols = res[0].columns;
+      result.departments = res[0].values.map(row => {
+        const m = {};
+        cols.forEach((c, i) => { m[c] = row[i]; });
+        let extra = {};
+        try { extra = JSON.parse(m.extra_data || '{}'); } catch {}
+
+        return {
+          ...extra,
+          id: m.id,
+          name: m.name,
+          description: m.description || '',
+          isOffice: m.is_office === 1,
+          createdAt: m.created_at || '',
+          updatedAt: m.updated_at || ''
+        };
+      });
+    } else {
+      result.departments = [];
+    }
+  } catch (e) {
+    console.warn("loadJsonFromDatabase: departments error", e);
+    result.departments = [];
+  }
+
+  // 6. teachers (Bảo toàn đầy đủ code, shortName, departmentId)
   try {
     const res = db.exec("SELECT * FROM teachers ORDER BY id ASC;");
     if (res.length > 0) {
@@ -745,6 +823,7 @@ function loadJsonFromDatabase(db) {
           code: teacherCode,
           shortName: teacherCode,
           department: m.department,
+          departmentId: m.department_id || '',
           position: m.position || '',
           task: m.task || '',
           assignedPeriods: m.assigned_periods || 0,
@@ -763,6 +842,59 @@ function loadJsonFromDatabase(db) {
     }
   } catch (e) {
     console.warn("loadJsonFromDatabase: teachers error", e);
+  }
+
+  // Auto-migration nếu DB cũ chưa có bảng departments hoặc giáo viên chưa có departmentId
+  if (Array.isArray(result.teachers) && result.teachers.length > 0) {
+    const deptList = Array.isArray(result.departments) && result.departments.length > 0
+      ? [...result.departments]
+      : [
+          { id: 'dept_to_123', name: 'Tổ 1, 2, 3', description: 'Tổ chuyên môn khối 1, 2, 3', isOffice: false },
+          { id: 'dept_to_45', name: 'Tổ 4, 5', description: 'Tổ chuyên môn khối 4, 5', isOffice: false },
+          { id: 'dept_bo_mon', name: 'Giáo viên bộ môn', description: 'Tổ giáo viên chuyên trách các môn bộ môn', isOffice: false },
+          { id: 'dept_van_phong', name: 'Tổ Văn Phòng', description: 'Tổ cán bộ văn phòng, hành chính', isOffice: true }
+        ];
+
+    const deptMap = new Map();
+    deptList.forEach(d => {
+      deptMap.set(d.id, d);
+      deptMap.set(d.name.toLowerCase().trim(), d);
+    });
+
+    result.teachers = result.teachers.map(t => {
+      const rawDept = (t.department || '').trim();
+      const lower = rawDept.toLowerCase();
+      let d = t.departmentId && deptMap.has(t.departmentId)
+        ? deptMap.get(t.departmentId)
+        : (lower && deptMap.has(lower) ? deptMap.get(lower) : null);
+
+      if (!d && rawDept) {
+        // Tạo department mới cho các tổ cũ tồn tại trong dữ liệu như "Tổ 1"
+        const isOffice = lower.includes('văn phòng') || lower.includes('hành chính');
+        let newId = 'dept_' + lower.replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        d = {
+          id: newId,
+          name: rawDept,
+          description: '',
+          isOffice,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        deptList.push(d);
+        deptMap.set(d.id, d);
+        deptMap.set(lower, d);
+      } else if (!d) {
+        d = deptMap.get('dept_bo_mon') || deptList[0];
+      }
+
+      return {
+        ...t,
+        departmentId: d ? d.id : 'dept_bo_mon',
+        department: d ? d.name : (rawDept || 'Giáo viên bộ môn')
+      };
+    });
+
+    result.departments = deptList;
   }
 
   // 7. rooms (Bảo toàn code, isSpecialized, allowMultiple)

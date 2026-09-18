@@ -39,6 +39,10 @@ import {
   exportSqliteDatabaseFile, 
   importSqliteDatabaseFile 
 } from './services/dbService';
+import { 
+  DEFAULT_DEPARTMENTS, 
+  migrateDepartmentsAndTeachers 
+} from './services/departmentService';
 
 const DATA_VERSION = '2026_09_06_V35_SEPARATE_SCIENCE_HISTORY';
 
@@ -114,6 +118,18 @@ export function App() {
     return saved ? JSON.parse(saved) : [...QUYNH_LOC_DATA.classes];
   });
 
+  // Danh mục Tổ Chuyên Môn / Văn Phòng động
+  const [departments, setDepartments] = useState(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_DEPARTMENTS') : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return DEFAULT_DEPARTMENTS;
+  });
+
   const [teachers, setTeachers] = useState(() => {
     const raw = !isUpToDate
       ? [...QUYNH_LOC_DATA.teachers]
@@ -122,24 +138,15 @@ export function App() {
           return saved ? JSON.parse(saved) : [...QUYNH_LOC_DATA.teachers];
         })();
 
-    // Chuẩn hóa chỉ có 3 nhóm duy nhất: Tổ 1, 2, 3; Tổ 4, 5 và Giáo viên bộ môn
-    return raw.map(t => {
-      const d = (t.department || '').trim();
-      if (d === 'Tổ 1, 2, 3' || d === 'Tổ 4, 5' || d === 'Giáo viên bộ môn') return t;
-      let newDept = 'Giáo viên bộ môn';
-      if (t.isHomeroom && t.homeroomClassId) {
-        const match = String(t.homeroomClassId).match(/([1-5])/);
-        if (match) newDept = parseInt(match[1], 10) <= 3 ? 'Tổ 1, 2, 3' : 'Tổ 4, 5';
-      } else {
-        const pos = (t.position || '').toLowerCase();
-        const task = (t.task || '').toLowerCase();
-        if (pos.includes('hiệu trưởng') || task.includes('hiệu trưởng')) {
-          if (task.includes('4-5') || pos.includes('4-5')) newDept = 'Tổ 4, 5';
-          else if (task.includes('1,2,3') || pos.includes('1,2,3')) newDept = 'Tổ 1, 2, 3';
-        }
-      }
-      return { ...t, department: newDept };
-    });
+    let currentDepts = DEFAULT_DEPARTMENTS;
+    try {
+      const savedDepts = localStorage.getItem('EDUTIMETABLE_DEPARTMENTS');
+      if (savedDepts) currentDepts = JSON.parse(savedDepts);
+    } catch {}
+
+    // Bảo toàn toàn bộ dữ liệu tổ hiện có, tự động gán departmentId và tạo tổ tương ứng nếu cần
+    const migrated = migrateDepartmentsAndTeachers(raw, currentDepts);
+    return migrated.teachers;
   });
 
   const [rooms, setRooms] = useState(() => {
@@ -218,7 +225,16 @@ export function App() {
       if (dbData.subjects && Object.keys(dbData.subjects).length > 0) setSubjects(dbData.subjects);
       if (dbData.gradeQuotas && Object.keys(dbData.gradeQuotas).length > 0) setGradeQuotas(dbData.gradeQuotas);
       if (Array.isArray(dbData.classes) && dbData.classes.length > 0) setClasses(dbData.classes);
-      if (Array.isArray(dbData.teachers) && dbData.teachers.length > 0) setTeachers(dbData.teachers);
+      if (Array.isArray(dbData.departments) && dbData.departments.length > 0) {
+        setDepartments(dbData.departments);
+      }
+      if (Array.isArray(dbData.teachers) && dbData.teachers.length > 0) {
+        const migrated = migrateDepartmentsAndTeachers(dbData.teachers, dbData.departments || departments);
+        setTeachers(migrated.teachers);
+        if (migrated.departments?.length > (dbData.departments?.length || 0)) {
+          setDepartments(migrated.departments);
+        }
+      }
       if (Array.isArray(dbData.rooms) && dbData.rooms.length > 0) setRooms(dbData.rooms);
       if (Array.isArray(dbData.assignments) && dbData.assignments.length > 0) setAssignments(dbData.assignments);
       if (dbData.timetable && Object.keys(dbData.timetable).length > 0) setTimetable(dbData.timetable);
@@ -233,6 +249,10 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('EDUTIMETABLE_VERSION', DATA_VERSION);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('EDUTIMETABLE_DEPARTMENTS', JSON.stringify(departments));
+  }, [departments]);
   useEffect(() => {
     localStorage.setItem('EDUTIMETABLE_SCHOOL_INFO', JSON.stringify(schoolInfo));
   }, [schoolInfo]);
@@ -375,6 +395,7 @@ export function App() {
         subjects,
         gradeQuotas,
         classes,
+        departments,
         teachers,
         rooms,
         assignments,
@@ -384,7 +405,7 @@ export function App() {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [schoolInfo, periods, subjects, gradeQuotas, classes, teachers, rooms, assignments, timetable]);
+  }, [schoolInfo, periods, subjects, gradeQuotas, classes, departments, teachers, rooms, assignments, timetable]);
 
   // 2. Real-time Conflict Detection
   const conflicts = useMemo(() => {
@@ -575,6 +596,7 @@ export function App() {
 
   // 10. Nạp Dữ Liệu Từ File Sao Lưu (.json)
   const handleImportBackupJson = (jsonData) => {
+    skipAssignmentSyncRef.current = true; // Bảo vệ: không cho auto-sync ghi đè assignments vừa nạp từ backup
     if (jsonData.schoolInfo) setSchoolInfo(jsonData.schoolInfo);
     if (jsonData.periods) setPeriods(jsonData.periods);
     if (jsonData.subjects) setSubjects(jsonData.subjects);
@@ -670,6 +692,8 @@ export function App() {
           <TeacherDirectory
             teachers={teachers}
             setTeachers={setTeachers}
+            departments={departments}
+            setDepartments={setDepartments}
             assignments={assignments}
             setAssignments={setAssignments}
             classes={classes}
