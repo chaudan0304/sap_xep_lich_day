@@ -1,5 +1,7 @@
 // src/App.jsx
-// Auto-sync: gradeQuotas -> assignments -> studio
+// Trung tâm điều phối ứng dụng EduTimetable Tiểu Học
+// Tách biệt quản lý lưu trữ (useAppPersistence) và hệ thống hộp thoại (AppModals)
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { Header } from './components/Header';
@@ -11,15 +13,8 @@ import { AssignmentManager } from './components/AssignmentManager';
 import { TimetableStudio } from './components/TimetableStudio';
 import { MasterMatrixView } from './components/MasterMatrixView';
 import { RoomTimetableView } from './components/RoomTimetableView';
-import { ExcelModal } from './components/ExcelModal';
-import { ImportReportModal } from './components/ImportReportModal';
-import { AutoScheduleModal } from './components/AutoScheduleModal';
-import { ConflictModal } from './components/ConflictModal';
-import SchoolSettingsModal, { DEFAULT_SCHOOL_INFO } from './components/SchoolSettingsModal';
-import { UpdateModal } from './components/UpdateModal';
-import { WelcomeModal } from './components/WelcomeModal';
-import { UserGuideModal } from './components/UserGuideModal';
-import { checkForAppUpdates } from './services/updateChecker';
+import { AppModals } from './components/AppModals';
+import { DEFAULT_SCHOOL_INFO } from './components/SchoolSettingsModal';
 
 import { DEFAULT_GRADE_QUOTAS, PERIODS as DEFAULT_PERIODS } from './constants/defaultCurriculum';
 import { SUBJECTS as INITIAL_SUBJECTS } from './constants/subjects';
@@ -27,15 +22,12 @@ import {
   SAMPLE_CLASSES, 
   SAMPLE_TEACHERS, 
   SAMPLE_ROOMS, 
-  SAMPLE_SCHOOL_INFO,
   generateSampleAssignments, 
   initializeEmptyTimetable 
 } from './data/sampleData';
 import { checkAllConflicts } from './services/conflictDetector';
 import { solveTimetable } from './services/autoScheduler';
 import { 
-  loadAllDataFromDb, 
-  saveAllDataToDb, 
   exportSqliteDatabaseFile, 
   importSqliteDatabaseFile 
 } from './services/dbService';
@@ -43,14 +35,13 @@ import {
   DEFAULT_DEPARTMENTS, 
   migrateDepartmentsAndTeachers 
 } from './services/departmentService';
-
-const DATA_VERSION = '2026_09_06_V35_SEPARATE_SCIENCE_HISTORY';
+import { useAppPersistence, DATA_VERSION } from './hooks/useAppPersistence';
 
 export function App() {
   const currentVersion = typeof window !== 'undefined' ? localStorage.getItem('EDUTIMETABLE_VERSION') : null;
   const isUpToDate = currentVersion === DATA_VERSION;
 
-  // 1. Core State with LocalStorage Persistence
+  // 1. Core State with LocalStorage Initialization
   const [activeTab, setActiveTab] = useState('studio');
 
   const [schoolInfo, setSchoolInfo] = useState(() => {
@@ -63,7 +54,7 @@ export function App() {
         }
         return parsed;
       } catch (e) {
-        console.error('Error parsing schoolInfo:', e);
+        console.error('Lỗi khi đọc schoolInfo từ localStorage:', e);
       }
     }
     return { ...DEFAULT_SCHOOL_INFO };
@@ -75,7 +66,6 @@ export function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Tự động nâng cấp nếu người dùng đang dùng khung giờ mặc định cũ (07:30 - 08:05)
         if (Array.isArray(parsed) && parsed.some(p => p.time === '07:30 - 08:05')) {
           return JSON.parse(JSON.stringify(DEFAULT_PERIODS));
         }
@@ -138,7 +128,6 @@ export function App() {
       if (savedDepts) currentDepts = JSON.parse(savedDepts);
     } catch {}
 
-    // Bảo toàn toàn bộ dữ liệu tổ hiện có, tự động gán departmentId và tạo tổ tương ứng nếu cần
     const migrated = migrateDepartmentsAndTeachers(raw, currentDepts);
     return migrated.teachers;
   });
@@ -179,11 +168,12 @@ export function App() {
     return solved.timetable || initialEmpty;
   });
 
-
+  // Modal State Controllers
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [importReport, setImportReport] = useState(null);
   const [isImportReportOpen, setIsImportReportOpen] = useState(false);
   const skipAssignmentSyncRef = useRef(false);
+  const isFirstRender = useRef(true);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
@@ -191,108 +181,35 @@ export function App() {
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(() => {
     return !localStorage.getItem('EDUTIMETABLE_INITIALIZED_CHOICE');
   });
-  const [updateInfo, setUpdateInfo] = useState(null);
-  const [downloadProgress, setDownloadProgress] = useState(null);
-  const [isUpdateReady, setIsUpdateReady] = useState(false);
   const [isAutoScheduling, setIsAutoScheduling] = useState(false);
+  const [isAutoScheduleModalOpen, setIsAutoScheduleModalOpen] = useState(false);
   const [selectedStudioClassId, setSelectedStudioClassId] = useState('1A1');
 
-  // Lắng nghe sự kiện cập nhật tự động từ Electron
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.electronAPI) {
-      if (window.electronAPI.onDownloadProgress) {
-        window.electronAPI.onDownloadProgress((progress) => {
-          setDownloadProgress(progress);
-        });
-      }
-      if (window.electronAPI.onUpdateDownloaded) {
-        window.electronAPI.onUpdateDownloaded((info) => {
-          setIsUpdateReady(true);
-          setDownloadProgress(null);
-        });
-      }
-    }
-  }, []);
-
-  // Kiểm tra cập nhật tự động khi khởi động ứng dụng
-  useEffect(() => {
-    const timer = setTimeout(async () => {
-      try {
-        const info = await checkForAppUpdates();
-        setUpdateInfo(info);
-      } catch (err) {
-        console.warn('Auto-update check:', err);
-      }
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // ★ NẠP DỮ LIỆU TỪ CƠ SỞ DỮ LIỆU SQLITE (src/data/edutimetable.db) KHI KHỞI ĐỘNG
-  useEffect(() => {
-    let isMounted = true;
-    loadAllDataFromDb().then(dbData => {
-      if (!isMounted || !dbData) return;
-      skipAssignmentSyncRef.current = true;
-      if (dbData.schoolInfo) setSchoolInfo(dbData.schoolInfo);
-      if (Array.isArray(dbData.periods) && dbData.periods.length > 0) setPeriods(dbData.periods);
-      if (dbData.subjects && Object.keys(dbData.subjects).length > 0) setSubjects(dbData.subjects);
-      if (dbData.gradeQuotas && Object.keys(dbData.gradeQuotas).length > 0) setGradeQuotas(dbData.gradeQuotas);
-      if (Array.isArray(dbData.classes) && dbData.classes.length > 0) setClasses(dbData.classes);
-      if (Array.isArray(dbData.departments) && dbData.departments.length > 0) {
-        setDepartments(dbData.departments);
-      }
-      if (Array.isArray(dbData.teachers) && dbData.teachers.length > 0) {
-        const migrated = migrateDepartmentsAndTeachers(dbData.teachers, dbData.departments || departments);
-        setTeachers(migrated.teachers);
-        if (migrated.departments?.length > (dbData.departments?.length || 0)) {
-          setDepartments(migrated.departments);
-        }
-      }
-      if (Array.isArray(dbData.rooms) && dbData.rooms.length > 0) setRooms(dbData.rooms);
-      if (Array.isArray(dbData.assignments) && dbData.assignments.length > 0) setAssignments(dbData.assignments);
-      if (dbData.timetable && Object.keys(dbData.timetable).length > 0) setTimetable(dbData.timetable);
-    }).catch(err => {
-      console.warn('Initial SQLite load warning:', err);
-    });
-
-    return () => { isMounted = false; };
-  }, []);
-
-  // Sync to LocalStorage on changes
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_VERSION', DATA_VERSION);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_DEPARTMENTS', JSON.stringify(departments));
-  }, [departments]);
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_SCHOOL_INFO', JSON.stringify(schoolInfo));
-  }, [schoolInfo]);
-
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_PERIODS', JSON.stringify(periods));
-  }, [periods]);
-
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_SUBJECTS', JSON.stringify(subjects));
-  }, [subjects]);
-
-  // Track first render to skip initial auto-sync
-  const isFirstRender = useRef(true);
-
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_GRADE_QUOTAS', JSON.stringify(gradeQuotas));
-  }, [gradeQuotas]);
+  // Quản lý lưu trữ và đồng bộ hóa SQLite / LocalStorage / Update
+  const {
+    updateInfo,
+    setUpdateInfo,
+    isUpdateReady
+  } = useAppPersistence({
+    schoolInfo, setSchoolInfo,
+    periods, setPeriods,
+    subjects, setSubjects,
+    gradeQuotas, setGradeQuotas,
+    classes, setClasses,
+    departments, setDepartments,
+    teachers, setTeachers,
+    rooms, setRooms,
+    assignments, setAssignments,
+    timetable, setTimetable,
+    skipAssignmentSyncRef
+  });
 
   // ★ Auto-sync: khi gradeQuotas thay đổi -> tự động cập nhật assignments
-  // Đảm bảo Định Mức Khối luôn đồng bộ với Studio Xếp Lịch & Phân Công GV
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    // Regenerate assignments from updated gradeQuotas, keeping existing teacher bindings
     setAssignments(prev => {
       const newAssignments = [];
       classes.forEach(cls => {
@@ -315,24 +232,7 @@ export function App() {
     });
   }, [gradeQuotas, classes]);
 
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_CLASSES', JSON.stringify(classes));
-  }, [classes]);
-
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_TEACHERS', JSON.stringify(teachers));
-  }, [teachers]);
-
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_ROOMS', JSON.stringify(rooms));
-  }, [rooms]);
-
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_ASSIGNMENTS', JSON.stringify(assignments));
-  }, [assignments]);
-
-  // ★ TỰ ĐỘNG ĐỒNG BỘ: Mỗi khi Phân Công Chuyên Môn (assignments) thay đổi ->
-  // Tự động cập nhật teacherId & phòng học của tất cả các tiết đã xếp trên Thời Khóa Biểu (timetable)
+  // ★ TỰ ĐỘNG ĐỒNG BỘ: Mỗi khi assignments thay đổi -> cập nhật teacherId & roomId trên timetable
   useEffect(() => {
     if (skipAssignmentSyncRef.current) {
       skipAssignmentSyncRef.current = false;
@@ -392,42 +292,12 @@ export function App() {
     });
   }, [assignments]);
 
-  useEffect(() => {
-    localStorage.setItem('EDUTIMETABLE_SCHEDULE', JSON.stringify(timetable));
-  }, [timetable]);
-
-  // ★ TỰ ĐỘNG LƯU VÀO CƠ SỞ DỮ LIỆU SQLITE (src/data/edutimetable.db)
-  // Mỗi khi bạn thay đổi dữ liệu, CSDL SQLite sẽ tự động cập nhật ngay trên ổ đĩa
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const payload = {
-        version: '1.0',
-        timestamp: new Date().toISOString(),
-        schoolInfo,
-        periods,
-        subjects,
-        gradeQuotas,
-        classes,
-        departments,
-        teachers,
-        rooms,
-        assignments,
-        timetable
-      };
-      saveAllDataToDb(payload);
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [schoolInfo, periods, subjects, gradeQuotas, classes, departments, teachers, rooms, assignments, timetable]);
-
   // 2. Real-time Conflict Detection
   const conflicts = useMemo(() => {
     return checkAllConflicts(timetable, assignments, teachers, rooms, classes);
   }, [timetable, assignments, teachers, rooms, classes]);
 
   // 3. Tự động Xếp Lịch Toàn Trường (AI Solver)
-  const [isAutoScheduleModalOpen, setIsAutoScheduleModalOpen] = useState(false);
-
   const handleOpenAutoScheduleModal = () => {
     setIsAutoScheduleModalOpen(true);
   };
@@ -463,7 +333,7 @@ export function App() {
     }, 300);
   };
 
-  // 5. Khôi Phục Dữ Liệu Thu Gọn (10 lớp)
+  // 4. Khôi Phục Dữ Liệu Thu Gọn (10 lớp)
   const handleResetSampleData = () => {
     if (window.confirm('Chuyển sang Dữ Liệu Thu Gọn (10 lớp học, 20 GV)?')) {
       const freshQuotas = JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS));
@@ -507,7 +377,6 @@ export function App() {
     setSelectedStudioClassId('1A1');
   };
 
-
   // Khởi tạo Dự Án Mới Trắng Hoàn Toàn Cho Trường Của Người Dùng
   const handleStartBlankProject = (customInfo) => {
     localStorage.setItem('EDUTIMETABLE_INITIALIZED_CHOICE', 'blank');
@@ -548,7 +417,7 @@ export function App() {
 
   // 8. Tiếp Nhận Dữ Liệu Nhập Từ File Excel Tùy Chỉnh
   const handleImportSuccess = (importedData, diagnostics) => {
-    skipAssignmentSyncRef.current = true; // Bảo vệ dữ liệu TKB nguyên bản vừa nạp từ Excel, không cho assignments ghi đè
+    skipAssignmentSyncRef.current = true;
 
     if (importedData.teachers) setTeachers(importedData.teachers);
     if (importedData.classes) setClasses(importedData.classes);
@@ -568,7 +437,6 @@ export function App() {
       setSelectedStudioClassId(importedData.classes[0].id);
     }
 
-    // Hiển thị báo cáo đối soát lỗi sau khi nạp nếu có lỗi hoặc cảnh báo
     if (diagnostics && ((diagnostics.errors && diagnostics.errors.length > 0) || (diagnostics.warnings && diagnostics.warnings.length > 0))) {
       setImportReport(diagnostics);
       setIsImportReportOpen(true);
@@ -578,7 +446,7 @@ export function App() {
     }
   };
 
-  const handleNavigateToStudioSlot = (classId, day, period) => {
+  const handleNavigateToStudioSlot = (classId) => {
     if (classId) setSelectedStudioClassId(classId);
     setActiveTab('studio');
   };
@@ -610,7 +478,7 @@ export function App() {
 
   // 10. Nạp Dữ Liệu Từ File Sao Lưu (.json)
   const handleImportBackupJson = (jsonData) => {
-    skipAssignmentSyncRef.current = true; // Bảo vệ: không cho auto-sync ghi đè assignments vừa nạp từ backup
+    skipAssignmentSyncRef.current = true;
     if (jsonData.schoolInfo) setSchoolInfo(jsonData.schoolInfo);
     if (jsonData.periods) setPeriods(jsonData.periods);
     if (jsonData.subjects) setSubjects(jsonData.subjects);
@@ -716,7 +584,7 @@ export function App() {
             subjects={subjects}
             periods={periods}
             schoolInfo={schoolInfo}
-            onViewTeacherSchedule={(t) => {
+            onViewTeacherSchedule={() => {
               setActiveTab('studio');
             }}
           />
@@ -811,142 +679,54 @@ export function App() {
         )}
       </main>
 
-      {/* School and Period Times Settings Modal */}
-      <SchoolSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
+      {/* Unified Modals Container */}
+      <AppModals
+        isSettingsModalOpen={isSettingsModalOpen}
+        setIsSettingsModalOpen={setIsSettingsModalOpen}
         schoolInfo={schoolInfo}
         setSchoolInfo={setSchoolInfo}
         periods={periods}
         setPeriods={setPeriods}
-      />
-
-      {/* Excel Import/Export Modal */}
-      <ExcelModal
-        isOpen={isExcelModalOpen}
-        onClose={() => setIsExcelModalOpen(false)}
+        isExcelModalOpen={isExcelModalOpen}
+        setIsExcelModalOpen={setIsExcelModalOpen}
         classes={classes}
         teachers={teachers}
         assignments={assignments}
         gradeQuotas={gradeQuotas}
         timetable={timetable}
         subjects={subjects}
-        schoolInfo={schoolInfo}
         onImportSuccess={handleImportSuccess}
-      />
-
-      {/* Conflict Details Inspector Modal */}
-      <ConflictModal
-        isOpen={isConflictModalOpen}
-        onClose={() => setIsConflictModalOpen(false)}
+        isConflictModalOpen={isConflictModalOpen}
+        setIsConflictModalOpen={setIsConflictModalOpen}
         conflicts={conflicts}
-        classes={classes}
-        teachers={teachers}
         onNavigateToClass={(clsId) => {
           setSelectedStudioClassId(clsId);
           setActiveTab('studio');
         }}
-      />
-
-      {/* Post-Import Error & Diagnostics Report Modal */}
-      <ImportReportModal
-        isOpen={isImportReportOpen}
-        onClose={() => setIsImportReportOpen(false)}
-        report={importReport || {}}
-        classes={classes}
+        isImportReportOpen={isImportReportOpen}
+        setIsImportReportOpen={setIsImportReportOpen}
+        importReport={importReport}
         onNavigateToSlot={handleNavigateToStudioSlot}
-      />
-
-      {/* Auto Schedule AI Modal */}
-      <AutoScheduleModal
-        isOpen={isAutoScheduleModalOpen}
-        onClose={() => setIsAutoScheduleModalOpen(false)}
+        isAutoScheduleModalOpen={isAutoScheduleModalOpen}
+        setIsAutoScheduleModalOpen={setIsAutoScheduleModalOpen}
         onExecuteSchedule={handleExecuteAutoSchedule}
-        classes={classes}
-        teachers={teachers}
-        assignments={assignments}
-        timetable={timetable}
-        subjects={subjects}
-        isScheduling={isAutoScheduling}
-      />
-
-      {/* Auto-Update Checker Modal */}
-      <UpdateModal
-        isOpen={isUpdateModalOpen}
-        onClose={() => setIsUpdateModalOpen(false)}
-        initialUpdateInfo={updateInfo}
-        onUpdateInfoChange={setUpdateInfo}
-      />
-
-      {/* Welcome & Project Initialization Modal */}
-      <WelcomeModal
-        isOpen={isWelcomeModalOpen}
-        onClose={() => setIsWelcomeModalOpen(false)}
+        isAutoScheduling={isAutoScheduling}
+        isUpdateModalOpen={isUpdateModalOpen}
+        setIsUpdateModalOpen={setIsUpdateModalOpen}
+        updateInfo={updateInfo}
+        setUpdateInfo={setUpdateInfo}
+        isWelcomeModalOpen={isWelcomeModalOpen}
+        setIsWelcomeModalOpen={setIsWelcomeModalOpen}
         onSelectSampleData={handleSelectSampleData}
         onStartBlankProject={handleStartBlankProject}
-        onOpenExcelModal={() => setIsExcelModalOpen(true)}
-        onOpenUserGuideModal={() => setIsUserGuideModalOpen(true)}
-      />
-
-      {/* Comprehensive User Guide & Manual Modal */}
-      <UserGuideModal
-        isOpen={isUserGuideModalOpen}
-        onClose={() => setIsUserGuideModalOpen(false)}
+        isUserGuideModalOpen={isUserGuideModalOpen}
+        setIsUserGuideModalOpen={setIsUserGuideModalOpen}
         onNavigateTab={(tab) => {
           setActiveTab(tab);
           setIsUserGuideModalOpen(false);
         }}
+        isUpdateReady={isUpdateReady}
       />
-
-      {/* Floating Auto-Update Ready Toast (Tự động thông báo khi tải ngầm xong) */}
-      {isUpdateReady && (
-        <div style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          zIndex: 99999,
-          background: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
-          border: '2px solid #60a5fa',
-          borderRadius: '16px',
-          padding: '16px 20px',
-          color: '#ffffff',
-          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
-          animation: 'slideUp 0.3s ease-out'
-        }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🎉 Đã Tải Xong Bản Cập Nhật Mới!</span>
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#bfdbfe', marginTop: '2px' }}>
-              Bấm Khởi động lại để tự động nâng cấp tính năng mới.
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              if (window.electronAPI?.restartAndInstall) {
-                window.electronAPI.restartAndInstall();
-              }
-            }}
-            style={{
-              background: '#10b981',
-              border: 'none',
-              padding: '10px 18px',
-              borderRadius: '10px',
-              color: '#ffffff',
-              fontWeight: 800,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            Khởi Động Lại Ngay
-          </button>
-        </div>
-      )}
     </div>
   );
 }
