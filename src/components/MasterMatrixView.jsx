@@ -6,7 +6,8 @@ import {
   Download,
   AlertTriangle,
   AlertCircle,
-  TableProperties
+  TableProperties,
+  Lock
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
@@ -642,6 +643,7 @@ export const MasterMatrixView = ({
                                           whiteSpace: 'nowrap'
                                         }}>
                                           {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
+                                          {slot.isLocked && <Lock size={9} color="#4f46e5" style={{ display: 'inline', marginLeft: '3px', verticalAlign: 'middle' }} title="Tiết học được khóa CỐ ĐỊNH" />}
                                         </span>
                                         <span style={{
                                           fontSize: '0.66rem',
@@ -821,6 +823,7 @@ export const MasterMatrixView = ({
                                           whiteSpace: 'nowrap'
                                         }}>
                                           {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
+                                          {slot.isLocked && <Lock size={9} color="#4f46e5" style={{ display: 'inline', marginLeft: '3px', verticalAlign: 'middle' }} title="Tiết học được khóa CỐ ĐỊNH" />}
                                         </span>
                                         <span style={{
                                           fontSize: '0.66rem',
@@ -1050,6 +1053,7 @@ export const MasterMatrixView = ({
                                       whiteSpace: 'nowrap'
                                     }}>
                                       {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
+                                      {slot.isLocked && <Lock size={9} color="#4f46e5" style={{ display: 'inline', marginLeft: '3px', verticalAlign: 'middle' }} title="Tiết học được khóa CỐ ĐỊNH" />}
                                     </span>
                                     <span style={{
                                       fontSize: '0.66rem',

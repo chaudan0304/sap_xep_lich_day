@@ -10,6 +10,7 @@ import { AutoScheduleModal } from './AutoScheduleModal';
 import { UpdateModal } from './UpdateModal';
 import { WelcomeModal } from './WelcomeModal';
 import { UserGuideModal } from './UserGuideModal';
+import { ClearTimetableModal } from './ClearTimetableModal';
 
 export const AppModals = ({
   // SchoolSettingsModal
@@ -66,11 +67,25 @@ export const AppModals = ({
   setIsUserGuideModalOpen,
   onNavigateTab,
 
+  // ClearTimetableModal
+  isClearModalOpen,
+  setIsClearModalOpen,
+  onConfirmClearTimetable,
+
   // Floating Update Toast
   isUpdateReady
 }) => {
   return (
     <>
+      {/* Xác nhận xóa TKB thông minh */}
+      <ClearTimetableModal
+        isOpen={isClearModalOpen}
+        onClose={() => setIsClearModalOpen(false)}
+        classes={classes}
+        timetable={timetable}
+        onConfirmClear={onConfirmClearTimetable}
+      />
+
       {/* Cấu hình trường và khung giờ */}
       <SchoolSettingsModal
         isOpen={isSettingsModalOpen}

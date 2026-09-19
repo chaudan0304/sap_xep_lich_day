@@ -206,20 +206,59 @@ export const TimetableStudio = ({
     setIsEditingInlineCount(false);
   };
 
-  // 6. Xóa sạch lịch đã xếp riêng cho lớp hiện tại
+  // 6. Xóa lịch đã xếp riêng cho lớp hiện tại (Bảo lưu các tiết cố định nếu có)
   const handleClearCurrentClass = () => {
-    const classData = timetable[selectedClassId];
-    const hasSlots = classData && Object.values(classData).some(day => day && Object.values(day).some(slot => slot && slot.subjectId));
-    if (!hasSlots) {
+    const classData = timetable[selectedClassId] || {};
+    let totalSlots = 0;
+    let lockedCount = 0;
+    for (let day = 2; day <= 6; day++) {
+      for (let period = 1; period <= 7; period++) {
+        const slot = classData[day]?.[period];
+        if (slot && (slot.subjectId || slot.subjectRaw)) {
+          totalSlots++;
+          if (slot.isLocked) lockedCount++;
+        }
+      }
+    }
+
+    if (totalSlots === 0) {
       alert(`${currentClass?.name || 'Lớp này'} hiện chưa có tiết nào được xếp!`);
       return;
     }
-    if (window.confirm(`Bạn có chắc chắn muốn xóa toàn bộ lịch đã xếp của ${currentClass?.name || 'lớp này'} để xếp lại từ đầu?\n(Lịch các lớp khác vẫn được giữ nguyên)`)) {
-      setTimetableWithHistory(prev => ({
-        ...prev,
-        [selectedClassId]: {}
-      }), `Xóa lịch xếp ${currentClass?.name || selectedClassId}`);
+
+    if (lockedCount > 0) {
+      const keepLocked = window.confirm(
+        `Lớp ${currentClass?.name || selectedClassId} đang có ${lockedCount} tiết được khóa CỐ ĐỊNH (trên tổng số ${totalSlots} tiết đã xếp).\n\n` +
+        `• Nhấn [OK]: XÓA các tiết thông thường và GIỮ NGUYÊN ${lockedCount} tiết cố định.\n` +
+        `• Nhấn [Cancel]: Hủy thao tác.`
+      );
+      if (!keepLocked) return;
+
+      setTimetableWithHistory(prev => {
+        const updatedClass = { 2: {}, 3: {}, 4: {}, 5: {}, 6: {} };
+        const oldClass = prev[selectedClassId] || {};
+        for (let day = 2; day <= 6; day++) {
+          for (let period = 1; period <= 7; period++) {
+            const slot = oldClass[day]?.[period];
+            if (slot && slot.isLocked) {
+              updatedClass[day][period] = { ...slot };
+            }
+          }
+        }
+        return {
+          ...prev,
+          [selectedClassId]: updatedClass
+        };
+      }, `Xóa các tiết chưa khóa của ${currentClass?.name || selectedClassId} (Giữ ${lockedCount} tiết cố định)`);
       setSwapSource(null);
+    } else {
+      if (window.confirm(`Bạn có chắc chắn muốn xóa toàn bộ ${totalSlots} tiết đã xếp của ${currentClass?.name || 'lớp này'} để xếp lại từ đầu?\n(Lịch các lớp khác vẫn được giữ nguyên)`)) {
+        setTimetableWithHistory(prev => ({
+          ...prev,
+          [selectedClassId]: { 2: {}, 3: {}, 4: {}, 5: {}, 6: {} }
+        }), `Xóa toàn bộ lịch xếp ${currentClass?.name || selectedClassId}`);
+        setSwapSource(null);
+      }
     }
   };
 
@@ -1686,12 +1725,34 @@ export const TimetableStudio = ({
                                 >
                                   {/* Top line: Subject Name + Lock / Action Icons */}
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontWeight: 800, fontSize: '0.82rem', color: sub?.text || '#1e293b' }}>
-                                      {sub?.name || slot.subjectRaw || slot.subjectId}
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, flex: 1, paddingRight: '4px' }}>
+                                      <span style={{ fontWeight: 800, fontSize: '0.82rem', color: sub?.text || '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {sub?.name || slot.subjectRaw || slot.subjectId}
+                                      </span>
+                                      {slot.isLocked && (
+                                        <span 
+                                          title="Tiết học này đã được khóa CỐ ĐỊNH (giữ nguyên khi xóa TKB hoặc xếp tự động)"
+                                          style={{
+                                            fontSize: '0.62rem',
+                                            fontWeight: 800,
+                                            color: '#4338ca',
+                                            background: '#e0e7ff',
+                                            padding: '1px 5px',
+                                            borderRadius: '4px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '2px',
+                                            flexShrink: 0
+                                          }}
+                                        >
+                                          <Lock size={9} />
+                                          <span>Cố định</span>
+                                        </span>
+                                      )}
+                                    </div>
 
                                     {/* Action Icons */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }} onClick={(e) => e.stopPropagation()}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
                                       {conflict && (
                                         <span title={conflict.message} style={{ color: conflict.severity === 'warning' ? '#d97706' : '#ef4444' }}>
                                           {conflict.severity === 'warning' ? <AlertCircle size={14} /> : <AlertTriangle size={14} />}
@@ -1714,13 +1775,17 @@ export const TimetableStudio = ({
 
                                       <button
                                         onClick={(e) => toggleLockSlot(e, day.id, period.id)}
-                                        title={slot.isLocked ? 'Mở khóa tiết' : 'Khóa cố định tiết này'}
+                                        title={slot.isLocked ? 'Tiết đang CỐ ĐỊNH (giữ nguyên khi xóa TKB hoặc xếp tự động). Bấm để mở khóa' : 'Khóa CỐ ĐỊNH tiết này (giữ nguyên khi xóa TKB hoặc xếp tự động)'}
                                         style={{
-                                          border: 'none',
-                                          background: 'transparent',
+                                          border: slot.isLocked ? '1px solid rgba(99, 102, 241, 0.4)' : 'none',
+                                          background: slot.isLocked ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                                          borderRadius: '4px',
                                           cursor: 'pointer',
-                                          padding: '2px',
-                                          color: slot.isLocked ? '#4f46e5' : '#94a3b8'
+                                          padding: '2px 4px',
+                                          color: slot.isLocked ? '#4338ca' : '#94a3b8',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          transition: 'all 0.15s ease'
                                         }}
                                       >
                                         {slot.isLocked ? <Lock size={12} /> : <Unlock size={12} />}
@@ -2036,17 +2101,32 @@ export const TimetableStudio = ({
               </div>
 
               {/* Khóa Ô Cố Định */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '6px' }}>
-                <input
-                  type="checkbox"
-                  checked={editingSlotInfo.isLocked}
-                  onChange={e => setEditingSlotInfo(prev => ({ ...prev, isLocked: e.target.checked }))}
-                  style={{ width: '16px', height: '16px', accentColor: '#4f46e5' }}
-                />
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#334155' }}>
-                  Khóa cố định tiết này (không để xếp tự động di chuyển)
-                </span>
-              </label>
+              <div style={{
+                marginTop: '10px',
+                padding: '10px 12px',
+                borderRadius: '9px',
+                background: editingSlotInfo.isLocked ? '#eef2ff' : '#f8fafc',
+                border: `1.5px solid ${editingSlotInfo.isLocked ? '#818cf8' : '#e2e8f0'}`,
+                transition: 'all 0.15s ease'
+              }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={editingSlotInfo.isLocked}
+                    onChange={e => setEditingSlotInfo(prev => ({ ...prev, isLocked: e.target.checked }))}
+                    style={{ width: '18px', height: '18px', accentColor: '#4f46e5', marginTop: '2px', cursor: 'pointer' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: editingSlotInfo.isLocked ? '#3730a3' : '#1e293b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Lock size={13} color={editingSlotInfo.isLocked ? '#4f46e5' : '#64748b'} />
+                      <span>Khóa CỐ ĐỊNH tiết học này</span>
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', lineHeight: 1.4 }}>
+                      Tiết này sẽ được <strong>giữ nguyên 100%</strong> khi bấm <em>Xóa TKB</em> hoặc khi chạy <em>Tự Động Xếp Lịch</em>.
+                    </div>
+                  </div>
+                </label>
+              </div>
             </div>
 
             {/* Modal Footer */}

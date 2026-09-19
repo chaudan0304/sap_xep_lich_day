@@ -260,6 +260,7 @@ export function App() {
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [isUserGuideModalOpen, setIsUserGuideModalOpen] = useState(false);
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(() => {
     return !localStorage.getItem('EDUTIMETABLE_INITIALIZED_CHOICE');
@@ -496,11 +497,35 @@ export function App() {
     setSelectedStudioClassId('1A1');
   };
 
-  // 6. Xóa Sạch Thời Khóa Biểu
+  // 6. Xóa Thời Khóa Biểu (Mở Modal xác nhận và tùy chọn bảo lưu tiết cố định)
   const handleClearTimetable = () => {
-    if (window.confirm('Xóa sạch thời khóa biểu tất cả các lớp?')) {
-      updateTimetable(initializeEmptyTimetable(classes), 'Xóa sạch thời khóa biểu toàn trường');
+    setIsClearModalOpen(true);
+  };
+
+  const handleConfirmClearTimetable = (keepLocked = false) => {
+    if (keepLocked) {
+      let lockedCount = 0;
+      const nextTimetable = {};
+      classes.forEach(cls => {
+        nextTimetable[cls.id] = {};
+        for (let day = 2; day <= 6; day++) {
+          nextTimetable[cls.id][day] = {};
+          for (let period = 1; period <= 7; period++) {
+            const slot = timetable[cls.id]?.[day]?.[period];
+            if (slot && slot.isLocked) {
+              nextTimetable[cls.id][day][period] = { ...slot };
+              lockedCount++;
+            } else {
+              nextTimetable[cls.id][day][period] = null;
+            }
+          }
+        }
+      });
+      updateTimetable(nextTimetable, `Xóa TKB toàn trường (Giữ nguyên ${lockedCount} tiết cố định)`);
+    } else {
+      updateTimetable(initializeEmptyTimetable(classes), 'Xóa sạch toàn bộ thời khóa biểu toàn trường');
     }
+    setIsClearModalOpen(false);
   };
 
   // 7. Đồng Bộ Phân Công từ Định Mức Khối
@@ -841,6 +866,9 @@ export function App() {
           setActiveTab(tab);
           setIsUserGuideModalOpen(false);
         }}
+        isClearModalOpen={isClearModalOpen}
+        setIsClearModalOpen={setIsClearModalOpen}
+        onConfirmClearTimetable={handleConfirmClearTimetable}
         isUpdateReady={isUpdateReady}
       />
     </div>
