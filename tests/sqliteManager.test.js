@@ -58,4 +58,32 @@ describe('sqliteManager module', () => {
     expect(loaded.timetable['1A1'][2][1].isLocked).toBe(true);
     expect(loaded.timetable['1A1'][2][1].note).toBe('Tiết đầu tuần');
   });
+
+  it('phục hồi tự động khi file database bị lỗi (corrupted) và lưu ghi an toàn', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const { openOrCreateDatabase, saveDatabaseToFile } = await import('../src/services/sqliteManager.cjs');
+
+    const testDbPath = path.resolve('scratch_test_corrupt.db');
+    // Ghi một file hỏng giả định
+    fs.writeFileSync(testDbPath, Buffer.from('NOT A VALID SQLITE FILE CORRUPTED BY ACCIDENT'));
+
+    try {
+      // openOrCreateDatabase phải tự phát hiện và tạo DB mới, không throw crash
+      const db = await openOrCreateDatabase(testDbPath);
+      expect(db).toBeDefined();
+
+      saveDatabaseToFile(db, testDbPath);
+      expect(fs.existsSync(testDbPath)).toBe(true);
+    } finally {
+      try { fs.unlinkSync(testDbPath); } catch {}
+      // Xóa file backup corrupt nếu có
+      const files = fs.readdirSync(process.cwd());
+      files.forEach(f => {
+        if (f.startsWith('scratch_test_corrupt.db.corrupt')) {
+          try { fs.unlinkSync(f); } catch {}
+        }
+      });
+    }
+  });
 });

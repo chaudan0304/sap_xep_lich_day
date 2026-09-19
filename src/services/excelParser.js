@@ -767,6 +767,79 @@ export async function parseExcelWorkbook(dataOrBuffer) {
   // Cập nhật danh sách lớp học
   parsed.classes = Array.from(classesMap.values());
 
+  // ★ AUTO-DISCOVERY: Tự động bổ sung & ánh xạ giáo viên từ ô Thời khóa biểu nếu chưa có trong danh mục
+  const teacherCodeMap = new Map();
+  parsed.teachers.forEach(t => {
+    if (t.code) teacherCodeMap.set(normalizeStr(t.code).toLowerCase(), t);
+    if (t.name) teacherCodeMap.set(normalizeStr(t.name).toLowerCase(), t);
+  });
+
+  const newlyDiscoveredTeachers = new Map();
+
+  parsed.rawSlots.forEach(s => {
+    const rawName = (s.teacherRaw || '').trim();
+    if (!rawName) return;
+    const cleanName = rawName.replace(/^(?:Đ\/c\.|Đ\/c|Đc\.|Đc|Thầy|Cô)\s+/i, '').trim();
+    if (!cleanName || cleanName.length < 2) return;
+    const key = cleanName.toLowerCase();
+
+    // Nếu slot chưa có teacherId hoặc teacherId không tồn tại trong parsed.teachers
+    const currentTeacherExists = parsed.teachers.some(t => t.id === s.teacherId);
+    if (!currentTeacherExists) {
+      let matchedTeacher = teacherCodeMap.get(key);
+      if (!matchedTeacher) {
+        matchedTeacher = parsed.teachers.find(t => {
+          const tCode = normalizeStr(t.code).toLowerCase();
+          const tName = normalizeStr(t.name).toLowerCase();
+          return tCode === key || tName === key || tName.endsWith(key) || key.endsWith(tCode);
+        });
+      }
+
+      if (!matchedTeacher) {
+        if (!newlyDiscoveredTeachers.has(key)) {
+          const nextTt = parsed.teachers.length + newlyDiscoveredTeachers.size + 1;
+          const newTch = {
+            id: `GV_${String(nextTt).padStart(2, '0')}`,
+            tt: nextTt,
+            name: cleanName,
+            code: cleanName,
+            shortName: cleanName,
+            department: 'Giáo viên',
+            position: 'Giáo Viên',
+            isHomeroom: false,
+            homeroomClassId: null,
+            task: '',
+            assignedPeriods: 0,
+            dinhMuc: 23,
+            maxPeriodsPerDay: 7,
+            offSessions: [],
+            color: '#3b82f6'
+          };
+          newlyDiscoveredTeachers.set(key, newTch);
+          teacherCodeMap.set(key, newTch);
+        }
+        matchedTeacher = newlyDiscoveredTeachers.get(key);
+      }
+
+      if (matchedTeacher) {
+        s.teacherId = matchedTeacher.id;
+        s.teacherCode = matchedTeacher.code || cleanName;
+        s.teacherName = matchedTeacher.name || cleanName;
+        if (parsed.timetable[s.classId]?.[s.day]?.[s.period]) {
+          parsed.timetable[s.classId][s.day][s.period].teacherId = matchedTeacher.id;
+          parsed.timetable[s.classId][s.day][s.period].teacherCode = matchedTeacher.code || cleanName;
+          parsed.timetable[s.classId][s.day][s.period].teacherName = matchedTeacher.name || cleanName;
+        }
+      }
+    }
+  });
+
+  if (newlyDiscoveredTeachers.size > 0) {
+    newlyDiscoveredTeachers.forEach(tch => {
+      parsed.teachers.push(tch);
+    });
+  }
+
   // 4. Sinh assignments (Phân công chuyên môn)
   const asgList = [];
   parsed.classes.forEach(cls => {

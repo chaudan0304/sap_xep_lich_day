@@ -19,7 +19,8 @@ export function useAppPersistence({
   rooms, setRooms,
   assignments, setAssignments,
   timetable, setTimetable,
-  skipAssignmentSyncRef
+  skipAssignmentSyncRef,
+  skipQuotaSyncRef
 }) {
   const [updateInfo, setUpdateInfo] = useState(null);
   const [downloadProgress, setDownloadProgress] = useState(null);
@@ -61,6 +62,7 @@ export function useAppPersistence({
     loadAllDataFromDb().then(dbData => {
       if (!isMounted || !dbData) return;
       if (skipAssignmentSyncRef) skipAssignmentSyncRef.current = true;
+      if (skipQuotaSyncRef) skipQuotaSyncRef.current = true;
 
       if (dbData.schoolInfo) setSchoolInfo(dbData.schoolInfo);
       if (Array.isArray(dbData.periods) && dbData.periods.length > 0) setPeriods(dbData.periods);

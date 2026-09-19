@@ -94,6 +94,32 @@ export const TimetableStudio = ({
 
   const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
   const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
+  const teacherByNameMap = useMemo(() => {
+    const map = new Map();
+    teachers.forEach(t => {
+      if (t.code) map.set(t.code.toLowerCase().trim(), t);
+      if (t.name) map.set(t.name.toLowerCase().trim(), t);
+      if (t.shortName) map.set(t.shortName.toLowerCase().trim(), t);
+    });
+    return map;
+  }, [teachers]);
+
+  const resolveTeacherFromSlot = useCallback((slot) => {
+    if (!slot) return null;
+    if (slot.teacherId && teacherMap.has(slot.teacherId)) {
+      return teacherMap.get(slot.teacherId);
+    }
+    const cCode = (slot.teacherCode || '').toLowerCase().trim();
+    if (cCode && teacherByNameMap.has(cCode)) return teacherByNameMap.get(cCode);
+
+    const cRaw = (slot.teacherRaw || '').replace(/^(?:Đ\/c\.|Đ\/c|Đc\.|Đc|Thầy|Cô)\s+/i, '').toLowerCase().trim();
+    if (cRaw && teacherByNameMap.has(cRaw)) return teacherByNameMap.get(cRaw);
+
+    const cName = (slot.teacherName || '').toLowerCase().trim();
+    if (cName && teacherByNameMap.has(cName)) return teacherByNameMap.get(cName);
+
+    return null;
+  }, [teacherMap, teacherByNameMap]);
 
   // 2. Class Stats (Scheduled periods count & conflicts count for every class)
   const classStatsMap = useMemo(() => {
@@ -1382,7 +1408,28 @@ export const TimetableStudio = ({
               })
               .map(asg => {
                 const sub = (subjects && subjects[asg.subjectId]) || DEFAULT_SUBJECTS[asg.subjectId] || { name: asg.subjectId, bg: '#f8fafc', border: '#e2e8f0', text: '#334155', color: '#64748b' };
-                const teacher = teacherMap.get(asg.teacherId);
+                let teacher = teacherMap.get(asg.teacherId);
+                if (!teacher && asg.teacherName) {
+                  teacher = teacherByNameMap.get(asg.teacherName.toLowerCase().trim());
+                }
+                if (!teacher) {
+                  const classTt = timetable[selectedClassId];
+                  if (classTt) {
+                    for (let d = 2; d <= 6; d++) {
+                      for (let p = 1; p <= 7; p++) {
+                        const s = classTt[d]?.[p];
+                        if (s && s.subjectId === asg.subjectId) {
+                          const t = resolveTeacherFromSlot(s);
+                          if (t) {
+                            teacher = t;
+                            break;
+                          }
+                        }
+                      }
+                      if (teacher) break;
+                    }
+                  }
+                }
                 const placed = placedCounts[asg.subjectId] || 0;
                 const needed = asg.weeklyPeriods;
                 const isComplete = placed >= needed;
@@ -1428,7 +1475,7 @@ export const TimetableStudio = ({
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#64748b' }}>
-                      <span>GV: <strong style={{ color: '#334155' }}>{teacher?.name || asg.teacherId}</strong></span>
+                      <span>GV: <strong style={{ color: '#334155' }}>{teacher?.name || asg.teacherName || asg.teacherId || 'Chưa phân công'}</strong></span>
                       {asg.roomType && asg.roomType !== 'LOP_HOC' && (
                         <span style={{ background: 'rgba(0,0,0,0.06)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.7rem' }}>
                           🏢 {asg.roomType.replace('PHONG_', '').replace('SAN_', '')}
@@ -1564,7 +1611,7 @@ export const TimetableStudio = ({
                         {DAYS_OF_WEEK.map(day => {
                           const slot = timetable[selectedClassId]?.[day.id]?.[period.id];
                           const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { name: slot.subjectRaw || slot.subjectId, bg: '#f8fafc', border: '#cbd5e1', text: '#334155' }) : null;
-                          const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+                          const teacher = slot ? resolveTeacherFromSlot(slot) : null;
                           const conflict = getSlotConflict(day.id, period.id);
 
                           const isSwapActive = swapSource && swapSource.day === day.id && swapSource.period === period.id;

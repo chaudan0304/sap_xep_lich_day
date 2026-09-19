@@ -31,18 +31,29 @@ async function openOrCreateDatabase(dbFilePath) {
   let db;
 
   if (fs.existsSync(dbFilePath)) {
-    const fileBuffer = fs.readFileSync(dbFilePath);
-    db = new SQL.Database(fileBuffer);
-  } else {
-    db = new SQL.Database();
+    try {
+      const fileBuffer = fs.readFileSync(dbFilePath);
+      db = new SQL.Database(fileBuffer);
+      createSchema(db);
+      return db;
+    } catch (err) {
+      console.warn(`Lỗi khi mở SQLite database tại ${dbFilePath} (${err.message}). Tạo bản sao lưu và phục hồi database mới.`);
+      try {
+        const corruptBackup = `${dbFilePath}.corrupt-${Date.now()}`;
+        fs.renameSync(dbFilePath, corruptBackup);
+      } catch (backupErr) {
+        console.warn('Không thể đổi tên file database hỏng:', backupErr);
+      }
+    }
   }
 
+  db = new SQL.Database();
   createSchema(db);
   return db;
 }
 
 /**
- * Lưu dữ liệu SQLite nhị phân ra file trên đĩa
+ * Lưu dữ liệu SQLite nhị phân ra file trên đĩa (Ghi nguyên tử - Atomic Write an toàn chống hỏng file)
  * @param {Object} db - Instance database sql.js
  * @param {string} dbFilePath - Đường dẫn file .db
  */
@@ -52,7 +63,14 @@ function saveDatabaseToFile(db, dbFilePath) {
     fs.mkdirSync(dir, { recursive: true });
   }
   const binaryArray = db.export();
-  fs.writeFileSync(dbFilePath, Buffer.from(binaryArray));
+  const tempPath = `${dbFilePath}.tmp-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  fs.writeFileSync(tempPath, Buffer.from(binaryArray));
+  try {
+    fs.renameSync(tempPath, dbFilePath);
+  } catch {
+    fs.copyFileSync(tempPath, dbFilePath);
+    try { fs.unlinkSync(tempPath); } catch {}
+  }
 }
 
 module.exports = {

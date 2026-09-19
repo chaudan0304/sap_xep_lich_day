@@ -107,12 +107,26 @@ function autoSavePlugin() {
             try {
               const buffer = Buffer.concat(chunks);
               // Kiểm tra xem buffer có hợp lệ với SQLite không
-              const { getSqlEngine, createSchema } = require('./src/services/sqliteManager.cjs');
+              const { getSqlEngine, createSchema, loadJsonFromDatabase } = getSqliteManager();
               const SQL = await getSqlEngine();
               const testDb = new SQL.Database(buffer);
               createSchema(testDb);
 
-              fs.writeFileSync(dbPath, buffer);
+              // Xác nhận có dữ liệu hợp lệ trong CSDL vừa tải lên
+              const loadedData = loadJsonFromDatabase(testDb);
+              if (!loadedData || !Array.isArray(loadedData.classes) || loadedData.classes.length === 0) {
+                throw new Error('Tệp database không chứa danh sách lớp học hợp lệ.');
+              }
+
+              const tempPath = `${dbPath}.tmp-${Date.now()}`;
+              fs.writeFileSync(tempPath, buffer);
+              try {
+                fs.renameSync(tempPath, dbPath);
+              } catch {
+                fs.copyFileSync(tempPath, dbPath);
+                try { fs.unlinkSync(tempPath); } catch {}
+              }
+
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ success: true, message: 'Database restored successfully' }));

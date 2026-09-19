@@ -35,6 +35,7 @@ src/data/edutimetable.db
 src/data/savedData.json
 src/data/quynhLocSchoolData.js
 public/data/*.xlsx
-public/data/*.xls
+src/data/*.corrupt*
+src/data/*.tmp*
 *.backup*
 

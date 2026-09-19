@@ -131,7 +131,13 @@ export async function importSqliteDatabaseFile(file) {
 
     // Nạp lại dữ liệu sau khi upload thành công
     const loadResp = await fetch('/api/db/load');
+    if (!loadResp.ok) {
+      throw new Error(`Máy chủ không thể đọc lại dữ liệu (mã lỗi ${loadResp.status}).`);
+    }
     const freshData = await loadResp.json();
+    if (freshData?.success === false) {
+      throw new Error(freshData.error || 'Nạp dữ liệu từ cơ sở dữ liệu thất bại.');
+    }
     return { success: true, data: freshData };
   } catch (err) {
     console.error('importSqliteDatabaseFile error:', err);

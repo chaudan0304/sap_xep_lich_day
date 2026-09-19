@@ -255,6 +255,7 @@ export function App() {
   const [importReport, setImportReport] = useState(null);
   const [isImportReportOpen, setIsImportReportOpen] = useState(false);
   const skipAssignmentSyncRef = useRef(false);
+  const skipQuotaSyncRef = useRef(false);
   const isFirstRender = useRef(true);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -283,13 +284,18 @@ export function App() {
     rooms, setRooms,
     assignments, setAssignments,
     timetable, setTimetable,
-    skipAssignmentSyncRef
+    skipAssignmentSyncRef,
+    skipQuotaSyncRef
   });
 
   // ★ Auto-sync: khi gradeQuotas thay đổi -> tự động cập nhật assignments
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
+      return;
+    }
+    if (skipQuotaSyncRef.current) {
+      skipQuotaSyncRef.current = false;
       return;
     }
     setAssignments(prev => {
@@ -343,8 +349,10 @@ export function App() {
             const slot = periodMap[p];
             if (slot && slot.subjectId) {
               const matchingAsg = asgMap.get(`${classId}_${slot.subjectId}`);
-              if (matchingAsg) {
-                const targetTeacher = matchingAsg.teacherId || '';
+              // ★ Chỉ đồng bộ nếu matchingAsg đã có giáo viên được phân công!
+              // Tuyệt đối không xóa teacherId sẵn có trên ô nếu matchingAsg chưa chọn GV.
+              if (matchingAsg && matchingAsg.teacherId) {
+                const targetTeacher = matchingAsg.teacherId;
                 const targetRoom = matchingAsg.roomType || 'LOP_HOC';
                 if (slot.teacherId !== targetTeacher || slot.roomId !== targetRoom) {
                   periodMap[p] = {
@@ -503,7 +511,9 @@ export function App() {
   // 8. Tiếp Nhận Dữ Liệu Nhập Từ File Excel Tùy Chỉnh
   const handleImportSuccess = (importedData, diagnostics) => {
     skipAssignmentSyncRef.current = true;
+    skipQuotaSyncRef.current = true;
 
+    if (importedData.schoolInfo) setSchoolInfo(importedData.schoolInfo);
     if (importedData.teachers) setTeachers(importedData.teachers);
     if (importedData.classes) setClasses(importedData.classes);
     if (importedData.rooms) setRooms(importedData.rooms);
@@ -546,6 +556,7 @@ export function App() {
       subjects,
       gradeQuotas,
       classes,
+      departments,
       teachers,
       rooms,
       assignments,
@@ -564,11 +575,16 @@ export function App() {
   // 10. Nạp Dữ Liệu Từ File Sao Lưu (.json)
   const handleImportBackupJson = (jsonData) => {
     skipAssignmentSyncRef.current = true;
+    skipQuotaSyncRef.current = true;
     if (jsonData.schoolInfo) setSchoolInfo(jsonData.schoolInfo);
     if (jsonData.periods) setPeriods(jsonData.periods);
     if (jsonData.subjects) setSubjects(jsonData.subjects);
     if (jsonData.gradeQuotas) setGradeQuotas(jsonData.gradeQuotas);
-    if (jsonData.classes) setClasses(jsonData.classes);
+    if (jsonData.classes) {
+      setClasses(jsonData.classes);
+      if (jsonData.classes.length > 0) setSelectedStudioClassId(jsonData.classes[0].id);
+    }
+    if (Array.isArray(jsonData.departments) && jsonData.departments.length > 0) setDepartments(jsonData.departments);
     if (jsonData.teachers) setTeachers(jsonData.teachers);
     if (jsonData.rooms) setRooms(jsonData.rooms);
     if (jsonData.assignments) setAssignments(jsonData.assignments);
@@ -588,19 +604,26 @@ export function App() {
   const handleImportSqliteDb = async (file) => {
     try {
       const res = await importSqliteDatabaseFile(file);
-      if (res?.data) {
+      if (res?.data && res.data.classes?.length > 0) {
         skipAssignmentSyncRef.current = true;
+        skipQuotaSyncRef.current = true;
         const d = res.data;
         if (d.schoolInfo) setSchoolInfo(d.schoolInfo);
         if (Array.isArray(d.periods) && d.periods.length > 0) setPeriods(d.periods);
         if (d.subjects && Object.keys(d.subjects).length > 0) setSubjects(d.subjects);
         if (d.gradeQuotas && Object.keys(d.gradeQuotas).length > 0) setGradeQuotas(d.gradeQuotas);
-        if (Array.isArray(d.classes) && d.classes.length > 0) setClasses(d.classes);
+        if (Array.isArray(d.classes) && d.classes.length > 0) {
+          setClasses(d.classes);
+          setSelectedStudioClassId(d.classes[0].id);
+        }
+        if (Array.isArray(d.departments) && d.departments.length > 0) setDepartments(d.departments);
         if (Array.isArray(d.teachers) && d.teachers.length > 0) setTeachers(d.teachers);
         if (Array.isArray(d.rooms) && d.rooms.length > 0) setRooms(d.rooms);
         if (Array.isArray(d.assignments) && d.assignments.length > 0) setAssignments(d.assignments);
         if (d.timetable && Object.keys(d.timetable).length > 0) updateTimetable(d.timetable, 'Nạp TKB từ cơ sở dữ liệu SQLite (.db)');
-        alert('🎉 Nạp cơ sở dữ liệu SQLite (.db) thành công!');
+        alert(`🎉 Nạp cơ sở dữ liệu SQLite (.db) thành công!\nĐã nạp ${d.classes.length} lớp học, ${d.teachers?.length || 0} giáo viên từ trường "${d.schoolInfo?.name || 'Tiểu học'}".`);
+      } else {
+        throw new Error('Dữ liệu trong tệp SQLite không hợp lệ hoặc không có lớp học.');
       }
     } catch (err) {
       alert('Lỗi khi nạp file cơ sở dữ liệu SQLite: ' + err.message);

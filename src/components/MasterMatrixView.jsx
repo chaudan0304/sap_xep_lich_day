@@ -36,6 +36,32 @@ export const MasterMatrixView = ({
   const [contentScrollWidth, setContentScrollWidth] = useState(0);
 
   const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
+  const teacherByNameMap = useMemo(() => {
+    const map = new Map();
+    teachers.forEach(t => {
+      if (t.code) map.set(t.code.toLowerCase().trim(), t);
+      if (t.name) map.set(t.name.toLowerCase().trim(), t);
+      if (t.shortName) map.set(t.shortName.toLowerCase().trim(), t);
+    });
+    return map;
+  }, [teachers]);
+
+  const resolveTeacherFromSlot = useCallback((slot) => {
+    if (!slot) return null;
+    if (slot.teacherId && teacherMap.has(slot.teacherId)) {
+      return teacherMap.get(slot.teacherId);
+    }
+    const cCode = (slot.teacherCode || '').toLowerCase().trim();
+    if (cCode && teacherByNameMap.has(cCode)) return teacherByNameMap.get(cCode);
+
+    const cRaw = (slot.teacherRaw || '').replace(/^(?:Đ\/c\.|Đ\/c|Đc\.|Đc|Thầy|Cô)\s+/i, '').toLowerCase().trim();
+    if (cRaw && teacherByNameMap.has(cRaw)) return teacherByNameMap.get(cRaw);
+
+    const cName = (slot.teacherName || '').toLowerCase().trim();
+    if (cName && teacherByNameMap.has(cName)) return teacherByNameMap.get(cName);
+
+    return null;
+  }, [teacherMap, teacherByNameMap]);
 
   const errorCount = useMemo(() => conflicts.filter(c => c.severity === 'error').length, [conflicts]);
   const warningCount = useMemo(() => conflicts.filter(c => c.severity === 'warning').length, [conflicts]);
@@ -574,7 +600,7 @@ export const MasterMatrixView = ({
                               {filteredClasses.map(cls => {
                                 const slot = timetable[cls.id]?.[day.id]?.[p.id];
                                 const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, bg: '#f8fafc', border: '#cbd5e1', text: '#334155' }) : null;
-                                const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+                                const teacher = slot ? resolveTeacherFromSlot(slot) : null;
                                 const conflict = getSlotConflict(cls.id, day.id, p.id);
 
                                 return (
@@ -753,7 +779,7 @@ export const MasterMatrixView = ({
 
                                 const slot = timetable[cls.id]?.[day.id]?.[p.id];
                                 const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, bg: '#f8fafc', border: '#cbd5e1', text: '#334155' }) : null;
-                                const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+                                const teacher = slot ? resolveTeacherFromSlot(slot) : null;
                                 const conflict = getSlotConflict(cls.id, day.id, p.id);
 
                                 return (
@@ -961,7 +987,7 @@ export const MasterMatrixView = ({
                           {PERIODS.map(p => {
                             const slot = timetable[cls.id]?.[day.id]?.[p.id];
                             const sub = slot ? ((subjects && subjects[slot.subjectId]) || DEFAULT_SUBJECTS[slot.subjectId] || { shortName: slot.subjectRaw || slot.subjectId, bg: '#f8fafc', border: '#cbd5e1', text: '#334155' }) : null;
-                            const teacher = slot ? teacherMap.get(slot.teacherId) : null;
+                            const teacher = slot ? resolveTeacherFromSlot(slot) : null;
                             const conflict = getSlotConflict(cls.id, day.id, p.id);
 
                             const isOffWednesdayAfternoon = day.id === 4 && p.id > 4;
