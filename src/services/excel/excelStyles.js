@@ -62,6 +62,9 @@ export const FILL_WHITE = {
  */
 export const saveExcelJSWorkbook = async (workbook, filename) => {
   const buffer = await workbook.xlsx.writeBuffer();
+  if (typeof window === 'undefined' || !window.document) {
+    return buffer;
+  }
   const blob = new Blob([buffer], { 
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
   });
@@ -73,4 +76,5 @@ export const saveExcelJSWorkbook = async (workbook, filename) => {
   a.click();
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);
+  return buffer;
 };

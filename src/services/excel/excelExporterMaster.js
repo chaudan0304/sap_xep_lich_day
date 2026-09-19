@@ -14,6 +14,49 @@ import {
 } from './excelStyles.js';
 
 /**
+ * Tính toán phạm vi cột cho footer chữ ký (Người lập biểu & Hiệu trưởng)
+ * đảm bảo không bao giờ chồng lấn mergeCells với bất kỳ số cột nào.
+ * @param {number} totalCols - Tổng số cột của sheet (tối thiểu 1, thường >= 5)
+ * @returns {{ leftStart: number, leftEnd: number, rightStart: number, rightEnd: number }}
+ */
+export const getSignatureColumnRanges = (totalCols) => {
+  if (totalCols < 4) {
+    return {
+      leftStart: 1,
+      leftEnd: 1,
+      rightStart: Math.min(totalCols, 2),
+      rightEnd: totalCols
+    };
+  }
+
+  // Trường hợp số cột nhỏ (ví dụ 1 lớp -> totalCols = 5 hoặc 6)
+  if (totalCols <= 6) {
+    const leftStart = 2;
+    const leftEnd = 2;
+    const rightStart = Math.max(leftEnd + 2, totalCols - 1);
+    const rightEnd = totalCols;
+    return { leftStart, leftEnd, rightStart, rightEnd };
+  }
+
+  // Trường hợp số cột trung bình (ví dụ 2 lớp -> totalCols = 7 hoặc 8)
+  if (totalCols <= 8) {
+    const mid = Math.floor(totalCols / 2); // 7 -> 3, 8 -> 4
+    const leftStart = 2;
+    const leftEnd = Math.max(leftStart, mid); // 7 -> 3 (cột 2..3), 8 -> 4 (cột 2..4)
+    const rightStart = Math.max(leftEnd + 2, totalCols - 2); // 7 -> 5 (cột 5..7), 8 -> 6 (cột 6..8)
+    const rightEnd = totalCols;
+    return { leftStart, leftEnd, rightStart, rightEnd };
+  }
+
+  // Trường hợp từ 3 lớp trở lên (totalCols >= 9: 9, 11, 23...)
+  const leftStart = 2;
+  const leftEnd = 4;
+  const rightStart = Math.max(leftEnd + 2, totalCols - 3);
+  const rightEnd = totalCols;
+  return { leftStart, leftEnd, rightStart, rightEnd };
+};
+
+/**
  * Helper hàm vẽ ma trận TKB chung
  */
 export const renderMatrixHelper = (
@@ -214,31 +257,41 @@ export const renderMatrixHelper = (
   });
 
   // Footer Ký tên
+  const { leftStart, leftEnd, rightStart, rightEnd } = getSignatureColumnRanges(totalCols);
+
   const sigStart = currentRowIdx + 2;
-  ws.mergeCells(sigStart, totalCols - 3, sigStart, totalCols);
-  const dateCell = ws.getCell(sigStart, totalCols - 3);
+  if (rightStart < rightEnd) {
+    ws.mergeCells(sigStart, rightStart, sigStart, rightEnd);
+  }
+  const dateCell = ws.getCell(sigStart, rightStart);
   dateCell.value = `${schoolInfo.address ? schoolInfo.address.split(',')[0].trim() : 'Ngày 05 tháng 09 năm 2026'}`;
   dateCell.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'FF475569' } };
   dateCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
   const sigTitleRow = sigStart + 1;
   ws.getRow(sigTitleRow).height = 24;
-  ws.mergeCells(sigTitleRow, 2, sigTitleRow, 4);
-  const s1 = ws.getCell(sigTitleRow, 2);
+  if (leftStart < leftEnd) {
+    ws.mergeCells(sigTitleRow, leftStart, sigTitleRow, leftEnd);
+  }
+  const s1 = ws.getCell(sigTitleRow, leftStart);
   s1.value = 'NGƯỜI LẬP BIỂU';
   s1.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
   s1.alignment = { vertical: 'middle', horizontal: 'center' };
 
-  ws.mergeCells(sigTitleRow, totalCols - 3, sigTitleRow, totalCols);
-  const s2 = ws.getCell(sigTitleRow, totalCols - 3);
+  if (rightStart < rightEnd) {
+    ws.mergeCells(sigTitleRow, rightStart, sigTitleRow, rightEnd);
+  }
+  const s2 = ws.getCell(sigTitleRow, rightStart);
   s2.value = 'HIỆU TRƯỞNG';
   s2.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
   s2.alignment = { vertical: 'middle', horizontal: 'center' };
 
   const sigNameRow = sigStart + 5;
   ws.getRow(sigNameRow).height = 24;
-  ws.mergeCells(sigNameRow, totalCols - 3, sigNameRow, totalCols);
-  const nameCell = ws.getCell(sigNameRow, totalCols - 3);
+  if (rightStart < rightEnd) {
+    ws.mergeCells(sigNameRow, rightStart, sigNameRow, rightEnd);
+  }
+  const nameCell = ws.getCell(sigNameRow, rightStart);
   nameCell.value = schoolInfo.principal || 'Thầy Nguyễn Văn An';
   nameCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
   nameCell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -274,4 +327,5 @@ export const exportMasterTimetable = async (
   }
 
   await saveExcelJSWorkbook(wb, 'Thoi_Khoa_Bieu_Toan_Truong_Ma_Tran.xlsx');
+  return wb;
 };
