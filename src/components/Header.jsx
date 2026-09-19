@@ -389,7 +389,13 @@ export const Header = ({
 
             {/* SQLite Database Restore (.db) */}
             <button
-              onClick={() => dbFileInputRef.current?.click()}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.electronAPI?.db) {
+                  if (onImportSqliteDb) onImportSqliteDb(null);
+                } else {
+                  dbFileInputRef.current?.click();
+                }
+              }}
               title="Nạp tập tin Cơ sở dữ liệu SQLite (.db) từ máy tính"
               style={{
                 display: 'flex',

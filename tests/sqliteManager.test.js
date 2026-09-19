@@ -86,4 +86,43 @@ describe('sqliteManager module', () => {
       });
     }
   });
+
+  it('nạp và migrate schema an toàn từ file SQLite cũ mà không làm hỏng file', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const { getSqlEngine, saveDatabaseToFile, loadJsonFromDatabase, openOrCreateDatabase } = await import('../src/services/sqliteManager.cjs');
+
+    const SQL = await getSqlEngine();
+    // Tạo một CSDL cũ không có bảng departments và không có cột department_id
+    const legacyDb = new SQL.Database();
+    legacyDb.run("CREATE TABLE school_info (id INTEGER PRIMARY KEY, name TEXT);");
+    legacyDb.run("INSERT INTO school_info (id, name) VALUES (1, 'Trường Cũ');");
+    legacyDb.run("CREATE TABLE classes (id TEXT PRIMARY KEY, name TEXT, grade INTEGER);");
+    legacyDb.run("INSERT INTO classes (id, name, grade) VALUES ('L1A', '1A', 1);");
+    legacyDb.run("CREATE TABLE teachers (id TEXT PRIMARY KEY, name TEXT, code TEXT);");
+    legacyDb.run("INSERT INTO teachers (id, name, code) VALUES ('T1', 'Cô Lan', 'LAN');");
+
+    const testDbPath = path.resolve('scratch_test_legacy.db');
+    saveDatabaseToFile(legacyDb, testDbPath);
+
+    try {
+      // Mở lại DB cũ, kiểm tra quá trình migrate schema không gây malformed disk image
+      const migratedDb = await openOrCreateDatabase(testDbPath);
+      const data = loadJsonFromDatabase(migratedDb);
+      expect(data.schoolInfo.name).toBe('Trường Cũ');
+      expect(data.classes.length).toBe(1);
+      expect(data.teachers.length).toBe(1);
+
+      // Lưu lại sau khi migrate
+      saveDatabaseToFile(migratedDb, testDbPath);
+
+      // Kiểm tra tính toàn vẹn của file
+      const buf = fs.readFileSync(testDbPath);
+      const checkDb = new SQL.Database(new Uint8Array(buf));
+      const integrity = checkDb.exec("PRAGMA integrity_check;");
+      expect(integrity[0].values[0][0]).toBe('ok');
+    } finally {
+      try { fs.unlinkSync(testDbPath); } catch {}
+    }
+  });
 });

@@ -107,9 +107,10 @@ function autoSavePlugin() {
             try {
               const buffer = Buffer.concat(chunks);
               // Kiểm tra xem buffer có hợp lệ với SQLite không
-              const { getSqlEngine, createSchema, loadJsonFromDatabase } = getSqliteManager();
+              const { getSqlEngine, createSchema, loadJsonFromDatabase, saveDatabaseToFile } = getSqliteManager();
               const SQL = await getSqlEngine();
-              const testDb = new SQL.Database(buffer);
+              const uint8 = new Uint8Array(buffer);
+              const testDb = new SQL.Database(uint8);
               createSchema(testDb);
 
               // Xác nhận có dữ liệu hợp lệ trong CSDL vừa tải lên
@@ -118,18 +119,16 @@ function autoSavePlugin() {
                 throw new Error('Tệp database không chứa danh sách lớp học hợp lệ.');
               }
 
-              const tempPath = `${dbPath}.tmp-${Date.now()}`;
-              fs.writeFileSync(tempPath, buffer);
-              try {
-                fs.renameSync(tempPath, dbPath);
-              } catch {
-                fs.copyFileSync(tempPath, dbPath);
-                try { fs.unlinkSync(tempPath); } catch {}
-              }
+              // Lưu database hoàn chỉnh đã migrate schema vào đĩa một cách nguyên tử
+              saveDatabaseToFile(testDb, dbPath);
 
               res.statusCode = 200;
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ success: true, message: 'Database restored successfully' }));
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ 
+                success: true, 
+                message: 'Database restored successfully',
+                data: loadedData
+              }));
             } catch (err) {
               console.error('Error in /api/db/upload:', err);
               res.statusCode = 500;

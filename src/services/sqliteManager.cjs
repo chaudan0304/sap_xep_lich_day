@@ -33,7 +33,8 @@ async function openOrCreateDatabase(dbFilePath) {
   if (fs.existsSync(dbFilePath)) {
     try {
       const fileBuffer = fs.readFileSync(dbFilePath);
-      db = new SQL.Database(fileBuffer);
+      const uint8 = new Uint8Array(fileBuffer);
+      db = new SQL.Database(uint8);
       createSchema(db);
       return db;
     } catch (err) {

@@ -491,12 +491,16 @@ ipcMain.handle('db-import-file', async () => {
 
     // Kiểm tra tính hợp lệ của file SQLite
     const SQL = await getSqlEngine();
-    const testDb = new SQL.Database(buffer);
+    const uint8 = new Uint8Array(buffer);
+    const testDb = new SQL.Database(uint8);
     createSchema(testDb);
     const data = loadJsonFromDatabase(testDb);
+    if (!data || !Array.isArray(data.classes) || data.classes.length === 0) {
+      throw new Error('Tệp database không chứa danh sách lớp học hợp lệ.');
+    }
 
     const dbPath = getDbPath();
-    fs.writeFileSync(dbPath, buffer);
+    saveDatabaseToFile(testDb, dbPath);
     return { success: true, data };
   } catch (err) {
     console.error('db-import-file error:', err);

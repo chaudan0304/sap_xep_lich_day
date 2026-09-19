@@ -604,6 +604,9 @@ export function App() {
   const handleImportSqliteDb = async (file) => {
     try {
       const res = await importSqliteDatabaseFile(file);
+      if (res?.canceled) {
+        return;
+      }
       if (res?.data && res.data.classes?.length > 0) {
         skipAssignmentSyncRef.current = true;
         skipQuotaSyncRef.current = true;

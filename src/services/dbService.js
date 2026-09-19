@@ -129,7 +129,12 @@ export async function importSqliteDatabaseFile(file) {
       throw new Error(errRes.error || 'Nạp file cơ sở dữ liệu thất bại.');
     }
 
-    // Nạp lại dữ liệu sau khi upload thành công
+    const uploadRes = await resp.json().catch(() => ({}));
+    if (uploadRes?.data && uploadRes.data.classes?.length > 0) {
+      return { success: true, data: uploadRes.data };
+    }
+
+    // Nạp lại dữ liệu sau khi upload thành công (fallback nếu server không đính kèm data)
     const loadResp = await fetch('/api/db/load');
     if (!loadResp.ok) {
       throw new Error(`Máy chủ không thể đọc lại dữ liệu (mã lỗi ${loadResp.status}).`);
