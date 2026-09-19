@@ -5,6 +5,7 @@ import {
   Printer, 
   Download,
   AlertTriangle,
+  AlertCircle,
   TableProperties
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
@@ -37,6 +38,7 @@ export const MasterMatrixView = ({
   const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
 
   const errorCount = useMemo(() => conflicts.filter(c => c.severity === 'error').length, [conflicts]);
+  const warningCount = useMemo(() => conflicts.filter(c => c.severity === 'warning').length, [conflicts]);
 
   // Lọc lớp theo khối
   const filteredClasses = useMemo(() => {
@@ -51,7 +53,15 @@ export const MasterMatrixView = ({
   }, [selectedDay]);
 
   const getSlotConflict = (classId, dayId, periodId) => {
-    return (conflicts || []).find(c => (c.classId === classId || (c.conflictingClassIds && c.conflictingClassIds.includes(classId))) && c.day === dayId && c.period === periodId);
+    return (conflicts || []).find(c => {
+      const matchClass = c.classId === classId || (c.conflictingClassIds && c.conflictingClassIds.includes(classId));
+      if (!matchClass) return false;
+      if (c.day === dayId && c.period === periodId) return true;
+      if (c.type === 'SUBJECT_QUOTA_EXCEEDED' && c.placedSlots) {
+        return c.placedSlots.some(s => s.day === dayId && s.period === periodId);
+      }
+      return false;
+    });
   };
 
   // Synchronize Scroll from Top to Bottom
@@ -117,7 +127,7 @@ export const MasterMatrixView = ({
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {/* Conflict Quick Button */}
+            {/* Conflict / Warning Quick Button */}
             {conflicts.length > 0 && onOpenConflictModal && (
               <button
                 onClick={onOpenConflictModal}
@@ -136,8 +146,16 @@ export const MasterMatrixView = ({
                   boxShadow: 'var(--shadow-sm)'
                 }}
               >
-                <AlertTriangle size={16} color={errorCount > 0 ? '#dc2626' : '#d97706'} />
-                <span>Xem {conflicts.length} Xung Đột (Tiết/Lớp/Ai trùng)</span>
+                {errorCount > 0 ? (
+                  <AlertTriangle size={16} color="#dc2626" />
+                ) : (
+                  <AlertCircle size={16} color="#d97706" />
+                )}
+                <span>
+                  {errorCount > 0 
+                    ? `Xem ${errorCount} Lỗi Trùng Lịch${warningCount > 0 ? ` (${warningCount} Cảnh Báo)` : ''}`
+                    : `Xem ${warningCount} Cảnh Báo`}
+                </span>
               </button>
             )}
 
@@ -567,7 +585,7 @@ export const MasterMatrixView = ({
                                       verticalAlign: 'middle',
                                       borderRight: '1px solid #e2e8f0',
                                       borderBottom: '1px solid #e2e8f0',
-                                      background: conflict ? '#fff5f5' : (sub ? sub.bg : 'transparent'),
+                                      background: conflict ? (conflict.severity === 'warning' ? '#fffbeb' : '#fff5f5') : (sub ? sub.bg : 'transparent'),
                                       height: '46px'
                                     }}
                                   >
@@ -580,21 +598,21 @@ export const MasterMatrixView = ({
                                         style={{
                                           borderRadius: '6px',
                                           padding: '3px 4px',
-                                          border: `1.5px solid ${conflict ? '#ef4444' : (sub?.border || '#cbd5e1')}`,
-                                          background: conflict ? '#fee2e2' : 'transparent',
+                                          border: `1.5px solid ${conflict ? (conflict.severity === 'warning' ? '#f59e0b' : '#ef4444') : (sub?.border || '#cbd5e1')}`,
+                                          background: conflict ? (conflict.severity === 'warning' ? '#fef3c7' : '#fee2e2') : 'transparent',
                                           display: 'flex',
                                           flexDirection: 'column',
                                           alignItems: 'center',
                                           gap: '1px',
                                           cursor: conflict ? 'pointer' : 'default',
-                                          boxShadow: conflict ? '0 0 6px rgba(239, 68, 68, 0.4)' : 'none'
+                                          boxShadow: conflict ? (conflict.severity === 'warning' ? '0 0 6px rgba(245, 158, 11, 0.4)' : '0 0 6px rgba(239, 68, 68, 0.4)') : 'none'
                                         }}
                                         title={conflict ? conflict.message : `${sub?.name || slot.subjectId} - ${teacher?.name || slot.teacherId}`}
                                       >
                                         <span style={{
                                           fontWeight: 800,
                                           fontSize: '0.74rem',
-                                          color: conflict ? '#991b1b' : (sub?.text || '#1e293b'),
+                                          color: conflict ? (conflict.severity === 'warning' ? '#92400e' : '#991b1b') : (sub?.text || '#1e293b'),
                                           whiteSpace: 'nowrap'
                                         }}>
                                           {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
@@ -746,7 +764,7 @@ export const MasterMatrixView = ({
                                       verticalAlign: 'middle',
                                       borderRight: '1px solid #e2e8f0',
                                       borderBottom: '1px solid #e2e8f0',
-                                      background: conflict ? '#fff5f5' : (sub ? sub.bg : 'transparent'),
+                                      background: conflict ? (conflict.severity === 'warning' ? '#fffbeb' : '#fff5f5') : (sub ? sub.bg : 'transparent'),
                                       height: '46px'
                                     }}
                                   >
@@ -759,21 +777,21 @@ export const MasterMatrixView = ({
                                         style={{
                                           borderRadius: '6px',
                                           padding: '3px 4px',
-                                          border: `1.5px solid ${conflict ? '#ef4444' : (sub?.border || '#cbd5e1')}`,
-                                          background: conflict ? '#fee2e2' : 'transparent',
+                                          border: `1.5px solid ${conflict ? (conflict.severity === 'warning' ? '#f59e0b' : '#ef4444') : (sub?.border || '#cbd5e1')}`,
+                                          background: conflict ? (conflict.severity === 'warning' ? '#fef3c7' : '#fee2e2') : 'transparent',
                                           display: 'flex',
                                           flexDirection: 'column',
                                           alignItems: 'center',
                                           gap: '1px',
                                           cursor: conflict ? 'pointer' : 'default',
-                                          boxShadow: conflict ? '0 0 6px rgba(239, 68, 68, 0.4)' : 'none'
+                                          boxShadow: conflict ? (conflict.severity === 'warning' ? '0 0 6px rgba(245, 158, 11, 0.4)' : '0 0 6px rgba(239, 68, 68, 0.4)') : 'none'
                                         }}
                                         title={conflict ? conflict.message : `${sub?.name || slot.subjectId} - ${teacher?.name || slot.teacherId}`}
                                       >
                                         <span style={{
                                           fontWeight: 800,
                                           fontSize: '0.74rem',
-                                          color: conflict ? '#991b1b' : (sub?.text || '#1e293b'),
+                                          color: conflict ? (conflict.severity === 'warning' ? '#92400e' : '#991b1b') : (sub?.text || '#1e293b'),
                                           whiteSpace: 'nowrap'
                                         }}>
                                           {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
@@ -975,7 +993,7 @@ export const MasterMatrixView = ({
                                   verticalAlign: 'middle',
                                   borderRight: p.id === 7 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
                                   borderBottom: '1px solid #e2e8f0',
-                                  background: conflict ? '#fff5f5' : (sub ? sub.bg : 'transparent'),
+                                  background: conflict ? (conflict.severity === 'warning' ? '#fffbeb' : '#fff5f5') : (sub ? sub.bg : 'transparent'),
                                   height: '48px'
                                 }}
                               >
@@ -988,28 +1006,28 @@ export const MasterMatrixView = ({
                                     style={{
                                       borderRadius: '6px',
                                       padding: '3px 4px',
-                                      border: `1.5px solid ${conflict ? '#ef4444' : (sub?.border || '#cbd5e1')}`,
-                                      background: conflict ? '#fee2e2' : 'transparent',
+                                      border: `1.5px solid ${conflict ? (conflict.severity === 'warning' ? '#f59e0b' : '#ef4444') : (sub?.border || '#cbd5e1')}`,
+                                      background: conflict ? (conflict.severity === 'warning' ? '#fef3c7' : '#fee2e2') : 'transparent',
                                       display: 'flex',
                                       flexDirection: 'column',
                                       alignItems: 'center',
                                       gap: '1px',
                                       cursor: conflict ? 'pointer' : 'default',
-                                      boxShadow: conflict ? '0 0 6px rgba(239, 68, 68, 0.4)' : 'none'
+                                      boxShadow: conflict ? (conflict.severity === 'warning' ? '0 0 6px rgba(245, 158, 11, 0.4)' : '0 0 6px rgba(239, 68, 68, 0.4)') : 'none'
                                     }}
                                     title={conflict ? conflict.message : `${sub?.name || slot.subjectId} - ${teacher?.name || slot.teacherId}`}
                                   >
                                     <span style={{
                                       fontWeight: 800,
                                       fontSize: '0.73rem',
-                                      color: conflict ? '#991b1b' : (sub?.text || '#1e293b'),
+                                      color: conflict ? (conflict.severity === 'warning' ? '#92400e' : '#991b1b') : (sub?.text || '#1e293b'),
                                       whiteSpace: 'nowrap'
                                     }}>
                                       {sub?.shortName || sub?.name || slot.subjectRaw || slot.subjectId}
                                     </span>
                                     <span style={{
                                       fontSize: '0.66rem',
-                                      color: conflict ? '#dc2626' : '#475569',
+                                      color: conflict ? (conflict.severity === 'warning' ? '#b45309' : '#dc2626') : '#475569',
                                       fontWeight: 700,
                                       whiteSpace: 'nowrap'
                                     }}>

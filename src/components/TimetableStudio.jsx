@@ -7,6 +7,7 @@ import {
   ArrowLeftRight, 
   CheckCircle2, 
   AlertTriangle, 
+  AlertCircle,
   Plus, 
   Printer,
   Users as UsersIcon,
@@ -144,11 +145,18 @@ export const TimetableStudio = ({
           }
         }
       }
-      const cConflicts = (conflicts || []).filter(
+      const classConflictList = (conflicts || []).filter(
         conf => conf.classId === c.id || (conf.conflictingClassIds && conf.conflictingClassIds.includes(c.id))
-      ).length;
+      );
+      const cErrors = classConflictList.filter(conf => conf.severity === 'error').length;
+      const cWarnings = classConflictList.filter(conf => conf.severity === 'warning').length;
 
-      map.set(c.id, { scheduledCount: count, conflictCount: cConflicts });
+      map.set(c.id, { 
+        scheduledCount: count, 
+        conflictCount: classConflictList.length,
+        errorCount: cErrors,
+        warningCount: cWarnings
+      });
     });
     return map;
   }, [classes, timetable, conflicts]);
@@ -248,9 +256,23 @@ export const TimetableStudio = ({
     return (conflicts || []).filter(c => c.classId === selectedClassId || (c.conflictingClassIds && c.conflictingClassIds.includes(selectedClassId)));
   }, [conflicts, selectedClassId]);
 
-  // Kiểm tra 1 ô cụ thể có bị xung đột không
+  const classErrorCount = useMemo(() => {
+    return classConflicts.filter(c => c.severity === 'error').length;
+  }, [classConflicts]);
+
+  const classWarningCount = useMemo(() => {
+    return classConflicts.filter(c => c.severity === 'warning').length;
+  }, [classConflicts]);
+
+  // Kiểm tra 1 ô cụ thể có bị xung đột / cảnh báo không
   const getSlotConflict = (day, period) => {
-    return classConflicts.find(c => c.day === day && c.period === period);
+    return classConflicts.find(c => {
+      if (c.day === day && c.period === period) return true;
+      if (c.type === 'SUBJECT_QUOTA_EXCEEDED' && c.placedSlots) {
+        return c.placedSlots.some(s => s.day === day && s.period === period);
+      }
+      return false;
+    });
   };
 
   // 1. Xử lý Kéo Thả (Drag & Drop)
@@ -705,11 +727,11 @@ export const TimetableStudio = ({
                 <span>{totalScheduled} / 32 tiết</span>
               </div>
 
-              {/* Conflict Badge */}
-              {classConflicts.length > 0 ? (
+              {/* Conflict / Warning Badge */}
+              {classErrorCount > 0 ? (
                 <button
                   onClick={() => onOpenConflictModal && onOpenConflictModal()}
-                  title="Bấm để xem danh sách chi tiết: tiết nào, lớp nào, ai trùng"
+                  title={`Có ${classErrorCount} lỗi trùng giờ/phòng${classWarningCount > 0 ? ` và ${classWarningCount} cảnh báo` : ''}. Bấm để xem chi tiết.`}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -729,7 +751,33 @@ export const TimetableStudio = ({
                   onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 >
                   <AlertTriangle size={14} color="#dc2626" />
-                  <span>{classConflicts.length} Xung Đột</span>
+                  <span>{classErrorCount} Xung Đột</span>
+                  {classWarningCount > 0 && <span style={{ opacity: 0.85, fontSize: '0.72rem' }}>({classWarningCount} ⚠️)</span>}
+                </button>
+              ) : classWarningCount > 0 ? (
+                <button
+                  onClick={() => onOpenConflictModal && onOpenConflictModal()}
+                  title={`Không có lỗi trùng giờ, nhưng có ${classWarningCount} cảnh báo định mức. Bấm để xem chi tiết.`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    background: '#fffbeb',
+                    border: '1.5px solid #f59e0b',
+                    color: '#b45309',
+                    fontSize: '0.8rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    boxShadow: '0 0 10px rgba(245, 158, 11, 0.2)',
+                    transition: 'transform 0.15s ease'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.04)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <AlertCircle size={14} color="#d97706" />
+                  <span>{classWarningCount} Cảnh Báo</span>
                 </button>
               ) : (
                 <div style={{
@@ -1047,7 +1095,7 @@ export const TimetableStudio = ({
                       </div>
                     </div>
 
-                    {stats.conflictCount > 0 ? (
+                    {stats.errorCount > 0 ? (
                       <span style={{
                         fontSize: '0.7rem',
                         padding: '2px 7px',
@@ -1056,7 +1104,18 @@ export const TimetableStudio = ({
                         color: '#dc2626',
                         fontWeight: 800
                       }}>
-                        {stats.conflictCount} xung đột
+                        {stats.errorCount} lỗi{stats.warningCount > 0 ? ` +${stats.warningCount}⚠️` : ''}
+                      </span>
+                    ) : stats.warningCount > 0 ? (
+                      <span style={{
+                        fontSize: '0.7rem',
+                        padding: '2px 7px',
+                        borderRadius: '12px',
+                        background: isSelected ? '#ffffff' : '#fffbeb',
+                        color: '#b45309',
+                        fontWeight: 800
+                      }}>
+                        {stats.warningCount} cảnh báo
                       </span>
                     ) : (
                       <span style={{
@@ -1077,15 +1136,15 @@ export const TimetableStudio = ({
           )}
         </div>
 
-      {/* DETAILED CONFLICT ALERT BANNER FOR THIS CLASS */}
+      {/* DETAILED CONFLICT / WARNING ALERT BANNER FOR THIS CLASS */}
       {classConflicts.length > 0 && (
         <div className="animate-fade-in" style={{
-          background: '#fff5f5',
-          border: '1.5px solid #f87171',
+          background: classErrorCount > 0 ? '#fff5f5' : '#fffbeb',
+          border: `1.5px solid ${classErrorCount > 0 ? '#f87171' : '#fcd34d'}`,
           borderRadius: '14px',
           padding: '14px 20px',
           marginBottom: '18px',
-          boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)',
+          boxShadow: classErrorCount > 0 ? '0 4px 12px rgba(239, 68, 68, 0.15)' : '0 4px 12px rgba(245, 158, 11, 0.15)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
@@ -1094,7 +1153,7 @@ export const TimetableStudio = ({
         }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1 }}>
             <div style={{
-              background: '#ef4444',
+              background: classErrorCount > 0 ? '#ef4444' : '#f59e0b',
               color: '#ffffff',
               borderRadius: '10px',
               padding: '8px',
@@ -1103,68 +1162,101 @@ export const TimetableStudio = ({
               justifyContent: 'center',
               marginTop: '2px'
             }}>
-              <AlertTriangle size={20} />
+              {classErrorCount > 0 ? <AlertTriangle size={20} /> : <AlertCircle size={20} />}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800, color: '#991b1b', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span>CẢNH BÁO: Phát hiện {classConflicts.length} xung đột / trùng lịch tại {currentClass.name}</span>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: '6px' }}>
-                  Cần điều chỉnh
+              <div style={{
+                fontWeight: 800,
+                color: classErrorCount > 0 ? '#991b1b' : '#92400e',
+                fontSize: '0.92rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap'
+              }}>
+                <span>
+                  {classErrorCount > 0 
+                    ? `LỖI TRÙNG LỊCH: Phát hiện ${classErrorCount} xung đột / trùng lịch tại ${currentClass.name}${classWarningCount > 0 ? ` (kèm ${classWarningCount} cảnh báo)` : ''}`
+                    : `CẢNH BÁO: Phát hiện ${classWarningCount} cảnh báo định mức tại ${currentClass.name}`}
+                </span>
+                <span style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: classErrorCount > 0 ? '#dc2626' : '#b45309',
+                  background: classErrorCount > 0 ? '#fee2e2' : '#fef3c7',
+                  padding: '2px 8px',
+                  borderRadius: '6px'
+                }}>
+                  {classErrorCount > 0 ? 'Cần điều chỉnh' : 'Lưu ý định mức'}
                 </span>
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
-                {classConflicts.map((cf, idx) => (
-                  <div key={cf.id || idx} style={{
-                    fontSize: '0.82rem',
-                    background: '#ffffff',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #fecaca',
-                    color: '#7f1d1d',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '10px',
-                    flexWrap: 'wrap'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 800, color: '#991b1b', background: '#fee2e2', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem' }}>
-                        {cf.dayName || `Thứ ${cf.day}`} • {cf.periodName || `Tiết ${cf.period}`}
-                      </span>
-
-                      {cf.type === 'TEACHER_DOUBLE_BOOKING' && (
-                        <span>
-                          🔴 <strong>Trùng giờ GV:</strong> <span style={{ color: '#0f172a', fontWeight: 800 }}>{cf.teacherName}</span> ({cf.teacherCode}) đang dạy cùng lúc với <strong>[{cf.conflictingClassNames}]</strong>
+                {classConflicts.map((cf, idx) => {
+                  const isItemError = cf.severity === 'error';
+                  return (
+                    <div key={cf.id || idx} style={{
+                      fontSize: '0.82rem',
+                      background: '#ffffff',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: isItemError ? '1px solid #fecaca' : '1px solid #fde68a',
+                      color: isItemError ? '#7f1d1d' : '#92400e',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      flexWrap: 'wrap'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{
+                          fontWeight: 800,
+                          color: isItemError ? '#991b1b' : '#b45309',
+                          background: isItemError ? '#fee2e2' : '#fef3c7',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem'
+                        }}>
+                          {cf.day 
+                            ? `${cf.dayName || `Thứ ${cf.day}`} • ${cf.periodName || `Tiết ${cf.period}`}`
+                            : (cf.type === 'SUBJECT_QUOTA_EXCEEDED' 
+                                ? `Định mức: ${cf.placed}/${cf.weeklyPeriods}T (thừa ${cf.excessPeriods || (cf.placed - cf.weeklyPeriods)}T)` 
+                                : 'Cảnh báo')}
                         </span>
-                      )}
 
-                      {cf.type === 'ROOM_DOUBLE_BOOKING' && (
-                        <span>
-                          🔴 <strong>Trùng Phòng:</strong> <span style={{ color: '#0f172a', fontWeight: 800 }}>{cf.roomName}</span> đang bị trùng bởi <strong>[{cf.conflictingClassNames}]</strong>
-                        </span>
-                      )}
+                        {cf.type === 'TEACHER_DOUBLE_BOOKING' && (
+                          <span>
+                            🔴 <strong>Trùng giờ GV:</strong> <span style={{ color: '#0f172a', fontWeight: 800 }}>{cf.teacherName}</span> ({cf.teacherCode}) đang dạy cùng lúc với <strong>[{cf.conflictingClassNames}]</strong>
+                          </span>
+                        )}
 
-                      {cf.type === 'TEACHER_OFF_SESSION' && (
-                        <span>
-                          🟡 <strong>Buổi nghỉ:</strong> <span style={{ color: '#0f172a', fontWeight: 800 }}>{cf.teacherName}</span> đã đăng ký nghỉ buổi này
-                        </span>
-                      )}
+                        {cf.type === 'ROOM_DOUBLE_BOOKING' && (
+                          <span>
+                            🔴 <strong>Trùng Phòng:</strong> <span style={{ color: '#0f172a', fontWeight: 800 }}>{cf.roomName}</span> đang bị trùng bởi <strong>[{cf.conflictingClassNames}]</strong>
+                          </span>
+                        )}
 
-                      {cf.type === 'TEACHER_MAX_DAILY' && (
-                        <span>
-                          🟡 <strong>Vượt định mức ngày:</strong> <span style={{ color: '#0f172a', fontWeight: 800 }}>{cf.teacherName}</span> dạy {cf.dailyCount} tiết/ngày (tối đa {cf.maxPerDay})
-                        </span>
-                      )}
+                        {cf.type === 'TEACHER_OFF_SESSION' && (
+                          <span>
+                            🟡 <strong>Buổi nghỉ:</strong> <span style={{ color: '#0f172a', fontWeight: 800 }}>{cf.teacherName}</span> đã đăng ký nghỉ buổi này
+                          </span>
+                        )}
 
-                      {cf.type === 'SUBJECT_QUOTA_EXCEEDED' && (
-                        <span>
-                          🟡 <strong>Vượt số tiết:</strong> Môn {cf.subjectName} đã xếp {cf.placed} tiết (mức phân công: {cf.weeklyPeriods}T)
-                        </span>
-                      )}
+                        {cf.type === 'TEACHER_MAX_DAILY' && (
+                          <span>
+                            🟡 <strong>Vượt định mức ngày:</strong> <span style={{ color: '#0f172a', fontWeight: 800 }}>{cf.teacherName}</span> dạy {cf.dailyCount} tiết/ngày (tối đa {cf.maxPerDay})
+                          </span>
+                        )}
+
+                        {cf.type === 'SUBJECT_QUOTA_EXCEEDED' && (
+                          <span>
+                            🟡 <strong>Vượt số tiết:</strong> Môn {cf.subjectName} đã xếp {cf.placed} tiết (mức phân công: {cf.weeklyPeriods}T/tuần, thừa {cf.excessPeriods || (cf.placed - cf.weeklyPeriods)} tiết)
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1173,7 +1265,7 @@ export const TimetableStudio = ({
             <button
               onClick={onOpenConflictModal}
               style={{
-                background: '#dc2626',
+                background: classErrorCount > 0 ? '#dc2626' : '#d97706',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
@@ -1181,11 +1273,11 @@ export const TimetableStudio = ({
                 fontSize: '0.8rem',
                 fontWeight: 700,
                 cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(220, 38, 38, 0.3)',
+                boxShadow: classErrorCount > 0 ? '0 2px 6px rgba(220, 38, 38, 0.3)' : '0 2px 6px rgba(217, 119, 6, 0.3)',
                 whiteSpace: 'nowrap'
               }}
             >
-              Xem Toàn Bộ Lỗi ({conflicts.length})
+              {classErrorCount > 0 ? `Xem Toàn Bộ Lỗi (${conflicts.length})` : `Xem Bảng Cảnh Báo (${conflicts.length})`}
             </button>
           )}
         </div>
@@ -1523,7 +1615,7 @@ export const TimetableStudio = ({
                                   style={{
                                     height: '100%',
                                     background: sub?.bg || '#f8fafc',
-                                    border: `1.5px solid ${conflict ? '#ef4444' : (sub?.border || '#cbd5e1')}`,
+                                    border: `1.5px solid ${conflict ? (conflict.severity === 'warning' ? '#f59e0b' : '#ef4444') : (sub?.border || '#cbd5e1')}`,
                                     borderRadius: '10px',
                                     padding: '6px 8px',
                                     display: 'flex',
@@ -1531,7 +1623,7 @@ export const TimetableStudio = ({
                                     justifyContent: 'space-between',
                                     textAlign: 'left',
                                     position: 'relative',
-                                    boxShadow: conflict ? '0 0 10px rgba(239, 68, 68, 0.3)' : 'var(--shadow-sm)',
+                                    boxShadow: conflict ? (conflict.severity === 'warning' ? '0 0 8px rgba(245, 158, 11, 0.35)' : '0 0 10px rgba(239, 68, 68, 0.3)') : 'var(--shadow-sm)',
                                     transition: 'all 0.15s ease',
                                     cursor: slot.isLocked ? 'default' : 'grab'
                                   }}
@@ -1545,8 +1637,8 @@ export const TimetableStudio = ({
                                     {/* Action Icons */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }} onClick={(e) => e.stopPropagation()}>
                                       {conflict && (
-                                        <span title={conflict.message} style={{ color: '#ef4444' }}>
-                                          <AlertTriangle size={14} />
+                                        <span title={conflict.message} style={{ color: conflict.severity === 'warning' ? '#d97706' : '#ef4444' }}>
+                                          {conflict.severity === 'warning' ? <AlertCircle size={14} /> : <AlertTriangle size={14} />}
                                         </span>
                                       )}
 

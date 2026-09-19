@@ -98,7 +98,9 @@ export const ConflictModal = ({
           padding: '20px 28px',
           background: errorCount > 0 
             ? 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #b91c1c 100%)' 
-            : 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)',
+            : (warningCount > 0 
+                ? 'linear-gradient(135deg, #78350f 0%, #92400e 50%, #b45309 100%)' 
+                : 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)'),
           color: '#ffffff',
           display: 'flex',
           justifyContent: 'space-between',
@@ -113,7 +115,13 @@ export const ConflictModal = ({
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              {errorCount > 0 ? <AlertTriangle size={26} color="#fecaca" /> : <CheckCircle2 size={26} color="#a7f3d0" />}
+              {errorCount > 0 ? (
+                <AlertTriangle size={26} color="#fecaca" />
+              ) : (warningCount > 0 ? (
+                <AlertCircle size={26} color="#fde68a" />
+              ) : (
+                <CheckCircle2 size={26} color="#a7f3d0" />
+              ))}
             </div>
             <div>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -122,15 +130,22 @@ export const ConflictModal = ({
                   fontSize: '0.75rem',
                   padding: '3px 10px',
                   borderRadius: '999px',
-                  background: errorCount > 0 ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.3)',
+                  background: errorCount > 0 
+                    ? 'rgba(255, 255, 255, 0.25)' 
+                    : (warningCount > 0 ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.3)'),
                   fontWeight: 700
                 }}>
-                  {errorCount > 0 ? `${errorCount} Lỗi Trùng Giờ/Phòng` : '0 Trùng Giờ (Hoàn hảo)'}
-                  {warningCount > 0 ? ` • ${warningCount} Cảnh báo` : ''}
+                  {errorCount > 0 
+                    ? `${errorCount} Lỗi Trùng Giờ/Phòng${warningCount > 0 ? ` • ${warningCount} Cảnh báo` : ''}` 
+                    : (warningCount > 0 ? `0 Trùng Giờ • ${warningCount} Cảnh báo` : '0 Trùng Giờ (Hoàn hảo)')}
                 </span>
               </h2>
               <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'rgba(255, 255, 255, 0.85)' }}>
-                Hiển thị rõ ràng Tiết học, Buổi học, Lớp học và Giáo viên/Phòng học bị trùng
+                {errorCount > 0 
+                  ? 'Hiển thị rõ ràng Tiết học, Buổi học, Lớp học và Giáo viên/Phòng học bị trùng'
+                  : (warningCount > 0 
+                      ? 'Không có lỗi trùng giờ/phòng. Phát hiện cảnh báo về định mức môn hoặc phân công giảng dạy'
+                      : 'Tất cả tiết học, giáo viên và phòng chức năng đều không có xung đột hay cảnh báo nào')}
               </p>
             </div>
           </div>
@@ -637,7 +652,13 @@ export const ConflictModal = ({
           alignItems: 'center'
         }}>
           <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-            Hiển thị <strong>{filteredConflicts.length}</strong> / <strong>{conflicts.length}</strong> xung đột
+            {errorCount > 0 ? (
+              <>Hiển thị <strong>{filteredConflicts.length}</strong> / <strong>{conflicts.length}</strong> vấn đề ({errorCount} trùng giờ/phòng{warningCount > 0 ? `, ${warningCount} cảnh báo` : ''})</>
+            ) : warningCount > 0 ? (
+              <>Hiển thị <strong>{filteredConflicts.length}</strong> / <strong>{conflicts.length}</strong> cảnh báo (0 trùng giờ)</>
+            ) : (
+              <>0 xung đột • Thời khóa biểu hoàn hảo</>
+            )}
           </span>
 
           <button

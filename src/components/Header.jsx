@@ -11,6 +11,7 @@ import {
   FileSpreadsheet, 
   Trash2,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   GraduationCap,
   School,
@@ -75,6 +76,7 @@ export const Header = ({
     e.target.value = '';
   };
   const errorCount = conflicts.filter(c => c.severity === 'error').length;
+  const warningCount = conflicts.filter(c => c.severity === 'warning').length;
 
   const navItems = [
     { id: 'studio', label: 'Studio Xếp Lịch', icon: Calendar, badge: null },
@@ -444,10 +446,16 @@ export const Header = ({
             </button>
           </div>
 
-          {/* Group 2: Conflict Status Badge */}
+          {/* Group 2: Conflict Status & Inspector Button */}
           <button
             onClick={onOpenConflictModal}
-            title="Bấm để xem chi tiết danh sách xung đột: tiết nào, lớp nào và ai trùng"
+            title={
+              errorCount > 0
+                ? `Có ${errorCount} lỗi trùng lịch${warningCount > 0 ? ` và ${warningCount} cảnh báo` : ''}. Bấm để mở bảng tra cứu chi tiết.`
+                : (warningCount > 0
+                    ? `Không có lỗi trùng giờ, nhưng có ${warningCount} cảnh báo (ví dụ: xếp vượt định mức môn). Bấm để kiểm tra.`
+                    : 'Thời khóa biểu hoàn hảo, không có trùng giờ hay cảnh báo nào. Bấm để xem kiểm tra.')
+            }
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -457,9 +465,15 @@ export const Header = ({
               fontSize: '0.78rem',
               fontWeight: 700,
               cursor: 'pointer',
-              background: errorCount > 0 ? 'rgba(239, 68, 68, 0.22)' : 'rgba(16, 185, 129, 0.2)',
-              border: `1px solid ${errorCount > 0 ? 'rgba(248, 113, 113, 0.5)' : 'rgba(52, 211, 153, 0.4)'}`,
-              color: errorCount > 0 ? '#fca5a5' : '#6ee7b7',
+              background: errorCount > 0 
+                ? 'rgba(239, 68, 68, 0.22)' 
+                : (warningCount > 0 ? 'rgba(245, 158, 11, 0.22)' : 'rgba(16, 185, 129, 0.2)'),
+              border: `1px solid ${
+                errorCount > 0 
+                  ? 'rgba(248, 113, 113, 0.5)' 
+                  : (warningCount > 0 ? 'rgba(245, 158, 11, 0.5)' : 'rgba(52, 211, 153, 0.4)')
+              }`,
+              color: errorCount > 0 ? '#fca5a5' : (warningCount > 0 ? '#fde68a' : '#6ee7b7'),
               whiteSpace: 'nowrap',
               transition: 'all 0.15s ease'
             }}
@@ -470,6 +484,12 @@ export const Header = ({
               <>
                 <AlertTriangle size={14} />
                 <span>{errorCount} Trùng Lịch</span>
+                {warningCount > 0 && <span style={{ opacity: 0.85, fontSize: '0.72rem' }}>({warningCount} ⚠️)</span>}
+              </>
+            ) : warningCount > 0 ? (
+              <>
+                <AlertCircle size={14} />
+                <span>{warningCount} Cảnh Báo</span>
               </>
             ) : (
               <>
