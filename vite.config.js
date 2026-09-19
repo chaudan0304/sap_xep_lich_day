@@ -64,13 +64,6 @@ function autoSavePlugin() {
               saveJsonToDatabase(db, payload);
               saveDatabaseToFile(db, dbPath);
 
-              // Đồng bộ song song ra file json dự phòng
-              try {
-                fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2), 'utf8');
-              } catch (jErr) {
-                console.warn('Backup JSON write warning:', jErr);
-              }
-
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ success: true, message: 'Saved successfully to SQLite edutimetable.db' }));
