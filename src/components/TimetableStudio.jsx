@@ -1,5 +1,6 @@
 // src/components/TimetableStudio.jsx
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Lock, 
   Unlock, 
@@ -1819,30 +1820,41 @@ export const TimetableStudio = ({
         teachers={teachers}
       />
 
-      {/* QUICK SLOT EDIT MODAL */}
-      {editingSlotInfo && (
+      {/* QUICK SLOT EDIT MODAL (PORTAL TO BODY TO PREVENT SCROLL DRIFT) */}
+      {editingSlotInfo && createPortal(
         <div
           style={{
             position: 'fixed',
-            inset: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
             background: 'rgba(15, 23, 42, 0.65)',
             backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 9999,
-            padding: '16px'
+            zIndex: 99999,
+            padding: '16px',
+            overflowY: 'auto'
           }}
           onClick={() => setEditingSlotInfo(null)}
         >
           <div
             onClick={e => e.stopPropagation()}
+            className="animate-fade-in"
             style={{
               background: '#ffffff',
               borderRadius: '16px',
               maxWidth: '480px',
               width: '100%',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
               border: '1px solid #e2e8f0',
               overflow: 'hidden'
             }}
@@ -1861,7 +1873,10 @@ export const TimetableStudio = ({
                   Chỉnh Sửa Tiết Học
                 </h3>
                 <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-                  Lớp {classes.find(c => c.id === selectedClassId)?.name || selectedClassId} &bull; Thứ {editingSlotInfo.day} &bull; Tiết {editingSlotInfo.period}
+                  {(() => {
+                    const cName = classes.find(c => c.id === selectedClassId)?.name || selectedClassId;
+                    return cName.startsWith('Lớp') ? cName : `Lớp ${cName}`;
+                  })()} &bull; Thứ {editingSlotInfo.day} &bull; Tiết {editingSlotInfo.period}
                 </p>
               </div>
               <button
@@ -1873,7 +1888,7 @@ export const TimetableStudio = ({
             </div>
 
             {/* Modal Body */}
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', flex: 1 }}>
               {/* Môn Học */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
@@ -2042,7 +2057,8 @@ export const TimetableStudio = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   </div>
