@@ -802,10 +802,25 @@ export const TimetableStudio = ({
                     fontWeight: 700,
                     fontSize: '0.78rem'
                   }}
-                  title="Hoàn tác bước xếp trước (Phím tắt: Ctrl + Z)"
+                  title={history.length > 0
+                    ? `Hoàn tác: ${history[history.length - 1].label || 'Bước xếp trước'} (Ctrl+Z)`
+                    : 'Không có gì để hoàn tác'}
                 >
                   <Undo2 size={14} />
                   <span>Hoàn tác</span>
+                  {history.length > 0 && (
+                    <span style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      background: '#e2e8f0',
+                      color: '#334155',
+                      padding: '1px 5px',
+                      borderRadius: '10px',
+                      lineHeight: '1.2'
+                    }}>
+                      {history.length}
+                    </span>
+                  )}
                 </button>
                 <div style={{ width: '1px', height: '12px', background: '#cbd5e1' }} />
                 <button
@@ -824,10 +839,25 @@ export const TimetableStudio = ({
                     fontWeight: 700,
                     fontSize: '0.78rem'
                   }}
-                  title="Làm lại bước vừa hoàn tác (Phím tắt: Ctrl + Y)"
+                  title={future.length > 0
+                    ? `Làm lại: ${future[0].label || 'Bước vừa hoàn tác'} (Ctrl+Y)`
+                    : 'Không có gì để làm lại'}
                 >
                   <Redo2 size={14} />
                   <span>Làm lại</span>
+                  {future.length > 0 && (
+                    <span style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      background: '#e2e8f0',
+                      color: '#334155',
+                      padding: '1px 5px',
+                      borderRadius: '10px',
+                      lineHeight: '1.2'
+                    }}>
+                      {future.length}
+                    </span>
+                  )}
                 </button>
               </div>
 
