@@ -35,6 +35,11 @@ export const TimetableStudio = ({
   assignments,
   timetable,
   setTimetable,
+  updateTimetable,
+  history = [],
+  future = [],
+  handleUndo,
+  handleRedo,
   conflicts,
   subjects = DEFAULT_SUBJECTS,
   periods = DEFAULT_PERIODS,
@@ -57,57 +62,18 @@ export const TimetableStudio = ({
   const [drawerSearch, setDrawerSearch] = useState('');
   const [editingSlotInfo, setEditingSlotInfo] = useState(null); // { day, period, subjectId, teacherId, roomId, isLocked, subjectRaw, teacherRaw }
 
-  // Undo & Redo History State
-  const [history, setHistory] = useState([]);
-  const [future, setFuture] = useState([]);
-
-  const setTimetableWithHistory = (updater) => {
-    setTimetable(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      // Record previous state in history
-      setHistory(h => [...h.slice(-30), JSON.parse(JSON.stringify(prev))]);
-      setFuture([]);
-      return next;
-    });
-  };
-
-  const handleUndo = React.useCallback(() => {
-    if (history.length === 0) return;
-    const previousSnapshot = history[history.length - 1];
-    setHistory(h => h.slice(0, -1));
-    setFuture(f => [JSON.parse(JSON.stringify(timetable)), ...f]);
-    setTimetable(previousSnapshot);
-    setSwapSource(null);
-  }, [history, timetable, setTimetable]);
-
-  const handleRedo = React.useCallback(() => {
-    if (future.length === 0) return;
-    const nextSnapshot = future[0];
-    setFuture(f => f.slice(1));
-    setHistory(h => [...h, JSON.parse(JSON.stringify(timetable))]);
-    setTimetable(nextSnapshot);
-    setSwapSource(null);
-  }, [future, timetable, setTimetable]);
-
-  // Keyboard shortcut listener for Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z
+  // Đặt lại ô chọn hoán đổi khi dữ liệu TKB thay đổi (undo, redo, xếp lịch...)
   React.useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+    setSwapSource(null);
+  }, [timetable]);
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        handleUndo();
-      } else if (
-        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
-      ) {
-        e.preventDefault();
-        handleRedo();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo]);
+  const setTimetableWithHistory = (updater, label = 'Chỉnh sửa thời khóa biểu') => {
+    if (updateTimetable) {
+      updateTimetable(updater, label);
+    } else if (setTimetable) {
+      setTimetable(updater);
+    }
+  };
 
   // 1. Grade detection & grouping
   const getGradeOfClass = (cls) => {
@@ -226,7 +192,7 @@ export const TimetableStudio = ({
       setTimetableWithHistory(prev => ({
         ...prev,
         [selectedClassId]: {}
-      }));
+      }), `Xóa lịch xếp ${currentClass?.name || selectedClassId}`);
       setSwapSource(null);
     }
   };
@@ -314,9 +280,11 @@ export const TimetableStudio = ({
     try {
       const data = JSON.parse(dataStr);
       const currentTargetSlot = timetable[selectedClassId]?.[targetDay]?.[targetPeriod];
+      const clsName = currentClass?.name || selectedClassId;
 
       // Nếu kéo từ Drawer vào Ô
       if (data.sourceType === 'drawer') {
+        const subName = subjects[data.subjectId]?.name || data.subjectId;
         setTimetableWithHistory(prev => {
           const updatedClass = { ...prev[selectedClassId] };
           updatedClass[targetDay] = { ...updatedClass[targetDay] };
@@ -328,7 +296,7 @@ export const TimetableStudio = ({
             isLocked: false
           };
           return { ...prev, [selectedClassId]: updatedClass };
-        });
+        }, `Xếp môn ${subName} vào Thứ ${targetDay}, Tiết ${targetPeriod} (${clsName})`);
       }
       // Nếu kéo từ Ô này sang Ô khác
       else if (data.sourceType === 'slot') {
@@ -345,7 +313,10 @@ export const TimetableStudio = ({
           updatedClass[targetDay][targetPeriod] = { ...slot };
 
           return { ...prev, [selectedClassId]: updatedClass };
-        });
+        }, currentTargetSlot
+          ? `Hoán đổi tiết Thứ ${fromDay} T${fromPeriod} với Thứ ${targetDay} T${targetPeriod} (${clsName})`
+          : `Di chuyển tiết Thứ ${fromDay} T${fromPeriod} sang Thứ ${targetDay} T${targetPeriod} (${clsName})`
+        );
       }
     } catch (err) {
       console.error('Drag drop error:', err);
@@ -366,6 +337,7 @@ export const TimetableStudio = ({
       const fromDay = swapSource.day;
       const fromPeriod = swapSource.period;
       const targetSlot = timetable[selectedClassId]?.[day]?.[period];
+      const clsName = currentClass?.name || selectedClassId;
 
       setTimetableWithHistory(prev => {
         const updatedClass = { ...prev[selectedClassId] };
@@ -376,7 +348,10 @@ export const TimetableStudio = ({
         updatedClass[day][period] = { ...swapSource.slot };
 
         return { ...prev, [selectedClassId]: updatedClass };
-      });
+      }, targetSlot
+        ? `Hoán đổi tiết Thứ ${fromDay} T${fromPeriod} với Thứ ${day} T${period} (${clsName})`
+        : `Di chuyển tiết Thứ ${fromDay} T${fromPeriod} sang Thứ ${day} T${period} (${clsName})`
+      );
 
       setSwapSource(null);
     }
@@ -387,25 +362,27 @@ export const TimetableStudio = ({
     e.stopPropagation();
     const slot = timetable[selectedClassId]?.[day]?.[period];
     if (!slot) return;
+    const clsName = currentClass?.name || selectedClassId;
 
     setTimetableWithHistory(prev => {
       const updatedClass = { ...prev[selectedClassId] };
       updatedClass[day] = { ...updatedClass[day] };
       updatedClass[day][period] = { ...slot, isLocked: !slot.isLocked };
       return { ...prev, [selectedClassId]: updatedClass };
-    });
+    }, `${slot.isLocked ? 'Mở khóa' : 'Khóa'} tiết Thứ ${day} T${period} (${clsName})`);
   };
 
   // 4. Xóa Ô
   const handleClearSlot = (e, day, period) => {
     if (e && e.stopPropagation) e.stopPropagation();
+    const clsName = currentClass?.name || selectedClassId;
 
     setTimetableWithHistory(prev => {
       const updatedClass = { ...prev[selectedClassId] };
       updatedClass[day] = { ...updatedClass[day] };
       updatedClass[day][period] = null;
       return { ...prev, [selectedClassId]: updatedClass };
-    });
+    }, `Xóa tiết Thứ ${day} T${period} (${clsName})`);
   };
 
   // 5. Chỉnh sửa chi tiết Ô (Môn, Giáo viên, Phòng, Khóa)
@@ -426,6 +403,7 @@ export const TimetableStudio = ({
   const handleSaveSlotEdit = (updatedData) => {
     if (!editingSlotInfo) return;
     const { day, period } = editingSlotInfo;
+    const clsName = currentClass?.name || selectedClassId;
 
     // Nếu không chọn môn học -> xóa ô
     if (!updatedData.subjectId && !updatedData.subjectRaw) {
@@ -434,7 +412,7 @@ export const TimetableStudio = ({
         updatedClass[day] = { ...updatedClass[day] };
         updatedClass[day][period] = null;
         return { ...prev, [selectedClassId]: updatedClass };
-      });
+      }, `Xóa tiết Thứ ${day} T${period} (${clsName})`);
       setEditingSlotInfo(null);
       return;
     }
@@ -455,7 +433,7 @@ export const TimetableStudio = ({
         teacherRaw: updatedData.teacherId ? '' : updatedData.teacherRaw
       };
       return { ...prev, [selectedClassId]: updatedClass };
-    });
+    }, `Chỉnh sửa chi tiết tiết Thứ ${day} T${period} (${clsName})`);
     setEditingSlotInfo(null);
   };
 

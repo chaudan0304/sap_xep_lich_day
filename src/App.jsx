@@ -2,7 +2,7 @@
 // Trung tâm điều phối ứng dụng EduTimetable Tiểu Học
 // Tách biệt quản lý lưu trữ (useAppPersistence) và hệ thống hộp thoại (AppModals)
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { Header } from './components/Header';
 import { TeacherDirectory } from './components/TeacherDirectory';
@@ -168,6 +168,86 @@ export function App() {
     return solved.timetable || initialEmpty;
   });
 
+  // Lịch sử Hoàn tác (Undo) / Làm lại (Redo) toàn cục cho Thời khóa biểu
+  const [history, setHistory] = useState([]);
+  const [future, setFuture] = useState([]);
+  const timetableRef = useRef(timetable);
+  timetableRef.current = timetable;
+
+  // Hàm cập nhật Thời khóa biểu chuẩn, tự động lưu snapshot vào lịch sử
+  const updateTimetable = useCallback((updater, label = 'Chỉnh sửa thời khóa biểu') => {
+    const currentTimetable = timetableRef.current;
+    const next = typeof updater === 'function' ? updater(currentTimetable) : updater;
+    // Lưu snapshot trước khi thay đổi vào history (tối đa 30 bước)
+    setHistory(h => [
+      ...h.slice(-30),
+      {
+        snapshot: JSON.parse(JSON.stringify(currentTimetable)),
+        label,
+        timestamp: Date.now()
+      }
+    ]);
+    setFuture([]);
+    timetableRef.current = next;
+    setTimetable(next);
+  }, []);
+
+  // Hoàn tác bước trước đó
+  const handleUndo = useCallback(() => {
+    if (history.length === 0) return;
+    const lastEntry = history[history.length - 1];
+    const currentTimetable = timetableRef.current;
+    setHistory(h => h.slice(0, -1));
+    setFuture(f => [
+      {
+        snapshot: JSON.parse(JSON.stringify(currentTimetable)),
+        label: lastEntry.label,
+        timestamp: Date.now()
+      },
+      ...f
+    ]);
+    timetableRef.current = lastEntry.snapshot;
+    setTimetable(lastEntry.snapshot);
+  }, [history]);
+
+  // Làm lại bước vừa hoàn tác
+  const handleRedo = useCallback(() => {
+    if (future.length === 0) return;
+    const nextEntry = future[0];
+    const currentTimetable = timetableRef.current;
+    setFuture(f => f.slice(1));
+    setHistory(h => [
+      ...h.slice(-30),
+      {
+        snapshot: JSON.parse(JSON.stringify(currentTimetable)),
+        label: nextEntry.label,
+        timestamp: Date.now()
+      }
+    ]);
+    timetableRef.current = nextEntry.snapshot;
+    setTimetable(nextEntry.snapshot);
+  }, [future]);
+
+  // Phím tắt bàn phím toàn cục cho Hoàn tác (Ctrl+Z) và Làm lại (Ctrl+Y / Ctrl+Shift+Z)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
+      ) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+
   // Modal State Controllers
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [importReport, setImportReport] = useState(null);
@@ -308,7 +388,10 @@ export function App() {
     setTimeout(() => {
       try {
         const result = solveTimetable(classes, assignments, teachers, rooms, timetable, options);
-        setTimetable(result.timetable);
+        const modeMsg = options.mode === 'FILL_UNASSIGNED' 
+          ? 'Điền khuyết / xếp bổ sung tiết còn thiếu' 
+          : 'Tự động xếp mới toàn bộ TKB';
+        updateTimetable(result.timetable, modeMsg);
         setIsAutoScheduleModalOpen(false);
 
         if (result.success) {
@@ -351,7 +434,7 @@ export function App() {
       setTeachers(freshTeachers);
       setRooms(freshRooms);
       setAssignments(freshAssignments);
-      setTimetable(solved.timetable || empty);
+      updateTimetable(solved.timetable || empty, 'Khôi phục dữ liệu mẫu (10 lớp)');
     }
   };
 
@@ -373,7 +456,7 @@ export function App() {
     setTeachers(freshTeachers);
     setRooms(freshRooms);
     setAssignments(freshAssignments);
-    setTimetable(solved.timetable || empty);
+    updateTimetable(solved.timetable || empty, 'Nạp dữ liệu mẫu Trường Ánh Dương');
     setSelectedStudioClassId('1A1');
   };
 
@@ -399,14 +482,14 @@ export function App() {
     setClasses(default5Classes);
     setTeachers([]);
     setAssignments([]);
-    setTimetable(initializeEmptyTimetable(default5Classes));
+    updateTimetable(initializeEmptyTimetable(default5Classes), 'Khởi tạo dự án mới trắng');
     setSelectedStudioClassId('1A1');
   };
 
   // 6. Xóa Sạch Thời Khóa Biểu
   const handleClearTimetable = () => {
     if (window.confirm('Xóa sạch thời khóa biểu tất cả các lớp?')) {
-      setTimetable(initializeEmptyTimetable(classes));
+      updateTimetable(initializeEmptyTimetable(classes), 'Xóa sạch thời khóa biểu toàn trường');
     }
   };
 
@@ -427,10 +510,10 @@ export function App() {
     if (importedData.assignments) setAssignments(importedData.assignments);
 
     if (importedData.timetable) {
-      setTimetable(importedData.timetable);
+      updateTimetable(importedData.timetable, 'Nhập thời khóa biểu từ file Excel');
     } else if (importedData.classes) {
       const empty = initializeEmptyTimetable(importedData.classes);
-      setTimetable(empty);
+      updateTimetable(empty, 'Khởi tạo TKB từ danh sách lớp Excel');
     }
 
     if (importedData.classes && importedData.classes.length > 0) {
@@ -487,7 +570,7 @@ export function App() {
     if (jsonData.teachers) setTeachers(jsonData.teachers);
     if (jsonData.rooms) setRooms(jsonData.rooms);
     if (jsonData.assignments) setAssignments(jsonData.assignments);
-    if (jsonData.timetable) setTimetable(jsonData.timetable);
+    if (jsonData.timetable) updateTimetable(jsonData.timetable, 'Phục hồi TKB từ file sao lưu JSON');
   };
 
   // 11. Xuất File Cơ Sở Dữ Liệu SQLite (.db)
@@ -514,7 +597,7 @@ export function App() {
         if (Array.isArray(d.teachers) && d.teachers.length > 0) setTeachers(d.teachers);
         if (Array.isArray(d.rooms) && d.rooms.length > 0) setRooms(d.rooms);
         if (Array.isArray(d.assignments) && d.assignments.length > 0) setAssignments(d.assignments);
-        if (d.timetable && Object.keys(d.timetable).length > 0) setTimetable(d.timetable);
+        if (d.timetable && Object.keys(d.timetable).length > 0) updateTimetable(d.timetable, 'Nạp TKB từ cơ sở dữ liệu SQLite (.db)');
         alert('🎉 Nạp cơ sở dữ liệu SQLite (.db) thành công!');
       }
     } catch (err) {
@@ -559,6 +642,11 @@ export function App() {
             assignments={assignments}
             timetable={timetable}
             setTimetable={setTimetable}
+            updateTimetable={updateTimetable}
+            history={history}
+            future={future}
+            handleUndo={handleUndo}
+            handleRedo={handleRedo}
             conflicts={conflicts}
             subjects={subjects}
             periods={periods}
