@@ -1,6 +1,6 @@
-// tests/excelParser.test.js
 import { describe, it, expect } from 'vitest';
-import { normalizeStr, mapSubjectCodeAndRoom } from '../src/services/excelParser.js';
+import ExcelJS from 'exceljs';
+import { normalizeStr, mapSubjectCodeAndRoom, parseExcelWorkbook } from '../src/services/excelParser.js';
 
 describe('excelParser: Xử lý chuỗi & Ánh xạ môn học từ Excel', () => {
   it('chuẩn hóa chuỗi tiếng Việt Unicode NFC và loại bỏ khoảng trắng', () => {
@@ -34,4 +34,26 @@ describe('excelParser: Xử lý chuỗi & Ánh xạ môn học từ Excel', () =
     expect(van.subjectId).toBe('TIENG_VIET');
     expect(van.roomId).toBe('LOP_HOC');
   });
+
+  it('parseExcelWorkbook đọc chính xác dữ liệu từ workbook ExcelJS', async () => {
+    const wb = new ExcelJS.Workbook();
+    const wsGV = wb.addWorksheet('Danh_Sach_Giao_Vien');
+    wsGV.addRow(['Mã GV', 'Họ và Tên', 'Tên TKB (Viết tắt)', 'Tổ Chuyên Môn', 'Chủ Nhiệm', 'Số Điện Thoại', 'Email', 'Số Tiết Tối Đa / Ngày']);
+    wsGV.addRow(['GV_01', 'Nguyễn Văn A', 'Nguyễn A', 'Tổ 1', 'Lớp 1A1', '0901234567', 'a@school.edu.vn', '7']);
+
+    const wsLop = wb.addWorksheet('Danh_Sach_Lop');
+    wsLop.addRow(['Mã Lớp', 'Tên Lớp', 'Khối', 'Mã GVCN', 'Phòng Học Chính', 'Sĩ Số']);
+    wsLop.addRow(['1A1', 'Lớp 1A1', '1', 'GV_01', 'P.101', '35']);
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const parsed = await parseExcelWorkbook(buffer);
+
+    expect(parsed.format).toBe('TEMPLATE_FORMAT');
+    expect(parsed.teachers.length).toBe(1);
+    expect(parsed.teachers[0].name).toBe('Nguyễn Văn A');
+    expect(parsed.teachers[0].homeroomClassId).toBe('1A1');
+    expect(parsed.classes.length).toBe(1);
+    expect(parsed.classes[0].id).toBe('1A1');
+  });
 });
+

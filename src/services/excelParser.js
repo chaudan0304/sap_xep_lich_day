@@ -1,11 +1,63 @@
 // src/services/excelParser.js
-// Trình bóc tách dữ liệu bảng tính Excel chuyên dụng (SheetJS XLSX)
+// Trình bóc tách dữ liệu bảng tính Excel chuyên dụng (ExcelJS)
 // Hỗ trợ định dạng STKB thực tế nhiều sheet (Khối 1..5, Phân công chuyên môn, Tiết đọc TV),
 // định dạng Ma Trận Toàn Trường (TKB_Toan_Truong) và định dạng Mẫu chuẩn của hệ thống
 
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { DEFAULT_GRADE_QUOTAS } from '../constants/defaultCurriculum.js';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects.js';
+
+function getCellStringValue(cell) {
+  if (!cell || cell.value === null || cell.value === undefined) return '';
+  const val = cell.value;
+  if (typeof val === 'object') {
+    if (val.result !== undefined && val.result !== null) return String(val.result);
+    if (val.text !== undefined && val.text !== null) return String(val.text);
+    if (Array.isArray(val.richText)) {
+      return val.richText.map(r => r.text || '').join('');
+    }
+    return '';
+  }
+  return String(val);
+}
+
+export function sheetTo2DArray(worksheet) {
+  if (!worksheet) return [];
+  if (Array.isArray(worksheet)) return worksheet;
+  const rows = [];
+  const maxRow = worksheet.rowCount || 0;
+
+  for (let r = 1; r <= maxRow; r++) {
+    const row = worksheet.getRow(r);
+    const rowValues = [];
+    const cellCount = row.cellCount || 0;
+    const maxCol = Math.max(cellCount, 30);
+    for (let c = 1; c <= maxCol; c++) {
+      rowValues.push(getCellStringValue(row.getCell(c)));
+    }
+    rows.push(rowValues);
+  }
+  return rows;
+}
+
+export function sheetToJsonObjects(worksheet) {
+  if (!worksheet) return [];
+  const rows2D = Array.isArray(worksheet) ? worksheet : sheetTo2DArray(worksheet);
+  if (rows2D.length < 2) return [];
+  const headers = rows2D[0];
+  const results = [];
+  for (let r = 1; r < rows2D.length; r++) {
+    const row = rows2D[r];
+    if (!row || row.every(c => !c)) continue;
+    const obj = {};
+    headers.forEach((h, idx) => {
+      const cleanH = normalizeStr(h);
+      if (cleanH) obj[cleanH] = row[idx] || '';
+    });
+    results.push(obj);
+  }
+  return results;
+}
 
 /**
  * Chuẩn hóa chuỗi tiếng Việt Unicode NFC và loại bỏ khoảng trắng thừa
@@ -280,7 +332,7 @@ export function getTeacherShortName(fullName, homeroomClassId, task = '') {
  */
 export function parseAssignmentSheet(ws) {
   if (!ws) return [];
-  const pcData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const pcData = Array.isArray(ws) ? ws : sheetTo2DArray(ws);
   const teachers = [];
   const usedIds = new Set();
 
@@ -413,7 +465,7 @@ export function parseAssignmentSheet(ws) {
  */
 export function parseReadingScheduleSheet(ws) {
   if (!ws) return [];
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const rows = Array.isArray(ws) ? ws : sheetTo2DArray(ws);
   const readingSlots = [];
 
   for (let r = 5; r < rows.length; r++) {
@@ -443,7 +495,7 @@ export function parseReadingScheduleSheet(ws) {
  */
 function parseScheduleGridSheet(ws, sheetName, classesMap, teachers, timetable, rawSlots) {
   if (!ws) return;
-  const sData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const sData = Array.isArray(ws) ? ws : sheetTo2DArray(ws);
   if (!sData || sData.length === 0) return;
 
   // 1. Tìm dòng tiêu đề chứa mã lớp (1A1 -> 5A5)
@@ -581,9 +633,10 @@ function parseScheduleGridSheet(ws, sheetName, classesMap, teachers, timetable, 
 /**
  * Hàm chính: Đọc và phân tích toàn bộ Workbook Excel một cách thông minh và linh hoạt
  */
-export function parseExcelWorkbook(dataOrBuffer) {
-  const workbook = XLSX.read(dataOrBuffer, { type: 'array' });
-  const sheetNames = workbook.SheetNames || [];
+export async function parseExcelWorkbook(dataOrBuffer) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(dataOrBuffer);
+  const sheetNames = (workbook.worksheets || []).map(ws => ws.name);
   
   const parsed = {
     format: 'UNKNOWN',
@@ -607,59 +660,74 @@ export function parseExcelWorkbook(dataOrBuffer) {
 
   const classesMap = new Map();
 
+  // Helper tìm sheet không phân biệt hoa thường hoặc theo điều kiện
+  const findWs = (predicateOrName) => {
+    if (typeof predicateOrName === 'string') {
+      const direct = workbook.getWorksheet(predicateOrName);
+      if (direct) return direct;
+      const targetClean = normalizeStr(predicateOrName).toLowerCase();
+      return (workbook.worksheets || []).find(ws => normalizeStr(ws.name).toLowerCase() === targetClean);
+    }
+    if (typeof predicateOrName === 'function') {
+      return (workbook.worksheets || []).find(predicateOrName);
+    }
+    return null;
+  };
+
   // 1. Phân tích sheet Phân công chuyên môn (nếu có)
-  const pcSheetName = sheetNames.find(s => {
-    const sLow = normalizeStr(s).toLowerCase();
+  const pcSheet = findWs(ws => {
+    const sLow = normalizeStr(ws.name).toLowerCase();
     return sLow.includes('phân công') || sLow.includes('phan cong') || sLow.includes('chuyên môn') || sLow === 'pc';
   });
-  if (pcSheetName) {
-    parsed.teachers = parseAssignmentSheet(workbook.Sheets[pcSheetName]);
+  if (pcSheet) {
+    parsed.teachers = parseAssignmentSheet(pcSheet);
   }
 
   // 2. Phân tích sheet Tiết đọc TV (nếu có)
-  const tvSheetName = sheetNames.find(s => {
-    const sLow = normalizeStr(s).toLowerCase();
+  const tvSheet = findWs(ws => {
+    const sLow = normalizeStr(ws.name).toLowerCase();
     return sLow.includes('đọc tv') || sLow.includes('doc tv') || sLow.includes('thư viện');
   });
-  if (tvSheetName) {
-    parsed.readingSlots = parseReadingScheduleSheet(workbook.Sheets[tvSheetName]);
+  if (tvSheet) {
+    parsed.readingSlots = parseReadingScheduleSheet(tvSheet);
   }
 
   // 3. Phân tích theo các khối lớp (1..5) hoặc ma trận
-  // Tìm các sheet khối lớp: '1', '2', '3', '4', '5' hoặc 'Khoi 1', 'Khối 1', 'Khoi_1', 'K1', v.v.
   const gradeSheetCandidates = [];
   for (let g = 1; g <= 5; g++) {
-    const matchedSheet = sheetNames.find(s => {
-      const cleanS = normalizeStr(s);
+    const matchedSheet = (workbook.worksheets || []).find(ws => {
+      const cleanS = normalizeStr(ws.name);
       const regex = new RegExp(`^(?:Khối|Khoi|K|Lớp|Lop)?\\s*${g}(?:\\.|_|\\s|$)`, 'i');
       return regex.test(cleanS);
     });
     if (matchedSheet) {
-      gradeSheetCandidates.push({ grade: g, sheetName: matchedSheet });
+      gradeSheetCandidates.push({ grade: g, sheet: matchedSheet });
     }
   }
 
   // Tìm sheet Ma trận toàn trường (nếu có)
-  const masterSheetName = sheetNames.find(s => {
-    const sLow = normalizeStr(s).toLowerCase();
+  const masterSheet = findWs(ws => {
+    const sLow = normalizeStr(ws.name).toLowerCase();
     return sLow.includes('tkb_toan_truong') || sLow.includes('toàn trường') || sLow.includes('toan truong') || sLow === 'tkb';
   });
 
+  const templateTeacherSheet = findWs('Danh_Sach_Giao_Vien');
+
   if (gradeSheetCandidates.length > 0) {
     parsed.format = 'REAL_SCHOOL_MULTISHEET';
-    gradeSheetCandidates.forEach(({ sheetName }) => {
-      parseScheduleGridSheet(workbook.Sheets[sheetName], sheetName, classesMap, parsed.teachers, parsed.timetable, parsed.rawSlots);
+    gradeSheetCandidates.forEach(({ sheet }) => {
+      parseScheduleGridSheet(sheet, sheet.name, classesMap, parsed.teachers, parsed.timetable, parsed.rawSlots);
     });
-  } else if (masterSheetName) {
+  } else if (masterSheet) {
     parsed.format = 'MASTER_MATRIX';
-    parseScheduleGridSheet(workbook.Sheets[masterSheetName], masterSheetName, classesMap, parsed.teachers, parsed.timetable, parsed.rawSlots);
-  } else if (sheetNames.includes('Danh_Sach_Giao_Vien')) {
+    parseScheduleGridSheet(masterSheet, masterSheet.name, classesMap, parsed.teachers, parsed.timetable, parsed.rawSlots);
+  } else if (templateTeacherSheet) {
     parsed.format = 'TEMPLATE_FORMAT';
     // Đọc từ file mẫu hệ thống
-    const rawTeachers = XLSX.utils.sheet_to_json(workbook.Sheets['Danh_Sach_Giao_Vien']);
+    const rawTeachers = sheetToJsonObjects(templateTeacherSheet);
     parsed.teachers = rawTeachers.map(r => ({
-      id: normalizeStr(r['Mã GV']),
-      name: normalizeStr(r['Họ và Tên']),
+      id: normalizeStr(r['Mã GV'] || r['Ma GV']),
+      name: normalizeStr(r['Họ và Tên'] || r['Ho va Ten']),
       code: normalizeStr(r['Tên TKB (Viết tắt)'] || r['Mã Viết Tắt'] || r['Họ và Tên']),
       department: normalizeStr(r['Tổ Chuyên Môn'] || 'Giáo viên'),
       isHomeroom: normalizeStr(r['Chủ Nhiệm'] || r['Là GV Chủ Nhiệm (CÓ/KHÔNG)']).toUpperCase().includes('CÓ') || normalizeStr(r['Chủ Nhiệm']).includes('Lớp'),
@@ -671,10 +739,11 @@ export function parseExcelWorkbook(dataOrBuffer) {
       color: '#3b82f6'
     }));
 
-    if (workbook.Sheets['Danh_Sach_Lop']) {
-      const rawClasses = XLSX.utils.sheet_to_json(workbook.Sheets['Danh_Sach_Lop']);
+    const templateClassSheet = findWs('Danh_Sach_Lop');
+    if (templateClassSheet) {
+      const rawClasses = sheetToJsonObjects(templateClassSheet);
       rawClasses.forEach(c => {
-        const cId = normalizeStr(c['Mã Lớp'] || c['Mã Lớp Học']);
+        const cId = normalizeStr(c['Mã Lớp'] || c['Mã Lớp Học'] || c['Ma Lop']);
         if (cId) {
           classesMap.set(cId, {
             id: cId,
@@ -689,8 +758,9 @@ export function parseExcelWorkbook(dataOrBuffer) {
     }
 
     // Nếu có sheet TKB_Toan_Truong trong template
-    if (workbook.Sheets['TKB_Toan_Truong']) {
-      parseScheduleGridSheet(workbook.Sheets['TKB_Toan_Truong'], 'TKB_Toan_Truong', classesMap, parsed.teachers, parsed.timetable, parsed.rawSlots);
+    const templateTkbSheet = findWs('TKB_Toan_Truong');
+    if (templateTkbSheet) {
+      parseScheduleGridSheet(templateTkbSheet, 'TKB_Toan_Truong', classesMap, parsed.teachers, parsed.timetable, parsed.rawSlots);
     }
   }
 

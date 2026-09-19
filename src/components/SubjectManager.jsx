@@ -28,7 +28,8 @@ import {
 import * as LucideIcons from 'lucide-react';
 import { SUBJECT_CATEGORIES, ROOM_TYPES, SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { parseExcelWorkbook } from '../services/excelParser.js';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveExcelJSWorkbook } from '../services/excel/excelStyles.js';
 
 // Preset color palettes for nice visual presentation
 const COLOR_PRESETS = [
@@ -590,25 +591,35 @@ export const SubjectManager = ({
   };
 
   // Xuất Excel Danh mục môn
-  const handleExportExcel = () => {
-    const rows = subjectList.map((s, idx) => {
+  const handleExportExcel = async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Danh Mục Môn Học');
+    ws.columns = [
+      { header: 'STT', key: 'stt', width: 8 },
+      { header: 'Mã Môn Học', key: 'id', width: 16 },
+      { header: 'Tên Môn Học', key: 'name', width: 25 },
+      { header: 'Tên Viết Tắt (TKB)', key: 'shortName', width: 20 },
+      { header: 'Nhóm Môn', key: 'category', width: 20 },
+      { header: 'Phòng Chức Năng', key: 'room', width: 25 },
+      { header: 'Môn Cố Định', key: 'isFixed', width: 15 },
+      { header: 'Mô Tả', key: 'description', width: 35 }
+    ];
+
+    subjectList.forEach((s, idx) => {
       const room = availableRoomTypes.find(r => r.id === s.defaultRoom);
-      return {
-        'STT': idx + 1,
-        'Mã Môn Học': s.id,
-        'Tên Môn Học': s.name,
-        'Tên Viết Tắt (TKB)': s.shortName || s.name,
-        'Nhóm Môn': s.category,
-        'Phòng Chức Năng': room ? room.name : 'Phòng học tại lớp',
-        'Môn Cố Định': s.isFixed ? 'Có' : 'Không',
-        'Mô Tả': s.description || ''
-      };
+      ws.addRow({
+        stt: idx + 1,
+        id: s.id,
+        name: s.name,
+        shortName: s.shortName || s.name,
+        category: s.category,
+        room: room ? room.name : 'Phòng học tại lớp',
+        isFixed: s.isFixed ? 'Có' : 'Không',
+        description: s.description || ''
+      });
     });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Danh Mục Môn Học');
-    XLSX.writeFile(wb, 'DanhMuc_MonHoc_TieuHoc.xlsx');
+    await saveExcelJSWorkbook(wb, 'DanhMuc_MonHoc_TieuHoc.xlsx');
   };
 
   const triggerSaveNotification = () => {

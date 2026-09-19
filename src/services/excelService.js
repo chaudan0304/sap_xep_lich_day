@@ -27,10 +27,10 @@ export const importExcelWithPreview = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const buffer = new Uint8Array(e.target.result);
-        const parsed = parseExcelWorkbook(buffer);
+        const parsed = await parseExcelWorkbook(buffer);
         const validation = validateParsedExcelData(parsed);
         const mappedData = mapParsedExcelToAppModel(parsed);
 
