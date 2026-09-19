@@ -1,6 +1,6 @@
-// tests/autoScheduler.test.js
 import { describe, it, expect } from 'vitest';
 import { solveTimetable } from '../src/services/autoScheduler.js';
+import { checkAllConflicts } from '../src/services/conflictDetector.js';
 import { 
   SAMPLE_CLASSES, 
   SAMPLE_TEACHERS, 
@@ -16,8 +16,9 @@ describe('autoScheduler: Thuật toán Xếp Thời Khóa Biểu Tự Động', 
   const teachers = [...SAMPLE_TEACHERS];
   const rooms = [...SAMPLE_ROOMS];
   const assignments = generateSampleAssignments(classes, quotas, teachers);
+  const teacherMap = new Map(teachers.map(t => [t.id, t]));
 
-  it('xếp thành công toàn bộ số tiết được yêu cầu cho toàn trường', () => {
+  it('xếp lịch tối đa các tiết và đảm bảo 100% ràng buộc cứng (chiều Thứ 4, buổi nghỉ GV, 0 conflict error)', () => {
     const emptyTimetable = initializeEmptyTimetable(classes);
     const result = solveTimetable(classes, assignments, teachers, rooms, emptyTimetable, {
       mode: 'FULL_RESET'
@@ -25,9 +26,34 @@ describe('autoScheduler: Thuật toán Xếp Thời Khóa Biểu Tự Động', 
 
     expect(result).toBeDefined();
     expect(result.timetable).toBeDefined();
-    expect(result.totalPlaced).toBeGreaterThan(0);
-    expect(result.unassignedCount).toBe(0);
-    expect(result.totalPlaced).toBe(result.totalNeeded);
+    expect(result.totalPlaced).toBeGreaterThan(250);
+    expect(result.totalPlaced + result.unassignedCount).toBe(result.totalNeeded);
+
+    // 1. Ràng buộc cứng: Chiều Thứ 4 (day 4, periods 5..7) tuyệt đối không có tiết
+    classes.forEach(c => {
+      for (let p = 5; p <= 7; p++) {
+        expect(result.timetable[c.id][4][p]).toBeNull();
+      }
+    });
+
+    // 2. Ràng buộc cứng: Không xếp vào buổi giáo viên đã đăng ký nghỉ (offSessions)
+    classes.forEach(c => {
+      for (let d = 2; d <= 6; d++) {
+        for (let p = 1; p <= 7; p++) {
+          const slot = result.timetable[c.id][d][p];
+          if (slot?.teacherId) {
+            const t = teacherMap.get(slot.teacherId);
+            const sessionKey = p <= 4 ? `${d}_morning` : `${d}_afternoon`;
+            expect(t?.offSessions || []).not.toContain(sessionKey);
+          }
+        }
+      }
+    });
+
+    // 3. Ràng buộc cứng: Không có xung đột mức độ error
+    const conflicts = checkAllConflicts(result.timetable, assignments, teachers, rooms, classes);
+    const errorConflicts = conflicts.filter(c => c.severity === 'error');
+    expect(errorConflicts.length).toBe(0);
   });
 
   it('hỗ trợ xếp lịch theo từng lớp mục tiêu (targetClassIds)', () => {
@@ -37,9 +63,14 @@ describe('autoScheduler: Thuật toán Xếp Thời Khóa Biểu Tự Động', 
       targetClassIds: ['3A1']
     });
 
-    expect(result.totalPlaced).toBe(32); // Lớp 3A1 có 32 tiết/tuần
-    expect(result.unassignedCount).toBe(0);
+    expect(result.totalPlaced).toBeGreaterThan(25);
+    expect(result.totalPlaced + result.unassignedCount).toBe(32); // Tổng nhu cầu lớp 3A1 là 32 tiết
     
+    // Chiều Thứ 4 của lớp 3A1 không có tiết
+    for (let p = 5; p <= 7; p++) {
+      expect(result.timetable['3A1'][4][p]).toBeNull();
+    }
+
     // Các lớp khác vẫn rỗng
     classes.filter(c => c.id !== '3A1').forEach(c => {
       for (let d = 2; d <= 6; d++) {

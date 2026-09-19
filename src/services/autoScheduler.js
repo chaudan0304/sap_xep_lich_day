@@ -1,7 +1,7 @@
 // src/services/autoScheduler.js
 // Thuật toán Tự động Xếp Thời khóa biểu Thông minh (CSP + Heuristic Solver)
 
-import { checkAllConflicts } from './conflictDetector';
+import { checkAllConflicts } from './conflictDetector.js';
 
 export const solveTimetable = (
   classes, 
@@ -234,55 +234,35 @@ export const solveTimetable = (
         isLocked: false
       };
     } else {
-      // Nếu không tìm được slot hoàn hảo, tìm slot trống bất kỳ không bị trùng GV/Phòng
-      let placedRelaxed = false;
+      // Fallback: Duyệt lại toàn bộ các ô (day, period) còn trống trong tuần qua isFeasible
+      // Tuyệt đối không hạ thấp hay nới lỏng các ràng buộc cứng
+      const fallbackSlots = [];
       for (let day = 2; day <= 6; day++) {
-        if (placedRelaxed) break;
         for (let period = 1; period <= 7; period++) {
           if (timetable[lesson.classId][day][period] === null) {
-            // Kiểm tra tối thiểu: Không trùng GV & Phòng
-            let teacherBusy = false;
-            let roomBusy = false;
-
-            if (lesson.teacherId) {
-              for (const oc of classes) {
-                if (oc.id === lesson.classId) continue;
-                if (timetable[oc.id][day][period]?.teacherId === lesson.teacherId) {
-                  teacherBusy = true;
-                  break;
-                }
-              }
-            }
-
-            if (lesson.roomType && lesson.roomType !== 'LOP_HOC' && lesson.roomType !== 'SAN_TRUONG' && lesson.roomType !== 'SAN_THE_CHAT') {
-              const roomObj = rooms?.find(r => r.id === lesson.roomType);
-              if (!roomObj?.allowMultiple) {
-                for (const oc of classes) {
-                  if (oc.id === lesson.classId) continue;
-                  if (timetable[oc.id][day][period]?.roomId === lesson.roomType) {
-                    roomBusy = true;
-                    break;
-                  }
-                }
-              }
-            }
-
-            if (!teacherBusy && !roomBusy) {
-              timetable[lesson.classId][day][period] = {
-                subjectId: lesson.subjectId,
-                teacherId: lesson.teacherId,
-                roomId: lesson.roomType || 'LOP_HOC',
-                roomType: lesson.roomType,
-                isLocked: false
-              };
-              placedRelaxed = true;
-              break;
+            if (isFeasible(lesson.classId, day, period, lesson)) {
+              let slotScore = 0;
+              if (isAcademic && period <= 4) slotScore += 10;
+              if (lesson.subjectId === 'THE_DUC' && period !== 5) slotScore += 5;
+              if (lesson.subjectId === 'TU_CHON' && period >= 5) slotScore += 15;
+              fallbackSlots.push({ day, period, score: slotScore + Math.random() });
             }
           }
         }
       }
 
-      if (!placedRelaxed) {
+      if (fallbackSlots.length > 0) {
+        fallbackSlots.sort((a, b) => b.score - a.score);
+        const chosen = fallbackSlots[0];
+        timetable[lesson.classId][chosen.day][chosen.period] = {
+          subjectId: lesson.subjectId,
+          teacherId: lesson.teacherId,
+          roomId: lesson.roomType || 'LOP_HOC',
+          roomType: lesson.roomType,
+          isLocked: false
+        };
+      } else {
+        // Chỉ khi isFeasible không tìm được bất kỳ ô hợp lệ nào trong tuần mới đưa vào unassigned
         unassigned.push(lesson);
       }
     }
