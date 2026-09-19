@@ -1,7 +1,6 @@
 // src/components/TeacherDirectory.jsx
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { toPng, toBlob } from 'html-to-image';
 import { 
   Users, 
   Search, 
@@ -14,20 +13,10 @@ import {
   X, 
   Download,
   Printer,
-  BookOpen,
   Plus,
-  FileText,
-  LayoutGrid,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Image as ImageIcon,
-  Copy,
-  CheckCircle2,
-  Building2,
-  Briefcase
+  Building2
 } from 'lucide-react';
-import { DAYS_OF_WEEK, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
+import { PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { exportTeacherDirectory } from '../services/excelService';
 import { TeacherTimetablePrintModal } from './TeacherTimetablePrintModal';
@@ -39,7 +28,6 @@ import {
   createDepartment,
   updateDepartment,
   deleteDepartment,
-  validateDepartmentName,
   isOfficeDepartment as isOfficeDeptService,
   countTeachersInDepartment,
   findDepartmentByName
@@ -175,11 +163,6 @@ export const TeacherDirectory = ({
   const activeDepartments = useMemo(() => {
     return getDepartments(departments && departments.length > 0 ? departments : DEFAULT_DEPARTMENTS);
   }, [departments]);
-
-  // Danh sách tên các tổ để tương thích các render loop
-  const allExistingDepartments = useMemo(() => {
-    return activeDepartments.map(d => d.name);
-  }, [activeDepartments]);
 
   // Xử lý khi thay đổi hoặc chọn Tổ Chuyên Môn
   const handleDepartmentChange = (val, explicitDeptId = null) => {
@@ -390,7 +373,7 @@ export const TeacherDirectory = ({
 
       return matchSearch && matchRole;
     });
-  }, [teachers, searchQuery, selectedRole]);
+  }, [teachers, searchQuery, selectedRole, activeDepartments]);
 
 
   // Toggle Buổi Nghỉ cho GV đang chỉnh sửa

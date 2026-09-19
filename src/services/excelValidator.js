@@ -41,9 +41,7 @@ export function validateParsedExcelData(parsedData) {
     sheetNames = [],
     teachers = [],
     classes = [],
-    timetable = {},
-    rawSlots = [],
-    rooms = []
+    rawSlots = []
   } = parsedData || {};
 
   // 1. KIỂM TRA TỔNG QUAN FILE
@@ -371,7 +369,7 @@ export function validateParsedExcelData(parsedData) {
   });
 
   // 5. PHÁT HIỆN XUNG ĐỘT TRÙNG GIÁO VIÊN
-  teacherOccupancyMap.forEach((slots, key) => {
+  teacherOccupancyMap.forEach((slots) => {
     if (slots.length > 1) {
       const first = slots[0];
       const timeDesc = formatPeriodDescription(first.day, first.session, first.period, first.rawPeriod);
@@ -416,7 +414,7 @@ export function validateParsedExcelData(parsedData) {
   });
 
   // 6. PHÁT HIỆN XUNG ĐỘT TRÙNG PHÒNG CHỨC NĂNG
-  roomOccupancyMap.forEach((slots, key) => {
+  roomOccupancyMap.forEach((slots) => {
     if (slots.length > 1) {
       const first = slots[0];
       const timeDesc = formatPeriodDescription(first.day, first.session, first.period, first.rawPeriod);

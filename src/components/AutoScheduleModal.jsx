@@ -1,21 +1,7 @@
 // src/components/AutoScheduleModal.jsx
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  Sparkles, 
-  X, 
-  CheckCircle2, 
-  AlertCircle, 
-  Layers, 
-  BookOpen, 
-  Building2, 
-  Calendar, 
-  Filter,
-  CheckSquare,
-  Square,
-  Play,
-  RotateCcw
-} from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 
 export const AutoScheduleModal = ({
@@ -23,23 +9,18 @@ export const AutoScheduleModal = ({
   onClose,
   onExecuteSchedule,
   classes,
-  teachers,
+  teachers: _teachers,
   assignments,
   timetable,
-  subjects = DEFAULT_SUBJECTS,
+  subjects: _subjects = DEFAULT_SUBJECTS,
   isScheduling = false
 }) => {
   const [scheduleMode, setScheduleMode] = useState('FILL_UNASSIGNED'); // 'FILL_UNASSIGNED' | 'FULL_RESET'
   const [category, setCategory] = useState('ALL'); // 'ALL' | 'SPECIALIZED' | 'CORE' | 'ELECTIVE' | 'CUSTOM'
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
+  const [selectedSubjectIds, _setSelectedSubjectIds] = useState([]);
   const [scopeType, setScopeType] = useState('ALL'); // 'ALL' | 'GRADE' | 'CLASS'
   const [selectedGrade, setSelectedGrade] = useState(1);
-  const [selectedClassIds, setSelectedClassIds] = useState([]);
-
-  // Phân loại nhóm môn
-  const specializedSubjectIds = ['TIENG_ANH', 'TIN_HOC', 'THE_DUC', 'AM_NHAC', 'MY_THUAT', 'DAO_DUC'];
-  const coreSubjectIds = ['TOAN', 'TIENG_VIET', 'TNXH', 'LS_DL', 'KHOA_HOC', 'HDTN'];
-  const electiveSubjectIds = ['TU_CHON'];
+  const [selectedClassIds, _setSelectedClassIds] = useState([]);
 
   // Thống kê số tiết trống và số tiết còn thiếu
   const stats = useMemo(() => {

@@ -13,9 +13,7 @@ import {
   Users, 
   Grid3X3, 
   Layers,
-  ArrowRight,
   RotateCcw,
-  BookOpen,
   School,
   Check,
   ShieldAlert,
@@ -39,13 +37,12 @@ export const ExcelModal = ({
   classes = [],
   teachers = [],
   assignments = [],
-  gradeQuotas = {},
+  gradeQuotas: _gradeQuotas = {},
   timetable = {},
   subjects = {},
   schoolInfo = {},
   onImportSuccess
 }) => {
-  const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState(null); // { success, isValid, previewData, errors, warnings, summary, data }
   const [previewTab, setPreviewTab] = useState('overview'); // 'overview' | 'timetable' | 'teachers' | 'validation'
   const [previewClassId, setPreviewClassId] = useState('1A1');

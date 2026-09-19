@@ -44,7 +44,6 @@ const getDayName = (dayId) => {
 export const checkAllConflicts = (timetable = {}, assignments = [], teachers = [], rooms = [], classes = []) => {
   const conflicts = [];
   const teacherMap = new Map((teachers || []).map(t => [t.id, t]));
-  const classMap = new Map((classes || []).map(c => [c.id, c]));
 
   // 1. Kiểm tra Trùng giờ Giáo viên & Trùng Phòng chức năng theo từng (Thứ, Tiết)
   for (let day = 2; day <= 6; day++) {

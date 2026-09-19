@@ -9,7 +9,6 @@ import {
   initializeEmptyTimetable 
 } from '../src/data/sampleData.js';
 import { DEFAULT_GRADE_QUOTAS } from '../src/constants/defaultCurriculum.js';
-import { checkAllConflicts } from '../src/services/conflictDetector.js';
 
 describe('autoScheduler: Thuật toán Xếp Thời Khóa Biểu Tự Động', () => {
   const quotas = JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS));

@@ -10,13 +10,7 @@ import {
   CheckCircle2,
   X,
   Search,
-  Filter,
   ArrowRight,
-  ExternalLink,
-  Calendar,
-  Clock,
-  School,
-  Sparkles,
   MapPin
 } from 'lucide-react';
 
@@ -31,21 +25,19 @@ export const ImportReportModal = ({
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
   const [searchKeyword, setSearchKeyword] = useState('');
 
-  const errors = report.errors || [];
-  const warnings = report.warnings || [];
-  const summary = report.summary || {};
-
-  const errorCount = errors.length;
-  const warningCount = warnings.length;
+  const errorCount = report?.errors?.length || 0;
+  const warningCount = report?.warnings?.length || 0;
   const totalCount = errorCount + warningCount;
 
   // Lấy danh sách hợp nhất các mục cần đối soát
   const allItems = useMemo(() => {
+    const errs = report?.errors || [];
+    const warns = report?.warnings || [];
     return [
-      ...errors.map(e => ({ ...e, isError: true })),
-      ...warnings.map(w => ({ ...w, isError: false }))
+      ...errs.map(e => ({ ...e, isError: true })),
+      ...warns.map(w => ({ ...w, isError: false }))
     ];
-  }, [errors, warnings]);
+  }, [report?.errors, report?.warnings]);
 
   // Bộ lọc danh sách
   const filteredItems = useMemo(() => {

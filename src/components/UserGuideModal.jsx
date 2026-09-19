@@ -8,9 +8,6 @@ import {
   Printer, 
   Users, 
   Bookmark, 
-  Layers, 
-  Grid3X3, 
-  Building2, 
   FileSpreadsheet, 
   Save, 
   Upload, 
@@ -18,17 +15,12 @@ import {
   Lock, 
   ArrowLeftRight, 
   CheckCircle2, 
-  AlertTriangle, 
   Search, 
   Lightbulb, 
-  HelpCircle,
-  School,
-  Settings,
-  ChevronRight,
-  ExternalLink
+  HelpCircle
 } from 'lucide-react';
 
-export const UserGuideModal = ({ isOpen, onClose, onNavigateTab }) => {
+export const UserGuideModal = ({ isOpen, onClose, onNavigateTab: _onNavigateTab }) => {
   const [activeCategory, setActiveCategory] = useState('workflow');
   const [searchQuery, setSearchQuery] = useState('');
 

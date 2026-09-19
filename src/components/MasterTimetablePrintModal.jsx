@@ -4,33 +4,18 @@ import { createPortal } from 'react-dom';
 import { toPng, toBlob } from 'html-to-image';
 import {
   Printer,
-  Download,
   FileSpreadsheet,
   X,
-  Check,
-  ChevronLeft,
-  ChevronRight,
   Sliders,
-  Settings,
-  Eye,
   Layers,
   School,
-  User,
-  Calendar,
-  Sparkles,
-  Info,
   Search,
-  CheckSquare,
-  Square,
   ZoomIn,
   ZoomOut,
-  Maximize2,
   Image as ImageIcon,
   Copy,
   CheckCircle2,
-  Grid3X3,
-  Clock,
-  TableProperties
+  Grid3X3
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';

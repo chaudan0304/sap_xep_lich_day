@@ -1,7 +1,7 @@
 // src/hooks/useAppPersistence.js
 // Quản lý đồng bộ dữ liệu giữa React State, LocalStorage và Cơ sở dữ liệu SQLite
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { loadAllDataFromDb, saveAllDataToDb } from '../services/dbService';
 import { migrateDepartmentsAndTeachers } from '../services/departmentService';
 import { checkForAppUpdates } from '../services/updateChecker';

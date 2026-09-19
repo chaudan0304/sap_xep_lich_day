@@ -5,8 +5,7 @@ import {
   createDepartment, 
   updateDepartment, 
   deleteDepartment, 
-  countTeachersInDepartment,
-  migrateDepartmentsAndTeachers 
+  countTeachersInDepartment
 } from '../src/services/departmentService.js';
 import { SAMPLE_TEACHERS } from '../src/data/sampleData.js';
 

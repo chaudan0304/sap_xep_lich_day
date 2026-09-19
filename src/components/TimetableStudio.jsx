@@ -1,7 +1,6 @@
 // src/components/TimetableStudio.jsx
 import React, { useState, useMemo } from 'react';
 import { 
-  Calendar, 
   Lock, 
   Unlock, 
   Trash2, 
@@ -9,29 +8,21 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   Plus, 
-  Info,
   Printer,
-  Sparkles,
-  Flag,
   Users as UsersIcon,
   Search,
-  Building,
   ChevronLeft,
   ChevronRight,
   Layers,
-  GraduationCap,
-  Filter,
   Edit2,
   Edit3,
   Check,
   X as CloseIcon,
-  Save,
   Undo2,
   Redo2
 } from 'lucide-react';
 import { DAYS_OF_WEEK, PERIODS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
-import { validateSlotPlacement } from '../services/conflictDetector';
 import { ClassTimetablePrintModal } from './ClassTimetablePrintModal';
 import { ClassStudentCountModal } from './ClassStudentCountModal';
 
@@ -47,7 +38,7 @@ export const TimetableStudio = ({
   periods = DEFAULT_PERIODS,
   schoolInfo = {},
   rooms = [],
-  onAutoScheduleSingleClass,
+  onAutoScheduleSingleClass: _onAutoScheduleSingleClass,
   onOpenConflictModal,
   selectedClassId: externalClassId,
   onSelectClass: externalSetClassId
@@ -60,8 +51,6 @@ export const TimetableStudio = ({
   const [isStudentCountModalOpen, setIsStudentCountModalOpen] = useState(false);
   const [isEditingInlineCount, setIsEditingInlineCount] = useState(false);
   const [inlineCountVal, setInlineCountVal] = useState('');
-  const [draggedSubject, setDraggedSubject] = useState(null); // { subjectId, teacherId, roomType, classId }
-  const [draggedSlot, setDraggedSlot] = useState(null); // { fromDay, fromPeriod }
   const [swapSource, setSwapSource] = useState(null); // { day, period, slot } for click-to-swap mode
   const [drawerSearch, setDrawerSearch] = useState('');
   const [editingSlotInfo, setEditingSlotInfo] = useState(null); // { day, period, subjectId, teacherId, roomId, isLocked, subjectRaw, teacherRaw }
@@ -136,9 +125,7 @@ export const TimetableStudio = ({
   const [selectedGradeTab, setSelectedGradeTab] = useState('all');
 
   const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
-  const selectedClass = currentClass;
   const teacherMap = useMemo(() => new Map(teachers.map(t => [t.id, t])), [teachers]);
-  const classMap = useMemo(() => new Map(classes.map(c => [c.id, c])), [classes]);
 
   // 2. Class Stats (Scheduled periods count & conflicts count for every class)
   const classStatsMap = useMemo(() => {
@@ -1411,7 +1398,7 @@ export const TimetableStudio = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {(periods || PERIODS).map((period, pIdx) => {
+                  {(periods || PERIODS).map((period) => {
                     const isMorning = period.session === 'morning';
                     const isLunchBreak = period.id === 4; // Sau tiết 4 sáng là giờ nghỉ trưa
 

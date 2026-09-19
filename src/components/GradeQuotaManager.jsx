@@ -12,10 +12,9 @@ import {
   Search,
   X,
   Check,
-  Layers,
-  HelpCircle
+  Layers
 } from 'lucide-react';
-import { SUBJECTS as DEFAULT_SUBJECTS, ROOM_TYPES } from '../constants/subjects';
+import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { DEFAULT_GRADE_QUOTAS } from '../constants/defaultCurriculum';
 
 export const GradeQuotaManager = ({
@@ -171,18 +170,6 @@ export const GradeQuotaManager = ({
         };
       });
       setToastMessage(`Đã xóa môn "${subName}" khỏi Khối ${activeGrade}!`);
-      triggerSaveNotification();
-    }
-  };
-
-  // Khôi phục chuẩn GDPT 2018 cho khối đang chọn
-  const handleResetToStandard = () => {
-    if (window.confirm(`Khôi phục định mức Khối ${activeGrade} về chuẩn CTGDPT 2018 của Bộ GD&ĐT?`)) {
-      setGradeQuotas(prev => ({
-        ...prev,
-        [activeGrade]: JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS[activeGrade]))
-      }));
-      setToastMessage(`Đã khôi phục định mức Khối ${activeGrade} về chuẩn GDPT 2018!`);
       triggerSaveNotification();
     }
   };

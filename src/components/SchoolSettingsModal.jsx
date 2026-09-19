@@ -9,11 +9,7 @@ import {
   X,
   CheckCircle2,
   Settings,
-  Sparkles,
-  Calendar,
-  User,
-  MapPin,
-  FileText
+  Sparkles
 } from 'lucide-react';
 import { PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
 
@@ -667,7 +663,7 @@ const SchoolSettingsModal = ({
                       </td>
                     </tr>
 
-                    {localPeriods.map((p, idx) => {
+                    {localPeriods.map((p) => {
                       const isMorning = p.session === 'morning';
                       const duration = calculateDuration(p.time);
 

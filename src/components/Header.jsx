@@ -9,7 +9,6 @@ import {
   Building2, 
   Sparkles, 
   FileSpreadsheet, 
-  RotateCcw, 
   Trash2,
   AlertTriangle,
   CheckCircle2,
@@ -18,7 +17,6 @@ import {
   Bookmark,
   Save,
   Upload,
-  Settings,
   ArrowUpCircle,
   HelpCircle,
   Database
@@ -35,7 +33,7 @@ export const Header = ({
   onOpenWelcomeModal,
   onOpenUserGuideModal,
   updateInfo = null,
-  onResetSampleData,
+  onResetSampleData: _onResetSampleData,
   onClearTimetable,
   onExportBackupJson,
   onImportBackupJson,
@@ -60,7 +58,7 @@ export const Header = ({
         const jsonData = JSON.parse(event.target.result);
         if (onImportBackupJson) onImportBackupJson(jsonData);
         alert('Đã nạp file dữ liệu sao lưu thành công!');
-      } catch (err) {
+      } catch {
         alert('File không hợp lệ hoặc bị lỗi định dạng JSON!');
       }
     };
@@ -77,7 +75,6 @@ export const Header = ({
     e.target.value = '';
   };
   const errorCount = conflicts.filter(c => c.severity === 'error').length;
-  const warningCount = conflicts.filter(c => c.severity === 'warning').length;
 
   const navItems = [
     { id: 'studio', label: 'Studio Xếp Lịch', icon: Calendar, badge: null },

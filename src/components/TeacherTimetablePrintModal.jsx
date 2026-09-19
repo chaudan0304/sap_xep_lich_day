@@ -502,8 +502,6 @@ export const TeacherTimetablePrintModal = ({
           </thead>
           <tbody>
             {periods.map(period => {
-              const isMorning = period.session === 'morning';
-              const isAfternoon = period.session === 'afternoon';
               const isLunch = period.id === 4;
 
               return (

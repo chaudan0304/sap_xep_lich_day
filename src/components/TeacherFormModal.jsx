@@ -11,15 +11,10 @@ import {
   Building2, 
   Briefcase, 
   Calendar, 
-  Clock, 
   Phone, 
-  Mail, 
   Settings, 
   Check, 
-  FolderKanban, 
-  GraduationCap,
-  FileText,
-  AlertCircle
+  GraduationCap
 } from 'lucide-react';
 import { DAYS_OF_WEEK } from '../constants/defaultCurriculum';
 import { 

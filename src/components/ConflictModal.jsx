@@ -13,9 +13,7 @@ import {
   Calendar,
   Layers,
   ArrowRight,
-  Filter,
-  Search,
-  ExternalLink
+  Search
 } from 'lucide-react';
 
 export const ConflictModal = ({
@@ -23,7 +21,7 @@ export const ConflictModal = ({
   onClose,
   conflicts = [],
   classes = [],
-  teachers = [],
+  teachers: _teachers = [],
   onNavigateToClass
 }) => {
   const [filterType, setFilterType] = useState('ALL'); // ALL, TEACHER, ROOM, OFF_SESSION, QUOTA
@@ -352,9 +350,7 @@ export const ConflictModal = ({
           ) : (
             filteredConflicts.map((item, idx) => {
               const isError = item.severity === 'error';
-              const isTeacherBooking = item.type === 'TEACHER_DOUBLE_BOOKING';
               const isRoomBooking = item.type === 'ROOM_DOUBLE_BOOKING';
-              const isOffSession = item.type === 'TEACHER_OFF_SESSION';
               const isQuotaExceeded = item.type === 'SUBJECT_QUOTA_EXCEEDED';
 
               return (
@@ -556,7 +552,7 @@ export const ConflictModal = ({
                             </span>
                           </div>
                         ) : item.conflictingClasses && item.conflictingClasses.length > 0 ? (
-                          item.conflictingClasses.map((c, i) => (
+                          item.conflictingClasses.map((c) => (
                             <span key={c.classId} style={{
                               padding: '2px 8px',
                               borderRadius: '6px',

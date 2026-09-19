@@ -304,7 +304,7 @@ export function resolveTeacher(teacherRaw, classId, teachers = []) {
 /**
  * Tạo tên viết tắt sư phạm hiển thị trên ô Thời khóa biểu
  */
-export function getTeacherShortName(fullName, homeroomClassId, task = '') {
+export function getTeacherShortName(fullName, homeroomClassId, _task = '') {
   const name = normalizeStr(fullName);
   if (name.includes('Nga (A)')) return 'Nguyễn Nga (A)';
   if (name === 'Nguyễn Thị Nga' && homeroomClassId === '1A1') return 'Nguyễn Nga';

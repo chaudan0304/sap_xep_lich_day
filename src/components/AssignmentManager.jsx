@@ -2,14 +2,11 @@
 import React, { useState } from 'react';
 import { 
   Layers, 
-  Sparkles, 
   UserCheck, 
   RotateCcw, 
-  CheckCircle2,
-  Building2,
-  BookOpen
+  CheckCircle2
 } from 'lucide-react';
-import { SUBJECTS as DEFAULT_SUBJECTS, ROOM_TYPES } from '../constants/subjects';
+import { SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 
 export const AssignmentManager = ({
   assignments,
@@ -317,7 +314,6 @@ export const AssignmentManager = ({
               ) : (
                 classAssignments.map((asg, index) => {
                   const subInfo = (subjects && subjects[asg.subjectId]) || DEFAULT_SUBJECTS[asg.subjectId] || { name: asg.subjectId, bg: '#f8fafc', border: '#e2e8f0', text: '#334155' };
-                  const isSpecialist = ['TIENG_ANH', 'TIN_HOC', 'THE_DUC', 'AM_NHAC', 'MY_THUAT'].includes(asg.subjectId);
 
                   return (
                     <tr 

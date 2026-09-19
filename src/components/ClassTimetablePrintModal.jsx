@@ -4,27 +4,17 @@ import { createPortal } from 'react-dom';
 import { toPng, toBlob } from 'html-to-image';
 import {
   Printer,
-  Download,
   FileSpreadsheet,
   X,
-  Check,
   ChevronLeft,
   ChevronRight,
   Sliders,
-  Settings,
-  Eye,
   Layers,
   School,
-  User,
-  Calendar,
-  Sparkles,
   Info,
   Search,
-  CheckSquare,
-  Square,
   ZoomIn,
   ZoomOut,
-  Maximize2,
   Image as ImageIcon,
   Copy,
   CheckCircle2
@@ -147,7 +137,6 @@ export const ClassTimetablePrintModal = ({
   };
 
   const teacherMap = useMemo(() => new Map((teachers || []).map(t => [t.id, t])), [teachers]);
-  const classMap = useMemo(() => new Map((classes || []).map(c => [c.id, c])), [classes]);
 
   // Extract available grades from classes
   const availableGrades = useMemo(() => {
@@ -360,8 +349,6 @@ export const ClassTimetablePrintModal = ({
           </thead>
           <tbody>
             {periods.map(period => {
-              const isMorning = period.session === 'morning';
-              const isAfternoon = period.session === 'afternoon';
               const isLunch = period.id === 4;
 
               return (
@@ -1518,7 +1505,7 @@ export const ClassTimetablePrintModal = ({
       {/* HIDDEN PRINT DOM (ACTIVE DURING BROWSER WINDOW.PRINT)         */}
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="printable-batch-container">
-        {targetClasses.map((cls, index) => (
+        {targetClasses.map((cls) => (
           <React.Fragment key={cls.id}>
             {renderClassSheet(cls, false)}
           </React.Fragment>

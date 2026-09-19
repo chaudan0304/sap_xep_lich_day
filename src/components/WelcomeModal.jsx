@@ -5,17 +5,9 @@ import {
   PlusCircle, 
   FileSpreadsheet, 
   School, 
-  BookOpen, 
-  Layers, 
   ArrowRight, 
-  X, 
-  FolderOpen,
-  CheckCircle2,
-  Trash2
+  X 
 } from 'lucide-react';
-import { DEFAULT_GRADE_QUOTAS, PERIODS as DEFAULT_PERIODS } from '../constants/defaultCurriculum';
-import { SUBJECTS as INITIAL_SUBJECTS } from '../constants/subjects';
-import { DEFAULT_SCHOOL_INFO } from './SchoolSettingsModal';
 
 export const WelcomeModal = ({
   isOpen,
@@ -24,7 +16,7 @@ export const WelcomeModal = ({
   onStartBlankProject,
   onOpenExcelModal,
   onOpenUserGuideModal,
-  onImportBackupJsonClick
+  onImportBackupJsonClick: _onImportBackupJsonClick
 }) => {
   const [blankSchoolName, setBlankSchoolName] = useState('');
   const [blankDistrict, setBlankDistrict] = useState('');

@@ -11,8 +11,6 @@ import {
   Edit3,
   Trash2,
   X,
-  Sparkles,
-  Layers,
   MapPin,
   Clock
 } from 'lucide-react';
@@ -28,7 +26,7 @@ export const RoomTimetableView = ({
   timetable,
   subjects = DEFAULT_SUBJECTS,
   setSubjects,
-  assignments = [],
+  assignments: _assignments = [],
   setAssignments,
   periods = DEFAULT_PERIODS,
   schoolInfo = {}

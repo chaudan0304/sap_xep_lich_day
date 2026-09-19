@@ -1,32 +1,22 @@
 // src/components/SubjectManager.jsx
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   BookOpen, 
   Plus, 
-  Search, 
   Edit3, 
   Trash2, 
   RotateCcw, 
-  Layers, 
   Sparkles, 
   Building2, 
-  Palette, 
   X, 
   CheckCircle2, 
-  ShieldCheck, 
   Download,
-  Flame,
-  Bookmark,
   Calendar,
-  RefreshCw,
   AlertTriangle,
-  FileSpreadsheet,
-  Check,
-  ArrowRight
+  FileSpreadsheet
 } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
-import { SUBJECT_CATEGORIES, ROOM_TYPES, SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
+import { SUBJECT_CATEGORIES, SUBJECTS as DEFAULT_SUBJECTS } from '../constants/subjects';
 import { parseExcelWorkbook } from '../services/excelParser.js';
 import ExcelJS from 'exceljs';
 import { saveExcelJSWorkbook } from '../services/excel/excelStyles.js';
@@ -60,13 +50,8 @@ export const SubjectManager = ({
   setTimetable,
   gradeQuotas = {},
   setGradeQuotas,
-  classes = []
+  classes: _classes = []
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
-  const [selectedRoomFilter, setSelectedRoomFilter] = useState('ALL');
-  const [selectedUsageFilter, setSelectedUsageFilter] = useState('ALL'); // 'ALL' | 'IN_TKB' | 'NOT_IN_TKB'
-
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState(null);
@@ -109,9 +94,9 @@ export const SubjectManager = ({
     if (timetable && typeof timetable === 'object') {
       Object.entries(timetable).forEach(([cId, days]) => {
         if (!days) return;
-        Object.entries(days).forEach(([d, periods]) => {
+        Object.values(days).forEach((periods) => {
           if (!periods) return;
-          Object.entries(periods).forEach(([p, slot]) => {
+          Object.values(periods).forEach((slot) => {
             if (slot && slot.subjectId) {
               const sId = slot.subjectId;
               const sRaw = slot.subjectRaw || sId;
@@ -177,57 +162,8 @@ export const SubjectManager = ({
     });
   }, [subjects]);
 
-  // Filtered Subject List
-  const filteredSubjects = useMemo(() => {
-    return subjectList.filter(sub => {
-      const matchSearch = 
-        sub.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sub.shortName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sub.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sub.description?.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchCat = selectedCategory === 'ALL' || sub.category === selectedCategory;
-      const matchRoom = 
-        selectedRoomFilter === 'ALL' ||
-        (selectedRoomFilter === 'SPECIALIZED' && sub.defaultRoom && sub.defaultRoom !== 'LOP_HOC') ||
-        (selectedRoomFilter === 'CLASSROOM' && (!sub.defaultRoom || sub.defaultRoom === 'LOP_HOC'));
-
-      const inTkb = timetableUsage[sub.id] && timetableUsage[sub.id].count > 0;
-      const matchUsage = 
-        selectedUsageFilter === 'ALL' ||
-        (selectedUsageFilter === 'IN_TKB' && inTkb) ||
-        (selectedUsageFilter === 'NOT_IN_TKB' && !inTkb);
-
-      return matchSearch && matchCat && matchRoom && matchUsage;
-    });
-  }, [subjectList, searchQuery, selectedCategory, selectedRoomFilter, selectedUsageFilter, timetableUsage]);
-
-  // Statistics
-  const stats = useMemo(() => {
-    const total = subjectList.length;
-    const specializedRooms = subjectList.filter(s => s.defaultRoom && s.defaultRoom !== 'LOP_HOC' && s.defaultRoom !== 'SAN_TRUONG').length;
-    const coreCount = subjectList.filter(s => s.category === SUBJECT_CATEGORIES.CORE).length;
-    const specializedCount = subjectList.filter(s => s.category === SUBJECT_CATEGORIES.SPECIALIZED || s.category === SUBJECT_CATEGORIES.LANGUAGE).length;
-
-    let timetableUsedCount = 0;
-    let totalTimetableSlots = 0;
-    Object.values(timetableUsage).forEach(u => {
-      if (u.count > 0) {
-        timetableUsedCount++;
-        totalTimetableSlots += u.count;
-      }
-    });
-
-    return { 
-      total, 
-      specializedRooms, 
-      coreCount, 
-      specializedCount,
-      timetableUsedCount,
-      totalTimetableSlots,
-      missingCount: missingSubjectsInTimetable.length
-    };
-  }, [subjectList, timetableUsage, missingSubjectsInTimetable]);
+  // Subject List for display
+  const filteredSubjects = subjectList;
 
   // Mở modal thêm môn mới
   const handleAddNew = () => {
@@ -339,11 +275,11 @@ export const SubjectManager = ({
     let totalSlotsScanned = 0;
 
     if (timetable && typeof timetable === 'object') {
-      Object.entries(timetable).forEach(([cId, days]) => {
+      Object.values(timetable).forEach((days) => {
         if (!days) return;
-        Object.entries(days).forEach(([d, periods]) => {
+        Object.values(days).forEach((periods) => {
           if (!periods) return;
-          Object.entries(periods).forEach(([p, slot]) => {
+          Object.values(periods).forEach((slot) => {
             if (slot && slot.subjectId) {
               totalSlotsScanned++;
               const sId = slot.subjectId;

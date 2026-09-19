@@ -6,13 +6,9 @@ import {
   X,
   Check,
   Save,
-  RotateCcw,
   Sparkles,
-  Layers,
   Search,
   CheckCircle2,
-  GraduationCap,
-  ArrowRight,
   Filter
 } from 'lucide-react';
 
