@@ -1,5 +1,5 @@
 // src/components/TimetableStudio.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Lock, 
