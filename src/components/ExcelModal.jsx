@@ -43,6 +43,7 @@ export const ExcelModal = ({
   schoolInfo = {},
   onImportSuccess
 }) => {
+  const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState(null); // { success, isValid, previewData, errors, warnings, summary, data }
   const [previewTab, setPreviewTab] = useState('overview'); // 'overview' | 'timetable' | 'teachers' | 'validation'
   const [previewClassId, setPreviewClassId] = useState('1A1');
@@ -700,15 +701,16 @@ export const ExcelModal = ({
                     gap: '8px',
                     padding: '12px 24px',
                     borderRadius: '12px',
-                    background: '#2563eb',
+                    background: isImporting ? '#94a3b8' : '#2563eb',
                     color: '#ffffff',
                     fontSize: '0.9rem',
                     fontWeight: 700,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)'
+                    cursor: isImporting ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
+                    pointerEvents: isImporting ? 'none' : 'auto'
                   }}
                 >
-                  <Upload size={18} /> Chọn File Excel Để Nhập
+                  <Upload size={18} /> {isImporting ? 'Đang Đọc File Excel...' : 'Chọn File Excel Để Nhập'}
                 </label>
                 <button
                   onClick={downloadExcelTemplate}

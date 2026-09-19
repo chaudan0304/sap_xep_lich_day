@@ -55,5 +55,29 @@ describe('excelParser: Xử lý chuỗi & Ánh xạ môn học từ Excel', () =
     expect(parsed.classes.length).toBe(1);
     expect(parsed.classes[0].id).toBe('1A1');
   });
+
+  it('đọc và ánh xạ thành công file TKB thực tế nhiều sheet', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const { validateParsedExcelData } = await import('../src/services/excelValidator.js');
+    const { mapParsedExcelToAppModel } = await import('../src/services/excelMapper.js');
+
+    const filePath = path.resolve('public/data/TKB thực hiện từ tuần 01 (chính thức).xlsx');
+    if (fs.existsSync(filePath)) {
+      const buffer = fs.readFileSync(filePath);
+      const parsed = await parseExcelWorkbook(buffer);
+      expect(parsed.format).toBe('REAL_SCHOOL_MULTISHEET');
+      expect(parsed.classes.length).toBe(23);
+      expect(parsed.teachers.length).toBe(43);
+
+      const validation = validateParsedExcelData(parsed);
+      expect(validation.summary).toBeDefined();
+
+      const mapped = mapParsedExcelToAppModel(parsed);
+      expect(mapped.classes.length).toBe(23);
+      expect(mapped.teachers.length).toBe(43);
+      expect(Object.keys(mapped.timetable).length).toBe(23);
+    }
+  });
 });
 

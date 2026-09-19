@@ -172,7 +172,9 @@ export function App() {
   const [history, setHistory] = useState([]);
   const [future, setFuture] = useState([]);
   const timetableRef = useRef(timetable);
-  timetableRef.current = timetable;
+  useEffect(() => {
+    timetableRef.current = timetable;
+  }, [timetable]);
 
   // Hàm cập nhật Thời khóa biểu chuẩn, tự động lưu snapshot vào lịch sử
   const updateTimetable = useCallback((updater, label = 'Chỉnh sửa thời khóa biểu') => {
