@@ -55,7 +55,11 @@ export const UpdateModal = ({ isOpen, onClose, initialUpdateInfo, onUpdateInfoCh
     setDownloadError(null);
     setDownloadProgress({ percent: 0 });
     try {
-      const res = await window.electronAPI.startInAppUpdate(updateInfo.downloadUrl, updateInfo.fileName);
+      const res = await window.electronAPI.startInAppUpdate(
+        updateInfo.downloadUrl, 
+        updateInfo.fileName, 
+        updateInfo.expectedChecksum
+      );
       if (!res?.success && res?.error) {
         setDownloadError(res.error);
         setIsDownloading(false);

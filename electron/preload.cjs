@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   isElectron: true,
   appVersion: '1.0.5',
-  startInAppUpdate: (downloadUrl, fileName) => ipcRenderer.invoke('start-in-app-update', { downloadUrl, fileName }),
+  startInAppUpdate: (downloadUrl, fileName, expectedChecksum) => ipcRenderer.invoke('start-in-app-update', { downloadUrl, fileName, expectedChecksum }),
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, info) => callback(info)),
   onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, progress) => callback(progress)),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, info) => callback(info)),

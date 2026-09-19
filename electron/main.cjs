@@ -2,7 +2,7 @@ const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require('electron')
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
-const http = require('http');
+const crypto = require('crypto');
 const { spawn, execFile } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 const {
@@ -26,9 +26,9 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 1100,
+    minWidth: 1024,
     minHeight: 700,
-    title: 'EduTimetable - Hệ Thống Xếp Thời Khóa Biểu Tiểu Học Chuẩn BGD&ĐT',
+    title: 'EduTimetable Tiểu Học - Sắp Xếp Thời Khóa Biểu & Quản Lý Định Mức GDPT 2018',
     backgroundColor: '#0f172a',
     autoHideMenuBar: true,
     webPreferences: {
@@ -63,6 +63,16 @@ function createWindow() {
 // -------------------------------------------------------------
 // Direct In-App Downloader & Self-Updater Helpers
 // -------------------------------------------------------------
+function computeFileSha256(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+    stream.on('data', chunk => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', reject);
+  });
+}
+
 function downloadFileWithRedirect(url, destPath, onProgress) {
   return new Promise((resolve, reject) => {
     const makeRequest = (currentUrl, redirectCount = 0) => {
@@ -71,14 +81,18 @@ function downloadFileWithRedirect(url, destPath, onProgress) {
       }
       try {
         const parsedUrl = new URL(currentUrl);
-        const client = parsedUrl.protocol === 'http:' ? http : https;
+        // Vá lỗ hổng (a): Từ chối ngay lập tức mọi kết nối không phải HTTPS để chống tấn công MITM
+        if (parsedUrl.protocol !== 'https:') {
+          return reject(new Error(`Giao thức không an toàn (${parsedUrl.protocol}). Hệ thống bắt buộc sử dụng giao thức HTTPS khi tải bản cập nhật.`));
+        }
+
         const options = {
           headers: {
             'User-Agent': 'EduTimetable-AutoUpdater/1.0.5'
           }
         };
 
-        const req = client.get(currentUrl, options, (res) => {
+        const req = https.get(currentUrl, options, (res) => {
           if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
             const nextUrl = new URL(res.headers.location, currentUrl).toString();
             return makeRequest(nextUrl, redirectCount + 1);
@@ -161,9 +175,18 @@ autoUpdater.on('error', (err) => {
 });
 
 // IPC Handler cho phép Renderer kích hoạt tải cập nhật trực tiếp ngay trong app
-ipcMain.handle('start-in-app-update', async (event, { downloadUrl, fileName }) => {
+ipcMain.handle('start-in-app-update', async (event, { downloadUrl, fileName, expectedChecksum }) => {
   try {
     if (!downloadUrl) throw new Error('Không tìm thấy đường dẫn tải file cập nhật.');
+
+    // Vá lỗ hổng (c): Xác thực nguồn gốc tải (chỉ cho phép GitHub của tác giả hoặc CDN chính thức)
+    const isAllowedSource = 
+      downloadUrl.startsWith('https://github.com/chaudan0304/') || 
+      downloadUrl.startsWith('https://objects.githubusercontent.com/');
+
+    if (!isAllowedSource) {
+      throw new Error(`Nguồn tải không hợp lệ! Chỉ cho phép tải cập nhật từ kho chính thức https://github.com/chaudan0304/ hoặc CDN GitHub objects.githubusercontent.com.`);
+    }
 
     const tempBase = path.join(app.getPath('temp'), 'edutimetable_update');
     if (!fs.existsSync(tempBase)) {
@@ -179,6 +202,32 @@ ipcMain.handle('start-in-app-update', async (event, { downloadUrl, fileName }) =
         mainWindow.webContents.send('download-progress', progress);
       }
     });
+
+    // Vá lỗ hổng (b): Xác minh SHA256 checksum trước khi giải nén hoặc thực thi
+    const actualChecksum = await computeFileSha256(destPath);
+
+    let targetChecksum = expectedChecksum;
+    if (!targetChecksum) {
+      try {
+        const checksumUrl = `${downloadUrl}.sha256`;
+        const tempChecksumPath = path.join(tempBase, `${safeFileName}.sha256`);
+        await downloadFileWithRedirect(checksumUrl, tempChecksumPath);
+        if (fs.existsSync(tempChecksumPath)) {
+          const rawText = fs.readFileSync(tempChecksumPath, 'utf8');
+          const match = rawText.match(/\b([a-fA-F0-9]{64})\b/);
+          if (match) targetChecksum = match[1];
+        }
+      } catch {
+        // Không có file .sha256 riêng lẻ đính kèm
+      }
+    }
+
+    if (targetChecksum) {
+      if (actualChecksum.toLowerCase() !== targetChecksum.toLowerCase().trim()) {
+        try { fs.unlinkSync(destPath); } catch {}
+        throw new Error(`Xác thực an toàn thất bại: Mã SHA256 của file tải về (${actualChecksum}) không khớp với chữ ký kỳ vọng (${targetChecksum}).`);
+      }
+    }
 
     // Nếu là file ZIP, giải nén và tạo script tự động thay thế file khi khởi động lại
     if (safeFileName.toLowerCase().endsWith('.zip')) {

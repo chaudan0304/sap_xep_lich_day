@@ -56,6 +56,23 @@ export async function checkForAppUpdates() {
       const downloadUrl = chosenAsset?.browser_download_url || data.html_url;
       const fileName = chosenAsset?.name || 'EduTimetable_TieuHoc.zip';
 
+      // Trích xuất SHA256 checksum từ GitHub release digest hoặc release body nếu có
+      let expectedChecksum = null;
+      if (chosenAsset?.digest) {
+        expectedChecksum = chosenAsset.digest.replace(/^sha256:/i, '').trim();
+      } else if (data.body) {
+        const filePattern = new RegExp(`${fileName}[^\\n]*?([a-fA-F0-9]{64})|([a-fA-F0-9]{64})[^\\n]*?${fileName}`, 'i');
+        const fileMatch = data.body.match(filePattern);
+        if (fileMatch) {
+          expectedChecksum = (fileMatch[1] || fileMatch[2]).toLowerCase().trim();
+        } else {
+          const generalMatch = data.body.match(/\b([a-fA-F0-9]{64})\b/);
+          if (generalMatch) {
+            expectedChecksum = generalMatch[1].toLowerCase().trim();
+          }
+        }
+      }
+
       return {
         hasUpdate: isNewer,
         currentVersion: CURRENT_APP_VERSION,
@@ -65,6 +82,7 @@ export async function checkForAppUpdates() {
         releaseNotes: data.body || 'Bản cập nhật nâng cấp hiệu năng và sửa lỗi.',
         downloadUrl: downloadUrl,
         fileName: fileName,
+        expectedChecksum: expectedChecksum,
         htmlUrl: data.html_url,
         publishedAt: data.published_at,
         repo: repo
