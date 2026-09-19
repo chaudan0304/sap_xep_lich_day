@@ -1,6 +1,10 @@
 // src/data/sampleData.js
 // Dữ liệu mẫu trường Tiểu học Ánh Dương (Chuẩn CTGDPT 2018)
 
+import { DEFAULT_GRADE_QUOTAS, PERIODS } from '../constants/defaultCurriculum.js';
+import { SUBJECTS } from '../constants/subjects.js';
+import { DEFAULT_DEPARTMENTS } from '../services/departmentService.js';
+
 export const SAMPLE_SCHOOL_INFO = {
   name: 'Trường Tiểu Học Ánh Dương',
   district: 'Phòng Giáo Dục & Đào Tạo',
@@ -134,4 +138,32 @@ export const initializeEmptyTimetable = (classes) => {
   });
 
   return timetable;
+};
+
+/**
+ * Trả về toàn bộ gói dữ liệu mẫu chuẩn của trường Tiểu học Ánh Dương
+ * Phục vụ khởi tạo hoặc fallback khi CSDL SQLite chưa có dữ liệu
+ */
+export const getDefaultSampleData = () => {
+  const classes = [...SAMPLE_CLASSES];
+  const teachers = [...SAMPLE_TEACHERS];
+  const rooms = [...SAMPLE_ROOMS];
+  const gradeQuotas = JSON.parse(JSON.stringify(DEFAULT_GRADE_QUOTAS));
+  const assignments = generateSampleAssignments(classes, gradeQuotas, teachers);
+  const timetable = initializeEmptyTimetable(classes);
+
+  return {
+    version: '1.0',
+    timestamp: new Date().toISOString(),
+    schoolInfo: { ...SAMPLE_SCHOOL_INFO },
+    periods: JSON.parse(JSON.stringify(PERIODS)),
+    subjects: JSON.parse(JSON.stringify(SUBJECTS)),
+    gradeQuotas,
+    classes,
+    departments: [...DEFAULT_DEPARTMENTS],
+    teachers,
+    rooms,
+    assignments,
+    timetable
+  };
 };

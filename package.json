@@ -37,7 +37,8 @@
       "dist/**/*",
       "electron/**/*",
       "src/services/sqliteManager.cjs",
-      "src/services/sqlite/**/*",
+      "src/services/**/*",
+      "src/constants/**/*",
       "src/data/**/*",
       "package.json"
     ],

@@ -369,19 +369,16 @@ ipcMain.handle('db-load', async () => {
     const db = await openOrCreateDatabase(dbPath);
     let data = loadJsonFromDatabase(db);
 
-    // Nếu CSDL mới tinh chưa có dữ liệu trường học, tự động di chuyển từ savedData.json mặc định
+    // Nếu CSDL mới tinh chưa có dữ liệu trường học, tự động nạp từ sampleData.js mặc định
     if (!data.schoolInfo || !data.classes || data.classes.length === 0) {
-      const defaultJsonPath = path.resolve(__dirname, '../src/data/savedData.json');
-      if (fs.existsSync(defaultJsonPath)) {
-        try {
-          const rawJson = fs.readFileSync(defaultJsonPath, 'utf8');
-          const parsedJson = JSON.parse(rawJson);
-          saveJsonToDatabase(db, parsedJson);
-          saveDatabaseToFile(db, dbPath);
-          data = loadJsonFromDatabase(db);
-        } catch (mErr) {
-          console.warn('Initial migration to SQLite in Electron notice:', mErr);
-        }
+      try {
+        const { getDefaultSampleData } = await import('../src/data/sampleData.js');
+        const defaultData = getDefaultSampleData();
+        saveJsonToDatabase(db, defaultData);
+        saveDatabaseToFile(db, dbPath);
+        data = loadJsonFromDatabase(db);
+      } catch (mErr) {
+        console.warn('Initial seed of sample data into SQLite notice:', mErr);
       }
     }
     return { success: true, data };
